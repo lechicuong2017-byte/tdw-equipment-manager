@@ -346,6 +346,96 @@ create policy profiles_update_admin on public.profiles
   using (public.is_admin())
   with check (public.is_admin());
 
+create or replace function public.admin_set_user_access(
+  target_user_id uuid,
+  target_role_code text,
+  target_active boolean,
+  target_must_enroll_mfa boolean,
+  target_scopes jsonb default '[]'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  target_role_id uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'Administrator AAL2 is required';
+  end if;
+  if jsonb_typeof(target_scopes) <> 'array' then
+    raise exception 'Scopes must be a JSON array';
+  end if;
+  if target_user_id = auth.uid()
+    and (not target_active or target_role_code <> 'admin')
+  then
+    raise exception 'An administrator cannot remove their own access';
+  end if;
+
+  select id into target_role_id
+  from public.roles
+  where code = target_role_code;
+  if target_role_id is null then
+    raise exception 'Unknown role';
+  end if;
+
+  update public.profiles
+  set
+    active = target_active,
+    must_enroll_mfa = target_must_enroll_mfa,
+    updated_at = now()
+  where id = target_user_id;
+  if not found then
+    raise exception 'User profile not found';
+  end if;
+
+  delete from public.user_roles where user_id = target_user_id;
+  insert into public.user_roles (user_id, role_id)
+  values (target_user_id, target_role_id);
+
+  delete from public.data_access_scopes where user_id = target_user_id;
+  insert into public.data_access_scopes (
+    user_id,
+    module,
+    scope_type,
+    department_id,
+    created_by
+  )
+  select
+    target_user_id,
+    item.module,
+    item.scope_type,
+    item.department_id,
+    auth.uid()
+  from jsonb_to_recordset(target_scopes) as item(
+    module text,
+    scope_type text,
+    department_id uuid
+  );
+
+  insert into public.audit_logs (
+    actor_user_id,
+    action,
+    table_name,
+    record_id,
+    metadata
+  )
+  values (
+    auth.uid(),
+    'ACCESS_UPDATED',
+    'profiles',
+    target_user_id,
+    jsonb_build_object(
+      'role', target_role_code,
+      'active', target_active,
+      'must_enroll_mfa', target_must_enroll_mfa,
+      'scopes', target_scopes
+    )
+  );
+end;
+$$;
+
 drop policy if exists assets_select on public.assets;
 drop policy if exists assets_insert on public.assets;
 drop policy if exists assets_update on public.assets;
@@ -626,6 +716,13 @@ revoke all on function public.can_access_software_license(uuid, text)
 revoke all on function public.can_read_storage_object(text) from public;
 revoke all on function public.can_manage_storage_object(text) from public;
 revoke all on function public.can_upload_storage_object(text) from public;
+revoke all on function public.admin_set_user_access(
+  uuid,
+  text,
+  boolean,
+  boolean,
+  jsonb
+) from public;
 
 grant execute on function public.has_role_code(text) to authenticated;
 grant execute on function public.asset_scope_matches(uuid, text)
@@ -642,6 +739,13 @@ grant execute on function public.can_manage_storage_object(text)
   to authenticated;
 grant execute on function public.can_upload_storage_object(text)
   to authenticated;
+grant execute on function public.admin_set_user_access(
+  uuid,
+  text,
+  boolean,
+  boolean,
+  jsonb
+) to authenticated;
 
 grant select, insert, update, delete on public.data_access_scopes
   to authenticated;
