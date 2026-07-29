@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TDW Equipment Manager</title>
+    <link rel="icon" href="assets/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="assets/favicon-32.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="assets/favicon-192.png" />
+    <link rel="preload" href="assets/tdw-logo.webp" as="image" type="image/webp" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js" integrity="sha512-UnrKxsCMN9hFk7M56t4I4ckB4N/2HHi0w/7+B/1JsXIX3DmyBcsGpT3/BsuZMZf+6mAr0vP81syWtfynHJ69JA==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" integrity="sha512-Qlv6VSKh1gDKGoJbnyA5RMXYcvnpIqhO++MhIM2fStMcGT9i2T//tSwYFlcyoRRDcDZ+TYHpH8azBBCyhpSeqw==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+    <script src="assets/qrcode.js" defer></script>
+    <script src="config.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
+    <header class="auth-header" id="authHeader">
+      <img src="assets/tdw-logo.webp" width="120" height="44" alt="TDW" />
+      <div>
+        <strong>TDW Equipment Manager</strong>
+        <span>Quản lý thiết bị nội bộ</span>
+      </div>
+    </header>
+
+    <section class="boot-screen" id="bootScreen">
+      <div class="boot-card">
+        <img class="boot-logo" src="assets/tdw-logo.webp" width="104" height="68" alt="TDW" />
+        <strong>TDW EQUIPMENT MANAGER</strong>
+        <span>Đang kiểm tra phiên đăng nhập...</span>
+      </div>
+    </section>
+
+    <section class="login-screen" id="loginScreen" hidden>
+      <form class="login-card" id="loginForm">
+        <div class="login-icon" aria-hidden="true">🔐</div>
+        <h1>Cần đăng nhập tài khoản được cấp quyền</h1>
+        <p class="login-copy">Phiên đăng nhập được bảo vệ. Vui lòng đăng nhập bằng email và mật khẩu đã được cấp.</p>
+        <label>Email đăng nhập<input name="username" id="loginUsername" type="email" autocomplete="email" placeholder="email@tdw.com.vn" required /></label>
+        <label>Mật khẩu
+          <div class="password-field">
+            <input name="password" id="loginPassword" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu" required />
+            <button class="password-toggle" id="togglePassword" type="button" aria-label="Hiện mật khẩu">👁</button>
+          </div>
+        </label>
+        <label class="remember-row"><input id="rememberLogin" type="checkbox" checked /> <span>Ghi nhớ tài khoản</span></label>
+        <p class="login-error" id="loginError" hidden></p>
+        <p class="login-status" id="loginStatus" hidden><span></span> Đang đăng nhập...</p>
+        <button class="primary-button login-submit" id="loginSubmit" type="submit"><span id="loginSubmitText">↪ Đăng nhập</span></button>
+      </form>
+    </section>
+
+    <div class="modal-backdrop" id="passwordChangeModal" hidden>
+      <form class="modal compact-modal" id="passwordChangeForm">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">BẢO MẬT TÀI KHOẢN</p>
+            <h2>ĐỔI MẬT KHẨU</h2>
+          </div>
+        </div>
+        <p class="modal-copy">Tài khoản này cần đổi mật khẩu trước khi sử dụng hệ thống.</p>
+        <div class="form-grid">
+          <label class="span-2">Mật khẩu mới<input name="new_password" type="password" autocomplete="new-password" required minlength="10" /></label>
+          <label class="span-2">Nhập lại mật khẩu<input name="confirm_password" type="password" autocomplete="new-password" required minlength="10" /></label>
+        </div>
+        <p class="login-error" id="passwordChangeError" hidden></p>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" id="passwordChangeLogout">Đăng xuất</button>
+          <button class="primary-button" type="submit" id="passwordChangeSubmit">Lưu mật khẩu</button>
+        </div>
+      </form>
+    </div>
+
+    <main class="shell" id="appShell" hidden>
+      <header class="topbar" aria-label="Thanh điều hướng">
+        <div class="brand">
+          <img class="brand-logo" src="assets/tdw-logo.webp" width="70" height="46" alt="TDW" />
+          <div>
+            <strong>TDW</strong>
+            <span>Better Service For Life</span>
+          </div>
+        </div>
+        <nav class="nav-pills" aria-label="Module">
+          <a class="active" href="#" data-view="overview"><svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#overview"></use></svg><span>Tổng quan</span></a>
+          <a href="#" data-view="devices"><svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#device"></use></svg><span>Thiết bị</span></a>
+          <a href="#" data-view="maintenance"><svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#maintenance"></use></svg><span>Bảo trì</span></a>
+          <a href="#" data-view="software"><svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#software"></use></svg><span>Phần mềm</span></a>
+          <a href="#" data-view="departments" data-admin-only><svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#department"></use></svg><span>Phòng ban</span></a>
+          <a href="#" data-view="reports"><svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#report"></use></svg><span>Báo cáo</span></a>
+          <a href="#" data-view="settings"><svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#settings"></use></svg><span>Cấu hình</span></a>
+          <a href="#" data-view="users" data-admin-only><svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#users"></use></svg><span>Người dùng</span></a>
+        </nav>
+        <div class="top-actions">
+          <details class="user-menu">
+            <summary class="user-menu-trigger" aria-label="Mở menu tài khoản">
+              <svg class="tdw-icon user-menu-avatar" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#user"></use></svg>
+              <span class="user-chip" id="currentUserChip"></span>
+              <svg class="tdw-icon user-menu-chevron" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#chevron-down"></use></svg>
+            </summary>
+            <div class="user-menu-popover">
+              <button class="user-menu-action" id="logoutButton" type="button">
+                <svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#logout"></use></svg>
+                <span><strong>Đăng xuất</strong><small>Thoát phiên trên thiết bị này</small></span>
+              </button>
+              <button class="user-menu-action user-menu-action-danger" id="logoutAllButton" type="button">
+                <svg class="tdw-icon" aria-hidden="true"><use href="assets/tdw-icons.svg?v=20260719#logout-all"></use></svg>
+                <span><strong>Đăng xuất mọi thiết bị</strong><small>Thu hồi tất cả phiên đang mở</small></span>
+              </button>
+            </div>
+          </details>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div>
+          <button class="back-button" type="button" aria-label="Quay lại">‹</button>
+          <h1 class="hero-title-blue">QUẢN LÝ THIẾT BỊ TDW</h1>
+          <p class="hero-copy">Theo dõi máy tính, máy in, màn hình, ổ cứng và thiết bị vận hành trong công ty TDW.</p>
+        </div>
+      </section>
+
+      <section class="metrics" id="metrics"></section>
+
+      <section class="dashboard-insights dashboard-insights-standalone" id="dashboardInsights"></section>
+
+      <section class="toolbar" aria-label="Bộ lọc thiết bị">
+        <div class="active-filter">
+          <span>Active filters</span>
+          <strong id="filterCount">0</strong>
+        </div>
+        <label class="search">
+          <span>Tìm kiếm</span>
+          <input id="searchInput" type="search" placeholder="Tên máy, người dùng, ghi chú..." />
+        </label>
+        <label>
+          <span>Nhóm</span>
+          <select id="groupFilter"></select>
+        </label>
+        <label>
+          <span>Năm</span>
+          <select id="yearFilter"></select>
+        </label>
+        <label>
+          <span>Bộ phận</span>
+          <select id="departmentFilter"></select>
+        </label>
+        <label>
+          <span>Tình trạng</span>
+          <select id="statusFilter"></select>
+        </label>
+      </section>
+
+      <section class="content" id="mainContent">
+        <div class="list-panel">
+          <div class="panel-head">
+            <h2>Danh sách thiết bị</h2>
+            <span id="resultCount">0 thiết bị</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mã tài sản</th>
+                  <th>Thiết bị</th>
+                  <th>Nhóm</th>
+                  <th>Năm</th>
+                  <th>Người dùng / Bộ phận</th>
+                  <th>Phần mềm</th>
+                  <th>Tình trạng</th>
+                </tr>
+              </thead>
+              <tbody id="assetRows">
+                <tr><td colspan="7" class="muted">Đang tải dữ liệu từ Google Sheet...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination" id="pagination"></div>
+        </div>
+        <aside class="detail" id="assetDetail">
+          <p class="muted">Chọn một thiết bị để xem chi tiết.</p>
+        </aside>
+      </section>
+
+      <div class="modal-backdrop" id="assetModal" hidden>
+        <form class="modal" id="assetForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">Thiết bị TDW</p>
+              <h2 id="assetFormTitle">Thêm thiết bị</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeAssetModal" aria-label="Đóng">×</button>
+          </div>
+          <input type="hidden" name="asset_id" />
+          <input type="hidden" name="created_at" />
+          <div class="form-grid">
+            <label class="span-2">Tên thiết bị<input name="asset_name" required /></label>
+            <label>Mã tài sản<input name="asset_code" placeholder="Tự tạo nếu bỏ trống" /></label>
+            <label>Nhóm<select name="asset_group" required></select></label>
+            <label>Loại thiết bị<select name="asset_type"></select></label>
+            <label>Hãng<input name="brand" /></label>
+            <label>Serial/Số seri<input name="serial_number" /></label>
+            <label>Năm<input name="purchase_year" inputmode="numeric" /></label>
+            <label>Số lượng<input name="quantity" inputmode="numeric" /></label>
+            <label>Đơn giá<input name="unit_price" type="number" min="0" step="1000" /></label>
+            <label>Vị trí<input name="location" placeholder="VD: Phòng IT - Tầng 2" /></label>
+            <label>Người dùng<input name="assigned_to" placeholder="Tên người đang sử dụng" /></label>
+            <label>Phụ trách chính<select name="primary_responsible_id"></select></label>
+            <label>Phụ trách phụ<select name="secondary_responsible_ids" multiple size="3"></select></label>
+            <label>Phòng ban<select name="department"></select></label>
+            <label>Hết bảo hành<input name="warranty_end_date" type="date" /></label>
+            <label>Bảo trì gần nhất<input name="last_maintenance_date" type="date" /></label>
+            <label>Tình trạng<select name="status" required></select></label>
+            <label>Phần mềm<select name="software_license" multiple size="3"></select></label>
+            <label class="span-2">Ghi chú<textarea name="note" rows="3"></textarea></label>
+            <label class="span-2 media-upload-field">Ảnh thiết bị (tối đa 4 ảnh)
+              <input id="assetImageInput" name="pending_images" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+              <span class="field-help">Ảnh sẽ tự chuyển sang WebP trước khi tải lên.</span>
+            </label>
+            <div class="span-2 upload-preview" id="assetImagePreview"></div>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="cancelAssetForm">Hủy</button>
+            <button class="primary-button" type="submit" id="saveAssetButton">Lưu thiết bị</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="settingModal" hidden>
+        <form class="modal compact-modal" id="settingForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">CẤU HÌNH</p>
+              <h2 id="settingFormTitle">THÊM CẤU HÌNH</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeSettingModal" aria-label="Đóng">×</button>
+          </div>
+          <input type="hidden" name="setting_id" />
+          <input type="hidden" name="original_setting_type" />
+          <input type="hidden" name="original_setting_value" />
+          <input type="hidden" name="original_display_name" />
+          <input type="hidden" name="sort_order" value="1" />
+          <div class="form-grid">
+            <label>Loại<select name="setting_type"></select></label>
+            <label class="span-2">Giá trị<input name="setting_value" required readonly aria-describedby="settingValueHelp" placeholder="Tự tạo theo tên hiển thị" /><span class="field-help" id="settingValueHelp">Biến được tự tạo theo cú pháp IN_HOA_CACH_NHAU_BANG_GACH_DUOI.</span></label>
+            <label class="span-2">Tên hiển thị<input name="display_name" required placeholder="VD: Phòng HCNS" /></label>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="cancelSettingForm">Hủy</button>
+            <button class="primary-button" type="submit">Lưu cấu hình</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="userModal" hidden>
+        <form class="modal compact-modal" id="userForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">QUẢN TRỊ USER</p>
+              <h2 id="userFormTitle">THÊM USER</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeUserModal" aria-label="Đóng">×</button>
+          </div>
+          <input type="hidden" name="user_id" />
+          <div class="form-grid">
+            <label>Tài khoản (không đổi sau khi tạo)<input name="username" required autocomplete="off" /></label>
+            <label>Họ tên<input name="full_name" required autocomplete="off" /></label>
+            <label class="span-2">Email nhận thông báo<input name="email" type="email" autocomplete="email" placeholder="email@tdw.com.vn hoặc email cá nhân" /></label>
+            <label>Vai trò
+              <select name="role">
+                <option value="admin">Admin</option>
+                <option value="manager">Manager</option>
+                <option value="user">User</option>
+                <option value="viewer">Viewer</option>
+              </select>
+            </label>
+            <label>Trạng thái
+              <select name="active">
+                <option value="TRUE">Đang hoạt động</option>
+                <option value="FALSE">Khóa tài khoản</option>
+              </select>
+            </label>
+            <fieldset class="permission-matrix span-2" id="userPermissions">
+              <legend>PHÂN QUYỀN THEO MODULE</legend>
+              <p class="permission-summary" id="userPermissionSummary">Chọn quyền cho tài khoản này.</p>
+              <div class="permission-grid">
+                <section class="permission-module">
+                  <h3>THIẾT BỊ</h3>
+                  <label><input type="checkbox" name="permission_code" value="assets.view" /> Xem</label>
+                  <label><input type="checkbox" name="permission_code" value="assets.manage" /> Thêm/Sửa</label>
+                  <label><input type="checkbox" name="permission_code" value="assets.delete" /> Xóa</label>
+                </section>
+                <section class="permission-module">
+                  <h3>BẢO TRÌ</h3>
+                  <label><input type="checkbox" name="permission_code" value="maintenance.view" /> Xem</label>
+                  <label><input type="checkbox" name="permission_code" value="maintenance.manage" /> Thêm/Sửa</label>
+                  <label><input type="checkbox" name="permission_code" value="maintenance.delete" /> Xóa</label>
+                </section>
+                <section class="permission-module">
+                  <h3>LUÂN CHUYỂN</h3>
+                  <label><input type="checkbox" name="permission_code" value="movement.view" /> Xem</label>
+                  <label><input type="checkbox" name="permission_code" value="movement.manage" /> Ghi nhận</label>
+                </section>
+                <section class="permission-module">
+                  <h3>PHẦN MỀM</h3>
+                  <label><input type="checkbox" name="permission_code" value="software.view" /> Xem</label>
+                  <label><input type="checkbox" name="permission_code" value="software.manage" /> Thêm/Sửa</label>
+                  <label><input type="checkbox" name="permission_code" value="software.delete" /> Xóa</label>
+                </section>
+                <section class="permission-module">
+                  <h3>BÁO CÁO</h3>
+                  <label><input type="checkbox" name="permission_code" value="reports.view" /> Xem</label>
+                  <label><input type="checkbox" name="permission_code" value="reports.assets.export" /> Xuất thiết bị</label>
+                  <label><input type="checkbox" name="permission_code" value="reports.maintenance.export" /> Xuất bảo trì</label>
+                  <label><input type="checkbox" name="permission_code" value="reports.software.export" /> Xuất phần mềm</label>
+                  <label><input type="checkbox" name="permission_code" value="reports.movement.export" /> Xuất luân chuyển</label>
+                </section>
+              </div>
+              <p class="permission-admin-note">Cấu hình, Phòng ban, Người dùng và xem license key chỉ dành cho Admin.</p>
+            </fieldset>
+            <label class="span-2">Mật khẩu mới (để trống khi chỉ sửa thông tin)<input name="password" type="password" autocomplete="new-password" minlength="10" placeholder="Bắt buộc khi tạo user; để trống sẽ giữ mật khẩu hiện tại" /></label>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="cancelUserForm">Hủy</button>
+            <button class="primary-button" type="submit">Lưu user</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="maintenanceLogModal" hidden>
+        <form class="modal compact-modal" id="maintenanceLogForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">BẢO TRÌ</p>
+              <h2 id="maintenanceLogFormTitle">GHI NHẬN LỊCH SỬ BẢO TRÌ</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeMaintenanceLogModal" aria-label="Đóng">×</button>
+          </div>
+          <input type="hidden" name="log_id" />
+          <div class="form-grid">
+            <label class="span-2">Nhóm kế hoạch bảo trì
+              <select id="maintenanceLogGroupFilter">
+                <option value="">-- Chọn nhóm kế hoạch --</option>
+              </select>
+            </label>
+            <div class="span-2 maintenance-device-field">
+              <div class="maintenance-device-heading">
+                <span>Thiết bị <strong aria-hidden="true">*</strong></span>
+                <button class="secondary-button" id="maintenanceSelectVisibleAssets" type="button">Chọn tất cả đang hiển thị</button>
+              </div>
+              <input type="hidden" name="asset_id" />
+              <div class="maintenance-device-list" id="maintenanceLogAssetList" role="group" aria-label="Chọn thiết bị bảo trì"></div>
+              <span class="field-help" id="maintenanceLogSelectionCount">Chưa chọn thiết bị.</span>
+            </div>
+            <label class="span-2">Kế hoạch liên quan
+              <select name="plan_id">
+                <option value="">-- Không liên kết kế hoạch --</option>
+              </select>
+            </label>
+            <label>Ngày thực hiện<input name="date" type="date" required /></label>
+            <label>Loại bảo trì
+              <select name="action_type" required></select>
+            </label>
+            <label class="span-2">Nội dung công việc<input name="description" required placeholder="VD: Thay pin mới, Vệ sinh máy..." /></label>
+            <label>Chi phí (VNĐ)<input name="cost" type="text" placeholder="VD: 500000" /></label>
+            <label>Đơn vị thực hiện<input name="vendor" placeholder="VD: IT nội bộ hoặc Tên đối tác" /></label>
+            <label>Bảo hành (Tháng)<input name="warranty_months" type="number" placeholder="VD: 12" /></label>
+            <label>Người phụ trách<input name="performed_by" placeholder="VD: Nguyễn Văn A" /></label>
+            <label class="span-2">Ghi chú thêm<textarea name="note" rows="2"></textarea></label>
+            <label class="span-2 media-upload-field">Ảnh kết quả bảo trì (tối đa 4 ảnh)
+              <input id="maintenanceImageInput" name="pending_images" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple />
+              <span class="field-help">Ảnh sẽ tự chuyển sang WebP trước khi tải lên.</span>
+            </label>
+            <div class="span-2" id="maintenanceExistingImagePreview"></div>
+            <div class="span-2 upload-preview" id="maintenanceImagePreview"></div>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="cancelMaintenanceLogForm">Hủy</button>
+            <button class="primary-button" type="submit">Lưu lịch sử</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="maintenancePlanModal" hidden>
+        <form class="modal compact-modal" id="maintenancePlanForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">BẢO TRÌ</p>
+              <h2>KẾ HOẠCH BẢO TRÌ</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeMaintenancePlanModal" aria-label="Đóng">×</button>
+          </div>
+          <input type="hidden" name="plan_id" />
+          <div class="form-grid">
+            <label class="span-2" id="maintenancePlanScopeField">Áp dụng cho
+              <select name="scope_type">
+                <option value="ASSET">Một thiết bị</option>
+                <option value="GROUP">Nhóm thiết bị</option>
+                <option value="TYPE">Loại thiết bị</option>
+              </select>
+            </label>
+            <label class="span-2" id="maintenancePlanAssetField">Thiết bị<select name="asset_id" required></select></label>
+            <label class="span-2" id="maintenancePlanGroupField" hidden>Nhóm thiết bị<select name="asset_group"></select></label>
+            <label class="span-2" id="maintenancePlanTypeField" hidden>Loại thiết bị<select name="asset_type"></select></label>
+            <p class="span-2 field-help" id="maintenancePlanTargetCount"></p>
+            <label>Chu kỳ
+              <select name="frequency" required>
+                <option value="MONTHLY">Hàng tháng</option>
+                <option value="QUARTERLY">Hàng quý</option>
+                <option value="YEARLY">Hàng năm</option>
+              </select>
+            </label>
+            <label>Ngày đến hạn tiếp theo<input name="next_due_date" type="date" required /></label>
+            <label class="span-2">Nội dung công việc<input name="title" required placeholder="VD: Kiểm tra định kỳ, vệ sinh thiết bị" /></label>
+            <label class="span-2">Ghi chú<textarea name="note" rows="2"></textarea></label>
+            <label>Trạng thái
+              <select name="active"><option value="TRUE">Đang áp dụng</option><option value="FALSE">Tạm dừng</option></select>
+            </label>
+            <label class="repeat-plan-toggle">
+              <input name="repeat_enabled" type="checkbox" value="TRUE" checked />
+              <span><strong>Lặp lại định kỳ</strong><small>Tự chuyển sang kỳ tiếp theo sau khi hoàn thành bảo trì.</small></span>
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="cancelMaintenancePlanForm">Hủy</button>
+            <button class="primary-button" type="submit">Lưu kế hoạch</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="movementLogModal" hidden>
+        <form class="modal compact-modal" id="movementLogForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">LUÂN CHUYỂN</p>
+              <h2>GHI NHẬN LUÂN CHUYỂN</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeMovementLogModal" aria-label="Đóng">×</button>
+          </div>
+          <input type="hidden" name="movement_id" />
+          <div class="form-grid">
+            <label class="span-2">Thiết bị
+              <select name="asset_id" required></select>
+            </label>
+            <label>Ngày luân chuyển<input name="movement_date" type="date" required /></label>
+            <label>Lý do luân chuyển<input name="reason" placeholder="VD: Cấp mới, điều chuyển..." /></label>
+            <label>Từ người dùng<input name="from_user" /></label>
+            <label>Đến người dùng<input name="to_user" /></label>
+            <label>Từ vị trí<input name="from_location" /></label>
+            <label>Đến vị trí<input name="to_location" /></label>
+            <label>Người duyệt<input name="approved_by" /></label>
+            <label class="span-2">Ghi chú thêm<textarea name="note" rows="2"></textarea></label>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="cancelMovementLogForm">Hủy</button>
+            <button class="primary-button" type="submit">Lưu phiếu</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="softwareLicenseModal" hidden>
+        <form class="modal compact-modal" id="softwareLicenseForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">PHẦN MỀM</p>
+              <h2>THÊM BẢN QUYỀN</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeSoftwareLicenseModal" aria-label="Đóng">×</button>
+          </div>
+          <input type="hidden" name="license_id" />
+          <div class="form-grid">
+            <label>Tên phần mềm<input name="software_name" required placeholder="VD: Windows 11, Office 365" /></label>
+            <label>Phiên bản<input name="version" placeholder="VD: Pro, 2021" /></label>
+            <label class="span-2">License Key / ID<input name="license_key" placeholder="Nhập key mới, để trống để giữ nguyên" /></label>
+            <div class="span-2 asset-picker-wrapper">
+              <span class="asset-picker-label">Gán cho Thiết bị</span>
+              <select id="assetPickerFilter" class="asset-picker-filter">
+                <option value="">-- Tất cả danh mục --</option>
+              </select>
+              <div id="assetPickerList" class="asset-picker-list"></div>
+              <div id="assetPickerTags" class="asset-picker-tags"></div>
+              <input type="hidden" name="assigned_asset_id" id="assignedAssetIdInput" />
+            </div>
+            <label>Gán cho Người dùng<input name="assigned_user" placeholder="VD: nguyen.van.a" /></label>
+            <label>Ngày hết hạn<input name="expiry_date" type="date" /></label>
+            <label>Trạng thái
+              <select name="status">
+                <option value="ACTIVE">Đang sử dụng</option>
+                <option value="AVAILABLE">Sẵn sàng (Kho)</option>
+                <option value="EXPIRED">Đã hết hạn</option>
+                <option value="REVOKED">Đã thu hồi</option>
+              </select>
+            </label>
+            <label class="span-2">Ghi chú<textarea name="note" rows="2"></textarea></label>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="cancelSoftwareLicenseForm">Hủy</button>
+            <button class="primary-button" type="submit">Lưu bản quyền</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="departmentModal" hidden>
+        <form class="modal compact-modal" id="departmentForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">QUẢN LÝ PHÒNG BAN</p>
+              <h2 id="departmentFormTitle">THÊM PHÒNG BAN</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeDepartmentModal" aria-label="Đóng">×</button>
+          </div>
+          <input type="hidden" name="department_id" />
+          <div class="form-grid">
+            <label class="span-2">Tên phòng ban<input name="department_name" required placeholder="VD: Phòng Hành chính Nhân sự" /></label>
+            <label>Trưởng phòng<input name="manager" placeholder="VD: Trần Thị B" /></label>
+            <label>Vị trí / Khu vực<input name="location" placeholder="VD: Tầng 2, Tòa nhà A" /></label>
+            <label class="span-2">Ghi chú<textarea name="note" rows="2"></textarea></label>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="cancelDepartmentForm">Hủy</button>
+            <button class="primary-button" type="submit">Lưu phòng ban</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="systemModal" hidden>
+        <form class="modal compact-modal" id="systemModalForm">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow" id="systemModalEyebrow">THÔNG BÁO</p>
+              <h2 id="systemModalTitle">THÔNG BÁO</h2>
+            </div>
+          </div>
+          <p class="modal-copy" id="systemModalMessage"></p>
+          <label class="system-input" id="systemModalInputWrap" hidden>
+            <span id="systemModalInputLabel">Nhập dữ liệu</span>
+            <input id="systemModalInput" autocomplete="off" />
+          </label>
+          <div class="modal-actions">
+            <button class="secondary-button" type="button" id="systemModalCancel">Hủy</button>
+            <button class="primary-button" type="submit" id="systemModalConfirm">Đồng ý</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="qrLabelModal" hidden>
+        <section class="modal compact-modal qr-label-modal" role="dialog" aria-modal="true" aria-labelledby="qrLabelModalTitle">
+          <div class="modal-head">
+            <div>
+              <p class="eyebrow">TEM THIẾT BỊ</p>
+              <h2 id="qrLabelModalTitle">IN TEM QR HÀNG LOẠT</h2>
+            </div>
+            <button class="icon-button" type="button" id="closeQrLabelModal" aria-label="Đóng">×</button>
+          </div>
+          <div class="qr-label-options">
+            <label>Nhóm thiết bị<select id="qrLabelGroupFilter"></select></label>
+            <label>Khổ giấy<select id="qrLabelPaperSize"><option value="a4">A4 · Dàn nhiều tem</option><option value="label">Tem 100 × 70 mm · 2 tem dọc mỗi trang</option></select></label>
+          </div>
+          <label class="qr-label-select-all"><input id="qrLabelSelectAll" type="checkbox" /> Chọn tất cả thiết bị trong nhóm</label>
+          <div class="qr-label-device-list" id="qrLabelDeviceList"></div>
+          <div class="modal-actions">
+            <span class="qr-label-selection-count" id="qrLabelSelectionCount">Đã chọn 0 thiết bị</span>
+            <button class="secondary-button" type="button" id="cancelQrLabelModal">Hủy</button>
+            <button class="primary-button" type="button" id="printQrLabelsButton">In tem đã chọn</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop asset-profile-backdrop" id="assetProfileModal" hidden>
+        <section class="asset-profile-modal" role="dialog" aria-modal="true" aria-labelledby="assetProfileTitle">
+          <header class="asset-profile-head">
+            <div>
+              <p class="eyebrow">HỒ SƠ THIẾT BỊ</p>
+              <h2 id="assetProfileTitle">THÔNG TIN THIẾT BỊ</h2>
+              <p id="assetProfileSubtitle"></p>
+            </div>
+            <button class="icon-button" type="button" id="closeAssetProfileModal" aria-label="Đóng">×</button>
+          </header>
+          <nav class="asset-profile-tabs" id="assetProfileTabs" aria-label="Nội dung hồ sơ">
+            <button class="active" type="button" data-profile-tab="info">Thông tin</button>
+            <button type="button" data-profile-tab="movement">Điều chuyển</button>
+            <button type="button" data-profile-tab="maintenance">Bảo trì</button>
+          </nav>
+          <div class="asset-profile-body" id="assetProfileBody"></div>
+          <footer class="asset-profile-actions" id="assetProfileActions"></footer>
+        </section>
+      </div>
+
+      <div class="modal-backdrop media-lightbox" id="mediaLightbox" hidden>
+        <section class="media-lightbox-dialog" role="dialog" aria-modal="true" aria-label="Xem ảnh thiết bị">
+          <button class="icon-button media-lightbox-close" type="button" id="closeMediaLightbox" aria-label="Đóng">×</button>
+          <button class="media-lightbox-nav prev" type="button" id="mediaLightboxPrev" aria-label="Ảnh trước">‹</button>
+          <img id="mediaLightboxImage" alt="Ảnh thiết bị" />
+          <button class="media-lightbox-nav next" type="button" id="mediaLightboxNext" aria-label="Ảnh sau">›</button>
+          <span id="mediaLightboxCount"></span>
+        </section>
+      </div>
+    </main>
+    <div id="printReport" hidden></div>
+  </body>
+</html>

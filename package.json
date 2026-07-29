@@ -1,0 +1,16 @@
+{
+  "name": "tdw-equipment-manager",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "vercel dev",
+    "test": "node tools/smoke-test.js",
+    "next:dev": "npm --prefix next-app run dev",
+    "next:build": "npm --prefix next-app run build",
+    "next:typecheck": "npm --prefix next-app run typecheck",
+    "migration:dry-run": "node tools/migrate-to-supabase/import.mjs",
+    "migration:apply": "node tools/migrate-to-supabase/import.mjs --apply",
+    "migration:reconcile": "node tools/migrate-to-supabase/reconcile.mjs"
+  }
+}

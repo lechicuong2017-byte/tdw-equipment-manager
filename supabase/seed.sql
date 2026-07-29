@@ -1,0 +1,11 @@
+-- Seed file intentionally contains no production users or business data.
+-- Roles and permissions are created by the initial migration.
+--
+-- After inviting the first administrator in Supabase Auth, assign the role
+-- from the SQL editor with the authenticated user's UUID:
+--
+-- insert into public.user_roles (user_id, role_id)
+-- select 'REPLACE_WITH_AUTH_USER_UUID'::uuid, id
+-- from public.roles
+-- where code = 'admin'
+-- on conflict do nothing;
