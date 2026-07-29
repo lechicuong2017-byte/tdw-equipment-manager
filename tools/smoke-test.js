@@ -94,6 +94,9 @@ async function run() {
   assertSyntax("api/google-script.js");
 
   const appsScript = read("google-apps-script/Code.gs");
+  const recordScopeMigration = read(
+    "supabase/migrations/202607290002_record_scopes_and_storage_rls.sql",
+  );
   const app = read("app/app.js");
   const index = read("app/index.html");
   const styles = read("app/styles.css");
@@ -180,6 +183,16 @@ async function run() {
   assert.ok(app.includes('callServer("restoreBackup"'));
   assert.ok(app.includes('callServer("verifyBackup"'));
   assert.ok(appsScript.includes("function installDailyBackupTrigger()"));
+  assert.ok(appsScript.includes("function requireLegacyActionAllowed_(action)"));
+  assert.ok(appsScript.includes('"read-write", "read-only", "disabled"'));
+  assert.ok(appsScript.includes('"exportSupabaseReport"'));
+  assert.ok(recordScopeMigration.includes("create table public.data_access_scopes"));
+  assert.ok(recordScopeMigration.includes("create or replace function public.can_access_asset"));
+  assert.ok(recordScopeMigration.includes("public.can_read_storage_object(name)"));
+  assert.ok(recordScopeMigration.includes("public.can_manage_storage_object(name)"));
+  assert.ok(!recordScopeMigration.includes(
+    "public.has_permission('assets.view')\n      or public.has_permission('maintenance.view')",
+  ));
   assert.ok(appsScript.includes('const LICENSE_SECRET_MARKER = "SCRIPT_PROPERTY_V1"'));
   assert.ok(!appsScript.includes('return "ENC:"'));
   assert.ok(index.includes('name="setting_value" required readonly'));
@@ -236,6 +249,28 @@ async function run() {
   assert.equal(vm.runInContext('normalizeUser_({ user_id: "user-id", username: "user", role: "user", password_salt: "salt", password_hash: "hash" }).session_version', permissions), 1);
   assert.equal(vm.runInContext('normalizeUser_({ user_id: "user-id", username: "user", role: "user", password_salt: "salt", password_hash: "hash" }).auth_provider', permissions), "LEGACY");
   assert.equal(vm.runInContext('constantTimeEqual_("same", "same")', permissions), true);
+  vm.runInContext(`
+    legacyModeForTest_ = "read-only";
+    PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (name) => name === "TDW_LEGACY_MODE"
+          ? legacyModeForTest_
+          : ""
+      })
+    };
+  `, permissions);
+  assert.doesNotThrow(() =>
+    vm.runInContext('requireLegacyActionAllowed_("getAppData")', permissions),
+  );
+  assert.throws(
+    () => vm.runInContext('requireLegacyActionAllowed_("saveAsset")', permissions),
+    /chế độ chỉ đọc/,
+  );
+  vm.runInContext('legacyModeForTest_ = "disabled";', permissions);
+  assert.throws(
+    () => vm.runInContext('requireLegacyActionAllowed_("getAppData")', permissions),
+    /đã ngừng hoạt động/,
+  );
   assert.equal(vm.runInContext('constantTimeEqual_("same", "diff")', permissions), false);
   assert.equal(vm.runInContext('normalizeUser_({ user_id: "user-id", username: "user", email: "TDW@Example.com", role: "user", password_salt: "salt", password_hash: "hash" }).email', permissions), "tdw@example.com");
   assert.throws(() => vm.runInContext('normalizeEmail_("not-an-email")', permissions), /Email không đúng định dạng/);

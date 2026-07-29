@@ -1,0 +1,29 @@
+# Local operating-system files
+.DS_Store
+
+# Dependencies and build output
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Local migration source data. Keep these files outside Git and restore them
+# from the approved backup when a migration or reconciliation is required.
+data/assets_seed.csv
+data/assets_seed.json
+data/google_sheet_import/*.csv
+
+# Logs and temporary output
+*.log
+coverage/
+.vercel/
+

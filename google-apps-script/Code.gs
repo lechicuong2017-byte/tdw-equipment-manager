@@ -517,6 +517,7 @@ function doPost(event) {
     }
 
     requireProxySecret_(body.proxy_secret);
+    requireLegacyActionAllowed_(action);
 
     if (action === "loginUser") {
       return jsonResponse_(loginUser(args[0] || body.credentials || {}));
@@ -649,6 +650,51 @@ function requireProxySecret_(providedSecret) {
   const expectedSecret = PropertiesService.getScriptProperties().getProperty("TDW_API_PROXY_SECRET");
   if (!expectedSecret) throw new Error("Thiếu Script Property TDW_API_PROXY_SECRET");
   if (!constantTimeEqual_(String(providedSecret || ""), expectedSecret)) throw new Error("Yêu cầu API không hợp lệ");
+}
+
+function requireLegacyActionAllowed_(action) {
+  const mode = String(
+    PropertiesService.getScriptProperties().getProperty("TDW_LEGACY_MODE") ||
+      "read-write",
+  ).trim().toLowerCase();
+  if (["read-write", "read-only", "disabled"].indexOf(mode) === -1) {
+    throw new Error("TDW_LEGACY_MODE không hợp lệ");
+  }
+  if (mode === "disabled") {
+    throw new Error("API nghiệp vụ Google Sheets đã ngừng hoạt động");
+  }
+
+  const mutatingActions = [
+    "markSupabaseMigration",
+    "logoutAllSessions",
+    "restoreBackup",
+    "saveAsset",
+    "upsertAsset",
+    "deleteAsset",
+    "saveMaintenanceLog",
+    "saveMaintenanceLogs",
+    "deleteMaintenanceLog",
+    "saveMaintenancePlan",
+    "saveMaintenancePlans",
+    "deleteMaintenancePlan",
+    "sendMaintenancePlanReminders",
+    "saveMediaFile",
+    "deleteMediaFile",
+    "saveMovementLog",
+    "saveSoftwareLicense",
+    "deleteSoftwareLicense",
+    "saveSetting",
+    "deleteSetting",
+    "saveDepartment",
+    "deleteDepartment",
+    "saveUser",
+    "deleteUser",
+    "resetUserPassword",
+    "changeOwnPassword",
+  ];
+  if (mode === "read-only" && mutatingActions.indexOf(String(action || "")) !== -1) {
+    throw new Error("Hệ thống Google Sheets đang ở chế độ chỉ đọc");
+  }
 }
 
 function requireSignedIntegrationRequest_(body) {
