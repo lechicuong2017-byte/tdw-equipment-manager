@@ -396,10 +396,15 @@ async function run() {
   const qrDataUrl = vm.runInContext('(() => { const code = qrcode(0, "M"); code.addData("https://example.test/?asset=asset-id"); code.make(); return code.createDataURL(4, 2); })()', qrContext);
   assert.ok(qrDataUrl.startsWith("data:image/gif;base64,"));
 
-  const vercel = JSON.parse(read("vercel.json"));
-  assert.equal(vercel.version, 2);
-  assert.ok(vercel.rewrites.some((rule) => rule.source === "/" && rule.destination === "/app/index.html"));
-  assert.ok(vercel.headers.some((rule) => rule.headers?.some((header) => header.key === "Content-Security-Policy")));
+  const legacyVercel = JSON.parse(read("vercel.legacy.json"));
+  assert.equal(legacyVercel.version, 2);
+  assert.ok(legacyVercel.rewrites.some((rule) => rule.source === "/" && rule.destination === "/app/index.html"));
+  assert.ok(legacyVercel.headers.some((rule) => rule.headers?.some((header) => header.key === "Content-Security-Policy")));
+
+  const nextVercel = JSON.parse(read("next-app/vercel.json"));
+  assert.equal(nextVercel.framework, "nextjs");
+  assert.equal(nextVercel.installCommand, "npm ci");
+  assert.equal(nextVercel.buildCommand, "npm run build");
   assert.ok(index.includes('integrity="sha512-'));
 
   const unauthenticated = await invokeProxy({ fn: "healthCheck", args: [] });
