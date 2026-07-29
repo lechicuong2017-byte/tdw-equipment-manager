@@ -36,5 +36,12 @@ npm run migration:reconcile
 - tổng giá trị theo `quantity * unit_price`;
 - số dòng danh mục;
 - số phòng ban, bao gồm phòng ban được suy ra từ dữ liệu thiết bị.
+- số log bảo trì;
+- số dòng luân chuyển;
+- số bản quyền phần mềm.
 
 Tài khoản Auth và ảnh Drive không được tự động nhập bởi công cụ nền này.
+
+Giá trị license key cũ không được chép vào PostgreSQL. Công cụ chỉ tạo giá trị
+masked và `license_secret_ref` để một quy trình riêng chuyển secret từ Apps
+Script Properties sang secret manager được phê duyệt.

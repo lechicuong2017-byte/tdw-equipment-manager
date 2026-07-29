@@ -2,10 +2,12 @@
 
 Ứng dụng quản lý máy tính, máy in, màn hình, ổ cứng và thiết bị nội bộ cho TDW.
 
-Ứng dụng gồm 2 phần:
+Kiến trúc mục tiêu đang được triển khai:
 
-- `app/`: giao diện web deploy lên Vercel.
-- `google-apps-script/`: backend chạy trong Google Apps Script, liên kết Google Sheet.
+- `next-app/`: frontend Next.js, SSR, kiểm tra đầu vào và cache theo request.
+- `supabase/`: PostgreSQL, Auth, RLS và Storage private.
+- `google-apps-script/`: chỉ giữ tích hợp Google Sheets/Docs/Drive/Gmail.
+- `app/`, `api/`: hệ thống Google Sheets cũ, chỉ giữ trong giai đoạn cutover.
 
 ## Chuyển đổi Next.js + Supabase
 
@@ -21,6 +23,12 @@ docs/11-nextjs-supabase-migration-plan.md
 Frontend hiện tại vẫn được giữ nguyên trong giai đoạn chuyển tiếp. Không thay
 cấu hình production sang `next-app/` cho đến khi migration, Auth/RLS, ảnh và
 đối soát dữ liệu hoàn tất.
+
+Trạng thái rà soát và thứ tự triển khai production:
+
+```text
+docs/13-production-implementation-plan.md
+```
 
 ## Tính năng chính
 

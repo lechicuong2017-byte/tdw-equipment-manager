@@ -1,0 +1,136 @@
+# Kế hoạch triển khai kiến trúc Next.js + Supabase trên production
+
+Ngày cập nhật: 2026-07-29  
+Quyết định vận hành: triển khai trực tiếp trên bản chính; người dùng xác nhận đã có backup.
+
+## 1. Trạng thái sau rà soát
+
+| Hạng mục | Trạng thái | Ghi chú |
+|---|---|---|
+| Next.js App Router, SSR, Zod | Đã có nền | Build và typecheck đạt |
+| Supabase PostgreSQL | Đã có migration | Chưa có bằng chứng đã áp lên project production |
+| Supabase Auth SSR | Đã có | Login, callback, MFA và bảo vệ route |
+| RLS theo permission | Đã có | Migration `001` |
+| RLS theo từng bản ghi | Đã bổ sung | Migration `002`: all/department/assigned/owned |
+| Supabase Storage private | Đã bổ sung | Quyền object gắn với metadata và asset tương ứng |
+| Quản trị user | Đã bổ sung nền | Invite Auth, role, active, MFA và data scope |
+| Thiết bị và dashboard | Đã có luồng chính | Query/phân trang server, CRUD, soft delete, media |
+| Cache | Đã có mức an toàn ban đầu | Auth/access được memoize trong cùng request; không cache chéo user |
+| Apps Script export | Đã có | Request HMAC, timestamp, nonce, chống formula injection |
+| Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
+| Bảo trì, luân chuyển, phần mềm | Chưa hoàn tất UI | Hiện còn trang khung |
+| Google Docs/Gmail theo kiến trúc mới | Chưa hoàn tất | Chưa có job ký số lấy dữ liệu từ Supabase |
+| Migration dữ liệu | Đã có phần nghiệp vụ chính | Import phòng ban, settings, assets, maintenance logs, movements và software; chưa có plans/responsibles/media |
+| Migration ảnh Drive | Chưa có | Cần job riêng, checksum và đối soát object |
+| Test RLS live | Chưa có bằng chứng | Phải chạy bằng JWT thật trên Supabase production trước khi mở user |
+| Deployment | Vẫn là frontend cũ | `vercel.json` gốc vẫn route vào `app/` |
+
+## 2. Kiến trúc vận hành bắt buộc
+
+```text
+Browser
+  -> Next.js
+      -> Supabase Auth
+      -> Supabase PostgreSQL + RLS
+      -> Supabase Storage private
+      -> API server-only có kiểm tra quyền
+          -> Apps Script có HMAC
+              -> Google Sheets / Docs / Drive / Gmail
+```
+
+Nguyên tắc:
+
+- PostgreSQL là nguồn dữ liệu nghiệp vụ duy nhất.
+- Google Sheets chỉ nhận dữ liệu xuất; không ghi ngược vào PostgreSQL.
+- Apps Script không giữ Supabase service role key.
+- Service role chỉ dùng trong mã server-only của Next.js cho Supabase Auth Admin.
+- Không cache kết quả có RLS giữa nhiều người dùng. Chỉ memoize trong request hoặc cache dữ liệu công khai/không phụ thuộc user.
+- Không dual-write giữa Sheets và Supabase.
+
+## 3. Thứ tự triển khai trực tiếp production
+
+### Cổng 0 — Trước khi ghi
+
+1. Ghi nhận thời điểm và vị trí backup đã được người dùng xác nhận.
+2. Đảm bảo dữ liệu CSV và `.env*` vẫn bị loại khỏi Git.
+3. Tạo secret production bằng secret manager:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - `NEXT_PUBLIC_APP_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `APPS_SCRIPT_EXPORT_URL`
+   - `APPS_SCRIPT_INTEGRATION_SECRET`
+4. Không đặt secret trong lệnh được lưu history, ticket hoặc tài liệu.
+
+### Cổng 1 — Database/Auth
+
+1. Áp lần lượt migration `001`, rồi `002`.
+2. Tắt public sign-up; chỉ cho phép invite.
+3. Tạo/gán admin đầu tiên và hoàn tất MFA AAL2.
+4. Chạy ma trận `docs/12-supabase-security-test-matrix.md` bằng tài khoản test không chứa dữ liệu thật.
+5. Xác nhận viewer không có scope không thấy bản ghi; user chỉ thấy asset được gán; manager thấy các module có permission; admin AAL1 bị chặn.
+
+### Cổng 2 — Dữ liệu
+
+1. Đặt hệ thống Sheets cũ ở cửa sổ bảo trì ngắn.
+2. Chạy `migration:dry-run`.
+3. Chạy `migration:apply` với cờ xác nhận.
+4. Mở rộng/chạy import cho maintenance, movement, software, responsibles và media trước khi mở các module tương ứng.
+5. Chạy `migration:reconcile`; chặn cutover nếu số lượng, mã thiết bị hoặc tổng giá trị lệch.
+6. Không xóa dữ liệu nguồn.
+
+### Cổng 3 — Apps Script
+
+1. Deploy `Code.gs` mới và đặt `TDW_NEXT_INTEGRATION_SECRET`.
+2. Kiểm tra export HMAC từ một tài khoản có quyền.
+3. Đặt `TDW_LEGACY_MODE=read-only` trước khi chuyển frontend.
+4. Sau khi Next.js ổn định và không còn request legacy, đặt `TDW_LEGACY_MODE=disabled`.
+
+### Cổng 4 — Next.js
+
+1. Cấu hình Vercel Root Directory thành `next-app` hoặc chuyển Next.js thành app gốc.
+2. Build production.
+3. Kiểm tra login, MFA, dashboard, asset list/detail, CRUD, private media, export và admin user.
+4. Chỉ mở user nghiệp vụ sau khi RLS live test đạt.
+
+## 4. Backlog theo thứ tự ưu tiên
+
+### P0 — Chặn cutover
+
+- Hoàn tất import/reconcile cho plans, responsibles, notification logs và media.
+- Viết job chuyển ảnh Drive sang Storage kèm checksum.
+- Chạy test RLS/Auth/Storage bằng JWT thật.
+- Hoàn tất UI bảo trì, luân chuyển và phần mềm nếu các module này phải dùng ngay ngày cutover.
+- Thay deployment root từ frontend cũ sang Next.js.
+
+### P1 — Hoàn thiện kiến trúc mục tiêu
+
+- Tạo job maintenance trên server đọc Supabase, sau đó gửi payload ký số sang Apps Script/Gmail.
+- Thêm Google Docs/PDF report qua cùng cơ chế job + HMAC + idempotency.
+- Bổ sung báo cáo maintenance/software/movement.
+- Thêm audit UI và health check Next.js/Supabase/Apps Script.
+- Tạo thumbnail khi upload; hiện tại danh sách chưa hiển thị ảnh nên chưa phát sinh tải ảnh gốc.
+
+### P2 — Vận hành
+
+- Theo dõi lỗi Auth, RLS denial, Storage, query chậm và Apps Script.
+- Backup PostgreSQL và Storage độc lập.
+- Diễn tập restore định kỳ.
+- Thêm E2E cho admin, manager, user, viewer và anonymous.
+
+## 5. Điều kiện hoàn thành
+
+- Next.js là frontend production duy nhất.
+- Supabase là nguồn dữ liệu chính duy nhất.
+- Không còn request CRUD nghiệp vụ tới Apps Script.
+- `TDW_LEGACY_MODE=disabled`.
+- RLS live test đạt cho bảng và Storage.
+- Đối soát dữ liệu đạt và không có orphan.
+- Không có secret hoặc dữ liệu import trong Git/history.
+
+## 6. Giới hạn bằng chứng hiện tại
+
+- Build, TypeScript, smoke test và cú pháp hai migration đã được kiểm tra local.
+- Migration chưa được áp vào Supabase production trong phiên rà soát này.
+- Socket snapshot của hệ điều hành không đủ để chứng minh không có upload/egress; cần proxy, firewall hoặc network log được tổ chức phê duyệt để đưa ra kết luận đó.
+- Việc “đã có backup” chưa đồng nghĩa backup đã restore thành công; trạng thái restore cần được xác nhận riêng trước thao tác không thể đảo ngược.

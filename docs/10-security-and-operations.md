@@ -2,21 +2,24 @@
 
 ## Ranh giới hệ thống
 
-Luồng duy nhất được hỗ trợ:
+Luồng đích được hỗ trợ:
 
-`Vercel frontend -> Vercel /api/google-script -> Apps Script -> Google Sheet/Drive`
+`Next.js -> Supabase Auth/PostgreSQL/Storage -> API server-only -> Apps Script -> Sheets/Docs/Drive/Gmail`
 
-Apps Script không còn phục vụ HTML và không đọc token từ URL. Vercel giữ session trong cookie `HttpOnly; Secure; SameSite=Strict`; frontend JavaScript không đọc được token.
+PostgreSQL là nguồn dữ liệu nghiệp vụ duy nhất. Apps Script không phục vụ HTML,
+không nhận Supabase service role key và không còn xử lý CRUD chính sau cutover.
+Các request tích hợp mới phải có timestamp, nonce và HMAC.
 
 ## Phiên và mật khẩu
 
 - Reset/đổi mật khẩu tăng `session_version`, làm mọi phiên cũ mất hiệu lực.
 - Đổi mật khẩu của chính user phát hành lại cookie phiên mới.
-- Supabase Auth xác thực mật khẩu; Vercel không gửi access token Supabase xuống frontend mà tiếp tục dùng cookie phiên ứng dụng `HttpOnly`.
+- Supabase Auth xác thực mật khẩu và `@supabase/ssr` quản lý session bằng cookie.
+- RLS là lớp thực thi quyền cuối cùng; kiểm tra trong Next.js chỉ phục vụ điều hướng và trải nghiệm.
 - User legacy được chuyển đổi khi đăng nhập thành công. Hash cũ không bị xóa trước khi Supabase tạo user và xác minh lại cùng mật khẩu.
 - Sau khi `auth_provider=SUPABASE`, Apps Script từ chối đăng nhập bằng hash cũ để tránh hạ cấp xác thực.
 - Reset/đổi mật khẩu của user đã chuyển đổi cập nhật Supabase trước, sau đó mới cập nhật trạng thái phiên Apps Script.
-- `SUPABASE_SERVICE_ROLE_KEY` chỉ tồn tại trong Vercel Environment Variables và không được đưa vào frontend/Git.
+- `SUPABASE_SERVICE_ROLE_KEY` chỉ tồn tại trong secret manager server-only để gọi Auth Admin; không được đưa vào client bundle, biến `NEXT_PUBLIC_*` hoặc Git.
 
 ## License key
 
@@ -38,8 +41,10 @@ Backup media lớn có thể vượt quota/thời gian Apps Script. Khi số ả
 
 - Vercel log ghi `request_id`, tên hàm, status và thời gian; không ghi args, token, mật khẩu hay license.
 - Cảnh báo nên dựa trên tỷ lệ 5xx/504, latency và lỗi trigger Apps Script/email.
-- Preview Vercel phải có `GOOGLE_SCRIPT_URL` và secret riêng, trỏ tới Sheet/Drive staging.
-- Production chỉ promote sau khi `npm test`, migration staging, backup staging và kiểm tra đăng nhập/phân quyền đều đạt.
+- Production chỉ chuyển frontend sau khi `npm test`, `next:typecheck`,
+  `next:build`, migration, đối soát và kiểm tra đăng nhập/RLS đều đạt.
+- Khi triển khai trực tiếp production theo quyết định hiện tại, lưu đầy đủ bằng
+  chứng từng cổng và dừng ngay khi migration/reconcile/RLS test không đạt.
 
 ## Giới hạn xác minh
 

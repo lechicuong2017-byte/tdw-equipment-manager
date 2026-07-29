@@ -8,14 +8,27 @@ import {
 const sourceAssets = await readCsv("Assets.csv");
 const sourceSettings = await readCsv("Settings.csv");
 const sourceDepartments = await readCsv("Departments.csv");
+const sourceMaintenance = await readCsv("MaintenanceLogs.csv");
+const sourceMovements = await readCsv("InventoryMovements.csv");
+const sourceSoftware = await readCsv("SoftwareLicenses.csv");
 
-const [{ data: targetAssets }, { data: targetSettings }, { data: targetDepartments }] =
+const [
+  { data: targetAssets },
+  { data: targetSettings },
+  { data: targetDepartments },
+  { data: targetMaintenance },
+  { data: targetMovements },
+  { data: targetSoftware },
+] =
   await Promise.all([
     supabaseRest(
       "assets?select=legacy_id,asset_code,quantity,unit_price,total_price&deleted_at=is.null",
     ),
     supabaseRest("settings?select=legacy_id,setting_type,setting_value"),
     supabaseRest("departments?select=legacy_id,name"),
+    supabaseRest("maintenance_logs?select=id,legacy_id,asset_id"),
+    supabaseRest("inventory_movements?select=id,legacy_id,asset_id"),
+    supabaseRest("software_licenses?select=id,legacy_id,assigned_asset_id"),
   ]);
 
 const sourceAssetCodes = new Set(
@@ -59,6 +72,18 @@ const result = {
       explicit_source: sourceDepartments.length,
       target_including_derived: targetDepartments?.length ?? 0,
     },
+    maintenance_logs: {
+      source: sourceMaintenance.length,
+      target: targetMaintenance?.length ?? 0,
+    },
+    inventory_movements: {
+      source: sourceMovements.length,
+      target: targetMovements?.length ?? 0,
+    },
+    software_licenses: {
+      source: sourceSoftware.length,
+      target: targetSoftware?.length ?? 0,
+    },
   },
   asset_value: {
     source: sourceAssetValue,
@@ -71,6 +96,12 @@ const result = {
 
 result.passed =
   result.counts.assets.source === result.counts.assets.target &&
+  result.counts.maintenance_logs.source ===
+    result.counts.maintenance_logs.target &&
+  result.counts.inventory_movements.source ===
+    result.counts.inventory_movements.target &&
+  result.counts.software_licenses.source ===
+    result.counts.software_licenses.target &&
   result.asset_value.difference === 0 &&
   missingAssetCodes.length === 0 &&
   unexpectedAssetCodes.length === 0;

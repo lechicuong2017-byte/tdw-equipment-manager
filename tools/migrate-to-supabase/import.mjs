@@ -168,7 +168,126 @@ const assets = sourceAssets
 
 await upsertBatches("assets", assets, "legacy_id");
 
+const { data: remoteAssets } = await supabaseRest(
+  "assets?select=id,legacy_id,asset_code",
+);
+const assetIdByLegacyId = new Map(
+  (remoteAssets ?? [])
+    .filter((row) => row.legacy_id)
+    .map((row) => [String(row.legacy_id), row.id]),
+);
+const assetIdByCode = new Map(
+  (remoteAssets ?? [])
+    .filter((row) => row.asset_code)
+    .map((row) => [String(row.asset_code).toLocaleLowerCase("vi"), row.id]),
+);
+const resolveAssetId = (legacyId, assetCode = "") =>
+  assetIdByLegacyId.get(String(legacyId || "")) ??
+  assetIdByCode.get(String(assetCode || "").toLocaleLowerCase("vi")) ??
+  null;
+
+const orphanWarnings = [];
+const maintenanceLogs = sourceMaintenanceLogs.flatMap((row, index) => {
+  const assetId = resolveAssetId(row.asset_id, row.asset_code);
+  if (!assetId) {
+    orphanWarnings.push(`MaintenanceLogs dòng ${index + 2} không tìm thấy asset`);
+    return [];
+  }
+  const maintenanceDate = dateValue(row.date || row.maintenance_date);
+  if (!maintenanceDate) {
+    orphanWarnings.push(`MaintenanceLogs dòng ${index + 2} thiếu ngày hợp lệ`);
+    return [];
+  }
+  const createdAt = timestampValue(row.created_at);
+  const updatedAt = timestampValue(row.updated_at);
+  return [{
+    legacy_id: nullable(row.log_id) ?? `maintenance-row:${index + 2}`,
+    asset_id: assetId,
+    maintenance_date: maintenanceDate,
+    action_type: nullable(row.action_type) ?? "",
+    description:
+      nullable(row.description) ??
+      nullable(row.action_type) ??
+      "Bảo trì thiết bị",
+    cost: Math.max(0, numberValue(row.cost, 0)),
+    vendor: nullable(row.vendor) ?? "",
+    warranty_months: Math.max(0, integerValue(row.warranty_months, 0)),
+    performed_by: nullable(row.performed_by) ?? "",
+    note: nullable(row.note) ?? "",
+    ...(createdAt ? { created_at: createdAt } : {}),
+    ...(updatedAt ? { updated_at: updatedAt } : {}),
+  }];
+});
+
+const movements = sourceMovements.flatMap((row, index) => {
+  const assetId = resolveAssetId(row.asset_id, row.asset_code);
+  if (!assetId) {
+    orphanWarnings.push(`InventoryMovements dòng ${index + 2} không tìm thấy asset`);
+    return [];
+  }
+  const movementDate = dateValue(row.movement_date);
+  if (!movementDate) {
+    orphanWarnings.push(`InventoryMovements dòng ${index + 2} thiếu ngày hợp lệ`);
+    return [];
+  }
+  const createdAt = timestampValue(row.created_at);
+  const updatedAt = timestampValue(row.updated_at);
+  return [{
+    legacy_id: nullable(row.movement_id) ?? `movement-row:${index + 2}`,
+    asset_id: assetId,
+    movement_date: movementDate,
+    from_user_name: nullable(row.from_user) ?? "",
+    to_user_name: nullable(row.to_user) ?? "",
+    from_location: nullable(row.from_location) ?? "",
+    to_location: nullable(row.to_location) ?? "",
+    reason: nullable(row.reason) ?? "",
+    approved_by_name: nullable(row.approved_by) ?? "",
+    note: nullable(row.note) ?? "",
+    ...(createdAt ? { created_at: createdAt } : {}),
+    ...(updatedAt ? { updated_at: updatedAt } : {}),
+  }];
+});
+
+const softwareLicenses = sourceSoftware.map((row, index) => {
+  const createdAt = timestampValue(row.created_at);
+  const updatedAt = timestampValue(row.updated_at);
+  const legacyId = nullable(row.license_id) ?? `software-row:${index + 2}`;
+  const hasLegacySecret = Boolean(nullable(row.license_key_or_note));
+  return {
+    legacy_id: legacyId,
+    software_name: nullable(row.software_name) ?? "Chưa xác định",
+    version: nullable(row.version) ?? "",
+    license_key_masked: hasLegacySecret ? "•••• (chờ chuyển secret)" : "",
+    license_secret_ref: hasLegacySecret
+      ? `legacy-apps-script:${legacyId}`
+      : "",
+    assigned_asset_id: resolveAssetId(
+      row.assigned_asset_id,
+      row.assigned_asset_code,
+    ),
+    assigned_user_name: nullable(row.assigned_user) ?? "",
+    expiry_date: dateValue(row.expiry_date),
+    status: nullable(row.status) ?? "",
+    note: nullable(row.note) ?? "",
+    ...(createdAt ? { created_at: createdAt } : {}),
+    ...(updatedAt ? { updated_at: updatedAt } : {}),
+  };
+});
+
+await upsertBatches("maintenance_logs", maintenanceLogs, "legacy_id");
+await upsertBatches("inventory_movements", movements, "legacy_id");
+await upsertBatches("software_licenses", softwareLicenses, "legacy_id");
+
 printSummary({
   ...dryRunSummary,
-  result: "Dữ liệu nền đã được upsert. Hãy chạy migration:reconcile trước khi cho phép ghi production.",
+  imported: {
+    departments: departments.length,
+    settings: settings.length,
+    assets: assets.length,
+    maintenance_logs: maintenanceLogs.length,
+    inventory_movements: movements.length,
+    software_licenses: softwareLicenses.length,
+  },
+  warnings: [...dryRunSummary.warnings, ...orphanWarnings],
+  result: "Dữ liệu nền và nghiệp vụ đã được upsert. Hãy chạy migration:reconcile trước khi cho phép ghi production.",
 });
