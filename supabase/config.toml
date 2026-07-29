@@ -15,8 +15,10 @@ sql_paths = ["./seed.sql"]
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
+site_url = "https://tdw-equipment-manager-one.vercel.app"
 additional_redirect_urls = [
+  "https://tdw-equipment-manager-one.vercel.app/auth/callback",
+  "https://*-tonyle2017.vercel.app/**",
   "http://localhost:3000/auth/callback",
   "http://127.0.0.1:3000/auth/callback"
 ]
@@ -32,6 +34,16 @@ enable_signup = false
 double_confirm_changes = true
 enable_confirmations = true
 secure_password_change = true
+max_frequency = "1m"
+otp_length = 8
+otp_expiry = 3600
+
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
 
 [storage]
 enabled = true

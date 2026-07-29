@@ -26,4 +26,4 @@ data/google_sheet_import/*.csv
 *.log
 coverage/
 .vercel/
-
+supabase/.temp/
