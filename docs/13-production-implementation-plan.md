@@ -128,7 +128,7 @@ Nguyên tắc:
 - ~~Tạo job maintenance trên server đọc Supabase, sau đó gửi payload ký số sang Apps Script/Gmail.~~ Hoàn tất ngày 2026-07-30.
 - ~~Thêm XLSX/PDF report qua cùng cơ chế job + HMAC + idempotency.~~ Hoàn tất ngày 2026-07-30.
 - ~~Bổ sung báo cáo maintenance/software/movement.~~ Hoàn tất ngày 2026-07-30.
-- Thêm audit UI và health check Next.js/Supabase/Apps Script.
+- ~~Thêm audit UI và health check Next.js/Supabase/Apps Script.~~ Hoàn tất ngày 2026-07-30.
 - Tạo thumbnail khi upload; hiện tại danh sách chưa hiển thị ảnh nên chưa phát sinh tải ảnh gốc.
 
 ### P2 — Vận hành
