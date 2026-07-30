@@ -884,8 +884,8 @@ function exportSupabaseReportFile_(payload) {
     const mimeType = outputFormat === "xlsx"
       ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       : MimeType.PDF;
-    const blob = spreadsheetFile
-      .getAs(mimeType)
+    const blob = Drive.Files
+      .export(spreadsheet.getId(), mimeType, { alt: "media" })
       .setName(`${safeDriveFileName_(title)}.${outputFormat}`);
     const folderId = propertiesSafeGet_("TDW_EXPORT_FOLDER_ID");
     const folder = folderId ? DriveApp.getFolderById(folderId) : null;

@@ -197,6 +197,7 @@ async function run() {
   assert.ok(appsScript.includes("function exportSupabaseReportFile_(payload)"));
   assert.ok(appsScript.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
   assert.ok(appsScript.includes(": MimeType.PDF"));
+  assert.ok(appsScript.includes('Drive.Files\n      .export(spreadsheet.getId(), mimeType, { alt: "media" })'));
   assert.ok(appsScript.includes("TDW_REPORT_FILE_LEDGER"));
   assert.ok(appsScript.includes("spreadsheetFile.setTrashed(true)"));
   assert.ok(!appsScript.includes("DocumentApp.create"));
