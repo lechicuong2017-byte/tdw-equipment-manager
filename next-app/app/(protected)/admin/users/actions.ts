@@ -24,19 +24,25 @@ export async function inviteUser(formData: FormData) {
     full_name: z.string().trim().min(1).max(160),
   }).safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
-    redirect("/admin/users?error=Thông tin mời chưa hợp lệ");
+    redirect(
+      `/admin/users?error=${encodeURIComponent("Thông tin mời chưa hợp lệ")}`,
+    );
   }
 
   const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
   if (!appUrl) {
-    redirect("/admin/users?error=NEXT_PUBLIC_APP_URL chưa được cấu hình");
+    redirect(
+      `/admin/users?error=${encodeURIComponent("NEXT_PUBLIC_APP_URL chưa được cấu hình")}`,
+    );
   }
 
   let adminClient;
   try {
     adminClient = createAdminClient();
   } catch {
-    redirect("/admin/users?error=Server chưa có service role key");
+    redirect(
+      `/admin/users?error=${encodeURIComponent("Server chưa có service role key")}`,
+    );
   }
 
   const { error } = await adminClient.auth.admin.inviteUserByEmail(
@@ -51,7 +57,7 @@ export async function inviteUser(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
-  redirect("/admin/users?ok=Đã gửi lời mời");
+  redirect(`/admin/users?ok=${encodeURIComponent("Đã gửi lời mời")}`);
 }
 
 export async function updateUserAccess(formData: FormData) {
@@ -65,7 +71,9 @@ export async function updateUserAccess(formData: FormData) {
     must_enroll_mfa: z.string().optional(),
   }).safeParse(Object.fromEntries(formData.entries()));
   if (!base.success) {
-    redirect("/admin/users?error=Cấu hình quyền chưa hợp lệ");
+    redirect(
+      `/admin/users?error=${encodeURIComponent("Cấu hình quyền chưa hợp lệ")}`,
+    );
   }
 
   const scopes: Array<{
@@ -109,5 +117,5 @@ export async function updateUserAccess(formData: FormData) {
 
   revalidatePath("/admin/users");
   revalidatePath("/dashboard");
-  redirect("/admin/users?ok=Đã cập nhật quyền");
+  redirect(`/admin/users?ok=${encodeURIComponent("Đã cập nhật quyền")}`);
 }
