@@ -39,7 +39,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   let query = supabase
     .from("assets")
     .select(
-      "id, asset_code, asset_name, asset_type, brand, model, status, location, quantity, total_price, updated_at, departments(name)",
+      "id, asset_kind, asset_code, asset_name, asset_type, brand, model, status, location, quantity, total_price, updated_at, departments(name)",
       { count: "exact" },
     )
     .is("deleted_at", null)
@@ -121,7 +121,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                     <td>
                       <Link className="asset-name" href={`/assets/${asset.id}`}>
                         <strong>{asset.asset_name}</strong>
-                        <small>{asset.asset_code} · {asset.brand} {asset.model}</small>
+                        <small>
+                          {asset.asset_code} · {asset.brand} {asset.model}
+                          {asset.asset_kind === "COMPONENT" ? " · Linh kiện" : ""}
+                        </small>
                       </Link>
                     </td>
                     <td>{asset.asset_type || "—"}</td>

@@ -7,7 +7,12 @@ import { redirect } from "next/navigation";
 
 export const metadata = { title: "Thêm thiết bị" };
 
-export default async function NewAssetPage() {
+type NewAssetPageProps = {
+  searchParams: Promise<{ kind?: string }>;
+};
+
+export default async function NewAssetPage({ searchParams }: NewAssetPageProps) {
+  const defaultKind = (await searchParams).kind === "component" ? "COMPONENT" : "DEVICE";
   const { supabase, access } = await requireAccess();
   if (!can(access, "assets.manage")) redirect("/assets");
 
@@ -25,7 +30,10 @@ export default async function NewAssetPage() {
         actions={<Link className="secondary-button" href="/assets">Hủy</Link>}
       />
       <section className="panel form-panel">
-        <AssetForm departments={(data ?? []) as Department[]} />
+        <AssetForm
+          defaultKind={defaultKind}
+          departments={(data ?? []) as Department[]}
+        />
       </section>
     </>
   );

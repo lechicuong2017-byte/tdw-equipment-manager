@@ -107,6 +107,9 @@ async function run() {
   const xlsxPdfReportMigration = read(
     "supabase/migrations/202607300010_xlsx_pdf_report_exports.sql",
   );
+  const assetComponentMigration = read(
+    "supabase/migrations/202607300011_asset_components.sql",
+  );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextSidebar = read("next-app/components/sidebar.tsx");
@@ -117,6 +120,9 @@ async function run() {
   const assetQrCard = read("next-app/components/asset-qr-card.tsx");
   const assetQrLabels = read("next-app/components/asset-qr-labels.tsx");
   const assetQr = read("next-app/lib/asset-qr.ts");
+  const assetComponentManager = read(
+    "next-app/components/asset-component-manager.tsx",
+  );
   const systemHealth = read("next-app/lib/system-health.ts");
   const index = read("app/index.html");
   const styles = read("app/styles.css");
@@ -245,6 +251,22 @@ async function run() {
   assert.ok(!assetQrCard.includes("total_price"));
   assert.ok(!assetQrLabels.includes("serial_number"));
   assert.ok(!assetQrLabels.includes("total_price"));
+  assert.ok(assetComponentMigration.includes("create table public.asset_component_installations"));
+  assert.ok(assetComponentMigration.includes("asset_component_one_active_host_idx"));
+  assert.ok(assetComponentMigration.includes("create or replace function public.install_asset_component"));
+  assert.ok(assetComponentMigration.includes("create or replace function public.remove_asset_component"));
+  assert.ok(assetComponentMigration.includes("create or replace function public.replace_asset_component"));
+  assert.ok(assetComponentMigration.includes("target_host_asset_id = target_component_asset_id"));
+  assert.ok(assetComponentMigration.includes("component.quantity <> 1"));
+  assert.ok(assetComponentMigration.includes("public.can_access_asset(target_host_asset_id, 'assets', 'assets.manage')"));
+  assert.ok(assetComponentMigration.includes("revoke all on public.asset_component_installations from authenticated"));
+  assert.ok(nextAssetDetailPage.includes("<AssetComponentManager"));
+  assert.ok(assetComponentManager.includes("Gắn linh kiện"));
+  assert.ok(assetComponentManager.includes("Thay linh kiện"));
+  assert.ok(assetComponentManager.includes("Tháo linh kiện"));
+  assert.ok(googleExportRoute.includes('relation: "↳ Linh kiện đang lắp"'));
+  assert.ok(googleExportRoute.includes('{ key: "parent_asset", label: "Thuộc thiết bị" }'));
+  assert.ok(!assetComponentManager.includes("service_role"));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-logo.webp")));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-icon-192.png")));
   assert.ok(fs.existsSync(path.join(root, "next-app/app/favicon.ico")));

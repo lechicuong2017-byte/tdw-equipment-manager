@@ -22,7 +22,7 @@ export default async function ReportsPage() {
       eyebrow: "THIẾT BỊ",
       title: "Danh sách thiết bị",
       description:
-        "Thiết bị đang hoạt động cùng giá trị, vị trí và trạng thái.",
+        "Thiết bị cùng các linh kiện đang lắp, giá trị, vị trí và trạng thái.",
       icon: "▤",
       permission: "reports.assets.export",
     },

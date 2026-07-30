@@ -1568,6 +1568,160 @@ tbody tr:hover td {
   font-weight: 700;
 }
 
+.component-panel {
+  margin-top: 1rem;
+}
+
+.component-kind-badge {
+  background: var(--brand-soft);
+  border-radius: 999px;
+  color: var(--brand);
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.45rem 0.7rem;
+}
+
+.component-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.component-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.component-card-main {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.7fr);
+}
+
+.component-identity {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.component-identity strong {
+  color: var(--brand);
+  font-size: 0.76rem;
+}
+
+.component-identity span {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.component-identity small,
+.component-meta small,
+.component-current-host > small {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+
+.component-meta {
+  align-items: flex-end;
+  display: grid;
+  gap: 0.3rem;
+  justify-items: end;
+}
+
+.component-card-actions {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-top: 0.8rem;
+}
+
+.component-card-actions details {
+  background: var(--surface-muted);
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.component-card-actions summary {
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.component-action-form,
+.component-install-form {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0.8rem;
+}
+
+.component-action-form label,
+.component-install-form label {
+  color: #334155;
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 0.35rem;
+}
+
+.component-action-form .primary-button,
+.component-action-form .danger-button,
+.component-install-form .primary-button {
+  align-self: end;
+}
+
+.component-install-box {
+  background: linear-gradient(145deg, #f8fcfd, #edf7f9);
+  border: 1px solid rgba(14, 110, 142, 0.18);
+  border-radius: 14px;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.component-host-history {
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.component-host-history > summary {
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-bottom: 0.8rem;
+}
+
+.component-install-box h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0;
+}
+
+.component-current-host {
+  background: var(--surface-muted);
+  border-radius: 14px;
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.component-current-host > span {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.component-history-table {
+  margin-top: 1rem;
+}
+
 @media (max-width: 1080px) {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1626,8 +1780,17 @@ tbody tr:hover td {
   .scope-row,
   .inline-fields,
   .audit-filter,
-  .health-note {
+  .health-note,
+  .component-card-main,
+  .component-card-actions,
+  .component-action-form,
+  .component-install-form {
     grid-template-columns: 1fr;
+  }
+
+  .component-meta {
+    align-items: start;
+    justify-items: start;
   }
 
   .health-summary {

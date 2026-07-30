@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AssetComponentManager } from "@/components/asset-component-manager";
 import { AssetQrCard } from "@/components/asset-qr-card";
 import { MediaUpload } from "@/components/media-upload";
 import { PageHeader } from "@/components/page-header";
@@ -11,16 +12,29 @@ import {
   formatMoney,
   labelStatus,
 } from "@/lib/format";
-import type { Asset, MediaFile } from "@/lib/types";
+import type {
+  Asset,
+  AssetComponentInstallation,
+  AssetComponentSummary,
+  MediaFile,
+} from "@/lib/types";
 
 export const metadata = { title: "Hồ sơ thiết bị" };
 
 type AssetDetailProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ component_status?: string }>;
 };
 
-export default async function AssetDetailPage({ params }: AssetDetailProps) {
+function relatedSummary(
+  value: AssetComponentSummary | AssetComponentSummary[] | null | undefined,
+) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function AssetDetailPage({ params, searchParams }: AssetDetailProps) {
   const { id } = await params;
+  const componentStatus = String((await searchParams).component_status ?? "");
   const { supabase, access } = await requireAccess();
   const [{ data: assetData }, { data: mediaData }] = await Promise.all([
     supabase
@@ -55,6 +69,62 @@ export default async function AssetDetailPage({ params }: AssetDetailProps) {
   const department = Array.isArray(asset.departments)
     ? asset.departments[0]?.name
     : asset.departments?.name;
+  const canManageComponents = can(access, "assets.manage");
+  const componentFields =
+    "id,asset_code,asset_name,asset_type,brand,model,serial_number,status,warranty_end_date";
+  const [activeResult, historyResult, candidatesResult, installedResult] =
+    await Promise.all([
+      asset.asset_kind === "DEVICE"
+        ? supabase
+            .from("asset_component_installations")
+            .select(
+              `id,host_asset_id,component_asset_id,installed_at,removed_at,slot_name,install_note,removal_reason,removal_note,component:assets!asset_component_installations_component_asset_id_fkey(${componentFields})`,
+            )
+            .eq("host_asset_id", asset.id)
+            .order("installed_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+      asset.asset_kind === "COMPONENT"
+        ? supabase
+            .from("asset_component_installations")
+            .select(
+              `id,host_asset_id,component_asset_id,installed_at,removed_at,slot_name,install_note,removal_reason,removal_note,host:assets!asset_component_installations_host_asset_id_fkey(${componentFields})`,
+            )
+            .eq("component_asset_id", asset.id)
+            .order("installed_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+      asset.asset_kind === "DEVICE" && canManageComponents
+        ? supabase
+            .from("assets")
+            .select(componentFields)
+            .eq("asset_kind", "COMPONENT")
+            .eq("quantity", 1)
+            .is("deleted_at", null)
+            .order("asset_code")
+            .limit(2000)
+        : Promise.resolve({ data: [] }),
+      asset.asset_kind === "DEVICE" && canManageComponents
+        ? supabase
+            .from("asset_component_installations")
+            .select("component_asset_id")
+            .is("removed_at", null)
+            .limit(2000)
+        : Promise.resolve({ data: [] }),
+    ]);
+  const hostComponentHistory = (activeResult.data ?? []).map((item) => ({
+    ...item,
+    component: relatedSummary(item.component as never) ?? null,
+  })) as AssetComponentInstallation[];
+  const activeComponents = hostComponentHistory.filter((item) => !item.removed_at);
+  const componentHistory = (historyResult.data ?? []).map((item) => ({
+    ...item,
+    host: relatedSummary(item.host as never) ?? null,
+  })) as AssetComponentInstallation[];
+  const installedComponentIds = new Set(
+    (installedResult.data ?? []).map((item) => item.component_asset_id),
+  );
+  const availableComponents = (candidatesResult.data ?? []).filter(
+    (item) => !installedComponentIds.has(item.id),
+  ) as AssetComponentSummary[];
 
   return (
     <>
@@ -79,6 +149,7 @@ export default async function AssetDetailPage({ params }: AssetDetailProps) {
             <small>Cập nhật {formatDate(asset.updated_at)}</small>
           </div>
           <dl className="detail-list">
+            <div><dt>Phân loại</dt><dd>{asset.asset_kind === "COMPONENT" ? "Linh kiện" : "Thiết bị hoàn chỉnh"}</dd></div>
             <div><dt>Loại thiết bị</dt><dd>{asset.asset_type || "—"}</dd></div>
             <div><dt>Serial</dt><dd>{asset.serial_number || "—"}</dd></div>
             <div><dt>Phòng ban</dt><dd>{department || asset.department_legacy_name || "—"}</dd></div>
@@ -148,6 +219,16 @@ export default async function AssetDetailPage({ params }: AssetDetailProps) {
           {can(access, "assets.manage") ? <MediaUpload assetId={asset.id} /> : null}
         </article>
       </section>
+
+      <AssetComponentManager
+        activeComponents={activeComponents}
+        asset={asset}
+        availableComponents={availableComponents}
+        canManage={canManageComponents}
+        componentHistory={componentHistory}
+        hostComponentHistory={hostComponentHistory}
+        status={componentStatus}
+      />
     </>
   );
 }

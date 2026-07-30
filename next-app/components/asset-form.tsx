@@ -17,11 +17,13 @@ const initialState: AssetFormState = {};
 
 export function AssetForm({
   asset,
+  defaultKind = "DEVICE",
   departments,
   responsibleUsers = [],
   responsibles = [],
 }: {
   asset?: Asset;
+  defaultKind?: "DEVICE" | "COMPONENT";
   departments: Department[];
   responsibleUsers?: ResponsibleUser[];
   responsibles?: AssetResponsible[];
@@ -48,6 +50,13 @@ export function AssetForm({
       </div>
 
       <div className="form-grid">
+        <label>
+          Phân loại *
+          <select defaultValue={asset?.asset_kind ?? defaultKind} name="asset_kind">
+            <option value="DEVICE">Thiết bị hoàn chỉnh</option>
+            <option value="COMPONENT">Linh kiện bên trong</option>
+          </select>
+        </label>
         <label>
           Mã thiết bị *
           <input defaultValue={asset?.asset_code} maxLength={80} name="asset_code" required />
@@ -119,6 +128,9 @@ export function AssetForm({
           Số lượng
           <input defaultValue={asset?.quantity ?? 1} min={1} name="quantity" type="number" />
         </label>
+        <p className="form-help span-2">
+          Linh kiện cần số lượng 1 và mã riêng để theo dõi chính xác lịch sử lắp, tháo và bảo hành.
+        </p>
         <label>
           Đơn giá
           <input defaultValue={asset?.unit_price ?? 0} min={0} name="unit_price" step="1000" type="number" />

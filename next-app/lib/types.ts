@@ -11,6 +11,7 @@ export type AccessProfile = {
 export type Asset = {
   id: string;
   legacy_id: string | null;
+  asset_kind: "DEVICE" | "COMPONENT";
   asset_code: string;
   asset_name: string;
   asset_group: string;
@@ -36,6 +37,33 @@ export type Asset = {
   note: string;
   created_at: string;
   updated_at: string;
+};
+
+export type AssetComponentSummary = Pick<
+  Asset,
+  | "id"
+  | "asset_code"
+  | "asset_name"
+  | "asset_type"
+  | "brand"
+  | "model"
+  | "serial_number"
+  | "status"
+  | "warranty_end_date"
+>;
+
+export type AssetComponentInstallation = {
+  id: string;
+  host_asset_id: string;
+  component_asset_id: string;
+  installed_at: string;
+  removed_at: string | null;
+  slot_name: string;
+  install_note: string;
+  removal_reason: string;
+  removal_note: string;
+  component?: AssetComponentSummary | null;
+  host?: AssetComponentSummary | null;
 };
 
 export type DashboardStats = {

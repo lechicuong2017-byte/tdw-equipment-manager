@@ -197,12 +197,75 @@ async function buildReportPayload(
     const { data, error } = await supabase
       .from("assets")
       .select(
-        "asset_code, asset_name, asset_type, brand, model, serial_number, quantity, unit_price, total_price, assigned_to_name, department_legacy_name, location, status, purchase_date, warranty_end_date, note, departments(name)",
+        "id, asset_kind, asset_code, asset_name, asset_type, brand, model, serial_number, quantity, unit_price, total_price, assigned_to_name, department_legacy_name, location, status, purchase_date, warranty_end_date, note, departments(name)",
       )
       .is("deleted_at", null)
       .order("asset_code")
       .limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu thiết bị");
+
+    const { data: installations, error: installationError } = await supabase
+      .from("asset_component_installations")
+      .select("host_asset_id,component_asset_id,installed_at,slot_name")
+      .is("removed_at", null)
+      .order("installed_at");
+    if (installationError) throw new Error("Không thể đọc cấu hình linh kiện");
+
+    const normalizedAssets = (data ?? []).map((asset) => {
+      const { departments, ...fields } = asset;
+      const department = Array.isArray(asset.departments)
+        ? asset.departments[0]?.name
+        : (asset.departments as { name?: string } | null)?.name;
+      return {
+        ...fields,
+        department: department || asset.department_legacy_name,
+        status_label: labelStatus(asset.status),
+      };
+    });
+    const assetById = new Map(normalizedAssets.map((asset) => [asset.id, asset]));
+    const activeComponentIds = new Set(
+      (installations ?? []).map((item) => item.component_asset_id),
+    );
+    const installationsByHost = new Map<string, typeof installations>();
+    for (const installation of installations ?? []) {
+      const current = installationsByHost.get(installation.host_asset_id) ?? [];
+      current.push(installation);
+      installationsByHost.set(installation.host_asset_id, current);
+    }
+    const rows: ReportRow[] = [];
+    for (const asset of normalizedAssets) {
+      if (activeComponentIds.has(asset.id)) continue;
+      rows.push({
+        ...asset,
+        relation: asset.asset_kind === "COMPONENT" ? "Linh kiện rời" : "Thiết bị chính",
+        parent_asset: "",
+        installed_at: "",
+        slot_name: "",
+      });
+      const childInstallations = installationsByHost.get(asset.id) ?? [];
+      childInstallations
+        .map((installation) => ({
+          installation,
+          component: assetById.get(installation.component_asset_id),
+        }))
+        .filter((item) => item.component)
+        .sort((left, right) =>
+          String(left.component?.asset_code).localeCompare(
+            String(right.component?.asset_code),
+            "vi",
+          ),
+        )
+        .forEach(({ installation, component }) => {
+          if (!component) return;
+          rows.push({
+            ...component,
+            relation: "↳ Linh kiện đang lắp",
+            parent_asset: `${asset.asset_code} — ${asset.asset_name}`,
+            installed_at: installation.installed_at,
+            slot_name: installation.slot_name,
+          });
+        });
+    }
 
     return {
       report_type: reportType,
@@ -210,6 +273,8 @@ async function buildReportPayload(
       report_name: "BÁO CÁO DANH SÁCH THIẾT BỊ",
       requested_by: requestedBy,
       columns: [
+        { key: "relation", label: "Cấu trúc" },
+        { key: "parent_asset", label: "Thuộc thiết bị" },
         { key: "asset_code", label: "Mã thiết bị" },
         { key: "asset_name", label: "Tên thiết bị" },
         { key: "asset_type", label: "Loại thiết bị" },
@@ -225,19 +290,11 @@ async function buildReportPayload(
         { key: "status_label", label: "Trạng thái" },
         { key: "purchase_date", label: "Ngày mua" },
         { key: "warranty_end_date", label: "Hết bảo hành" },
+        { key: "installed_at", label: "Ngày lắp" },
+        { key: "slot_name", label: "Vị trí / khe" },
         { key: "note", label: "Ghi chú" },
       ],
-      rows: (data ?? []).map((asset) => {
-        const { departments, ...fields } = asset;
-        const department = Array.isArray(asset.departments)
-          ? asset.departments[0]?.name
-          : (asset.departments as { name?: string } | null)?.name;
-        return {
-          ...fields,
-          department: department || asset.department_legacy_name,
-          status_label: labelStatus(asset.status),
-        };
-      }),
+      rows,
     };
   }
 

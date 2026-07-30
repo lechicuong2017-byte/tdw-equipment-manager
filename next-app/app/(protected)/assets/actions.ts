@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireAccess } from "@/lib/auth";
+import { can, requireAccess } from "@/lib/auth";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
@@ -25,6 +25,7 @@ const optionalUuid = z.preprocess(
 
 const assetSchema = z.object({
   id: z.preprocess(emptyToNull, z.uuid().nullable()),
+  asset_kind: z.enum(["DEVICE", "COMPONENT"]),
   asset_code: z.string().trim().min(1, "Mã thiết bị là bắt buộc").max(80),
   asset_name: z.string().trim().min(1, "Tên thiết bị là bắt buộc").max(200),
   asset_group: z.string().trim().max(120),
@@ -129,6 +130,134 @@ export async function archiveAsset(formData: FormData) {
     revalidatePath("/assets");
     redirect("/assets");
   }
+}
+
+const componentStatus = z.enum([
+  "CON_SU_DUNG",
+  "MOI_100",
+  "KEM_PHAM_CHAT",
+  "CAN_KIEM_TRA",
+  "KHONG_SU_DUNG",
+  "LUU_KHO_THANH_LY",
+]);
+
+const componentLinkSchema = z.object({
+  host_asset_id: z.uuid(),
+  component_asset_id: z.uuid(),
+  installed_at: z.iso.date("Ngày lắp không hợp lệ"),
+  slot_name: z.string().trim().max(120),
+  note: z.string().trim().max(1000),
+});
+
+function componentRedirect(
+  assetId: string,
+  state: "installed" | "removed" | "replaced" | "error",
+) {
+  redirect(`/assets/${assetId}?component_status=${state}`);
+}
+
+export async function installAssetComponent(formData: FormData) {
+  const parsed = componentLinkSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    const hostId = z.uuid().safeParse(formData.get("host_asset_id"));
+    if (hostId.success) componentRedirect(hostId.data, "error");
+    return;
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "assets.manage")) {
+    componentRedirect(parsed.data.host_asset_id, "error");
+  }
+  const { error } = await supabase.rpc("install_asset_component", {
+    target_host_asset_id: parsed.data.host_asset_id,
+    target_component_asset_id: parsed.data.component_asset_id,
+    target_installed_at: parsed.data.installed_at,
+    target_slot_name: parsed.data.slot_name,
+    target_note: parsed.data.note,
+  });
+  if (error) componentRedirect(parsed.data.host_asset_id, "error");
+
+  revalidatePath("/assets");
+  revalidatePath(`/assets/${parsed.data.host_asset_id}`);
+  revalidatePath(`/assets/${parsed.data.component_asset_id}`);
+  componentRedirect(parsed.data.host_asset_id, "installed");
+}
+
+const removeComponentSchema = z.object({
+  host_asset_id: z.uuid(),
+  component_asset_id: z.uuid(),
+  installation_id: z.uuid(),
+  removed_at: z.iso.date("Ngày tháo không hợp lệ"),
+  removal_reason: z.string().trim().min(1).max(300),
+  removal_note: z.string().trim().max(1000),
+  component_status: componentStatus,
+});
+
+export async function removeAssetComponent(formData: FormData) {
+  const parsed = removeComponentSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    const hostId = z.uuid().safeParse(formData.get("host_asset_id"));
+    if (hostId.success) componentRedirect(hostId.data, "error");
+    return;
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "assets.manage")) {
+    componentRedirect(parsed.data.host_asset_id, "error");
+  }
+  const { error } = await supabase.rpc("remove_asset_component", {
+    target_installation_id: parsed.data.installation_id,
+    target_removed_at: parsed.data.removed_at,
+    target_removal_reason: parsed.data.removal_reason,
+    target_removal_note: parsed.data.removal_note,
+    target_component_status: parsed.data.component_status,
+  });
+  if (error) componentRedirect(parsed.data.host_asset_id, "error");
+
+  revalidatePath("/assets");
+  revalidatePath(`/assets/${parsed.data.host_asset_id}`);
+  revalidatePath(`/assets/${parsed.data.component_asset_id}`);
+  componentRedirect(parsed.data.host_asset_id, "removed");
+}
+
+const replaceComponentSchema = z.object({
+  host_asset_id: z.uuid(),
+  old_component_asset_id: z.uuid(),
+  installation_id: z.uuid(),
+  new_component_asset_id: z.uuid(),
+  changed_at: z.iso.date("Ngày thay không hợp lệ"),
+  slot_name: z.string().trim().max(120),
+  note: z.string().trim().max(1000),
+  old_component_status: componentStatus,
+});
+
+export async function replaceAssetComponent(formData: FormData) {
+  const parsed = replaceComponentSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    const hostId = z.uuid().safeParse(formData.get("host_asset_id"));
+    if (hostId.success) componentRedirect(hostId.data, "error");
+    return;
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "assets.manage")) {
+    componentRedirect(parsed.data.host_asset_id, "error");
+  }
+  const { error } = await supabase.rpc("replace_asset_component", {
+    target_installation_id: parsed.data.installation_id,
+    target_new_component_asset_id: parsed.data.new_component_asset_id,
+    target_changed_at: parsed.data.changed_at,
+    target_slot_name: parsed.data.slot_name,
+    target_note: parsed.data.note,
+    target_old_component_status: parsed.data.old_component_status,
+  });
+  if (error) componentRedirect(parsed.data.host_asset_id, "error");
+
+  revalidatePath("/assets");
+  revalidatePath(`/assets/${parsed.data.host_asset_id}`);
+  revalidatePath(`/assets/${parsed.data.old_component_asset_id}`);
+  revalidatePath(`/assets/${parsed.data.new_component_asset_id}`);
+  componentRedirect(parsed.data.host_asset_id, "replaced");
 }
 
 const mediaSchema = z.object({
