@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useRef, useState } from "react";
+import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
+import { getSupabaseEnv } from "@/lib/env";
 
 type PageState = "loading" | "ready" | "invalid";
 
 export default function AuthSetPasswordPage() {
+  const clientRef = useRef<SupabaseClient | null>(null);
   const [pageState, setPageState] = useState<PageState>("loading");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -31,7 +36,15 @@ export default function AuthSetPasswordPage() {
         return;
       }
 
-      const supabase = createClient();
+      const { url, publishableKey } = getSupabaseEnv();
+      const supabase = createSupabaseClient(url, publishableKey, {
+        auth: {
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: false,
+        },
+      });
+      clientRef.current = supabase;
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
@@ -60,7 +73,11 @@ export default function AuthSetPasswordPage() {
     }
 
     setPending(true);
-    const supabase = createClient();
+    const supabase = clientRef.current;
+    if (!supabase) {
+      setError("Phiên đặt mật khẩu chưa sẵn sàng.");
+      return;
+    }
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
       setError("Không thể đặt mật khẩu. Liên kết có thể đã hết hạn.");
@@ -68,7 +85,8 @@ export default function AuthSetPasswordPage() {
       return;
     }
 
-    window.location.replace("/mfa");
+    await supabase.auth.signOut({ scope: "local" });
+    window.location.replace("/login?status=password-set");
   }
 
   return (
