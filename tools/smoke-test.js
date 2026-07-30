@@ -202,6 +202,8 @@ async function run() {
   assert.ok(appsScript.includes("TDW_REPORT_FILE_LEDGER"));
   assert.ok(appsScript.includes("spreadsheetFile.setTrashed(true)"));
   assert.ok(!appsScript.includes("DocumentApp.create"));
+  assert.ok(!appsScript.includes("Session.getEffectiveUser"));
+  assert.ok(appsScript.includes("file.getAccess(email) === DriveApp.Permission.NONE"));
   assert.ok(appsScript.includes('"sendSupabaseMaintenanceReminders"'));
   assert.ok(appsScript.includes("function sendSupabaseMaintenanceReminders_(payload)"));
   assert.ok(recordScopeMigration.includes("create table public.data_access_scopes"));

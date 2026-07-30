@@ -935,10 +935,9 @@ function safeDriveFileName_(value) {
 
 function shareExportFileWithRequester_(file, requestedBy) {
   const email = normalizeEmail_(requestedBy || "");
-  const ownerEmail = String(Session.getEffectiveUser().getEmail() || "")
-    .trim()
-    .toLowerCase();
-  if (email && email !== ownerEmail) file.addViewer(email);
+  if (email && file.getAccess(email) === DriveApp.Permission.NONE) {
+    file.addViewer(email);
+  }
 }
 
 function getReportFileLedgerEntry_(jobId) {
