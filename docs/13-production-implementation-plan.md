@@ -1,6 +1,6 @@
 # Kế hoạch triển khai kiến trúc Next.js + Supabase trên production
 
-Ngày cập nhật: 2026-07-29  
+Ngày cập nhật: 2026-07-30
 Quyết định vận hành: triển khai trực tiếp trên bản chính; người dùng xác nhận đã có backup.
 
 ## 1. Trạng thái sau rà soát
@@ -8,7 +8,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Hạng mục | Trạng thái | Ghi chú |
 |---|---|---|
 | Next.js App Router, SSR, Zod | Đã có nền | Build và typecheck đạt |
-| Supabase PostgreSQL | Đã có migration | Chưa có bằng chứng đã áp lên project production |
+| Supabase PostgreSQL | Đã áp production | Migration `001`, `002`, `003` đã chạy trên project production |
 | Supabase Auth SSR | Đã có | Login, callback, MFA và bảo vệ route |
 | RLS theo permission | Đã có | Migration `001` |
 | RLS theo từng bản ghi | Đã bổ sung | Migration `002`: all/department/assigned/owned |
@@ -22,8 +22,8 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Google Docs/Gmail theo kiến trúc mới | Chưa hoàn tất | Chưa có job ký số lấy dữ liệu từ Supabase |
 | Migration dữ liệu | Đã có phần nghiệp vụ chính | Import phòng ban, settings, assets, maintenance logs, movements và software; chưa có plans/responsibles/media |
 | Migration ảnh Drive | Chưa có | Cần job riêng, checksum và đối soát object |
-| Test RLS live | Chưa có bằng chứng | Phải chạy bằng JWT thật trên Supabase production trước khi mở user |
-| Deployment | Vẫn là frontend cũ | `vercel.json` gốc vẫn route vào `app/` |
+| Test RLS live | Đã đạt | JWT thật cho admin AAL1, manager, user, viewer và anonymous; xem `docs/15-supabase-production-security-evidence.md` |
+| Deployment | Đã chuyển sang Next.js | Frontend production hiện chạy Next.js trên Vercel |
 
 ## 2. Kiến trúc vận hành bắt buộc
 
@@ -64,11 +64,12 @@ Nguyên tắc:
 
 ### Cổng 1 — Database/Auth
 
-1. Áp lần lượt migration `001`, rồi `002`.
-2. Tắt public sign-up; chỉ cho phép invite.
-3. Tạo/gán admin đầu tiên và hoàn tất MFA AAL2.
-4. Chạy ma trận `docs/12-supabase-security-test-matrix.md` bằng tài khoản test không chứa dữ liệu thật.
-5. Xác nhận viewer không có scope không thấy bản ghi; user chỉ thấy asset được gán; manager thấy các module có permission; admin AAL1 bị chặn.
+1. [x] Áp migration `001`, `002`, `003`.
+2. [x] Tắt public sign-up; chỉ cho phép invite.
+3. [x] Tạo/gán admin đầu tiên và hoàn tất MFA AAL2.
+4. [x] Chạy phần Auth/RLS/Storage của ma trận `docs/12-supabase-security-test-matrix.md` bằng tài khoản test không chứa dữ liệu thật.
+5. [x] Xác nhận viewer không có scope không thấy bản ghi; user chỉ thấy asset được gán; manager có quyền theo role/scope; admin AAL1 bị chặn.
+6. [x] Security Advisor không có lỗi; 24 cảnh báo `SECURITY DEFINER` đã được ghi nhận để rà soát tiếp.
 
 ### Cổng 2 — Dữ liệu
 
@@ -99,7 +100,7 @@ Nguyên tắc:
 
 - Hoàn tất import/reconcile cho plans, responsibles, notification logs và media.
 - Viết job chuyển ảnh Drive sang Storage kèm checksum.
-- Chạy test RLS/Auth/Storage bằng JWT thật.
+- ~~Chạy test RLS/Auth/Storage bằng JWT thật.~~ Hoàn tất ngày 2026-07-30.
 - Hoàn tất UI bảo trì, luân chuyển và phần mềm nếu các module này phải dùng ngay ngày cutover.
 - Thay deployment root từ frontend cũ sang Next.js.
 
@@ -130,7 +131,8 @@ Nguyên tắc:
 
 ## 6. Giới hạn bằng chứng hiện tại
 
-- Build, TypeScript, smoke test và cú pháp hai migration đã được kiểm tra local.
-- Migration chưa được áp vào Supabase production trong phiên rà soát này.
+- Build, TypeScript, smoke test và cú pháp ba migration đã được kiểm tra local.
+- Migration `001`, `002`, `003` và test JWT live đã được xác minh trên production; bằng chứng không chứa token hoặc mật khẩu.
+- Security Advisor có 0 lỗi và 24 cảnh báo. Phần lớn liên quan các hàm `SECURITY DEFINER`; chưa được diễn giải thành “không có rủi ro” và vẫn cần rà soát quyền `EXECUTE`.
 - Socket snapshot của hệ điều hành không đủ để chứng minh không có upload/egress; cần proxy, firewall hoặc network log được tổ chức phê duyệt để đưa ra kết luận đó.
 - Việc “đã có backup” chưa đồng nghĩa backup đã restore thành công; trạng thái restore cần được xác nhận riêng trước thao tác không thể đảo ngược.

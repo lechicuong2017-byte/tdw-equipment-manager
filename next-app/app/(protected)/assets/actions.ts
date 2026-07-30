@@ -90,14 +90,10 @@ export async function archiveAsset(formData: FormData) {
   const id = z.uuid().safeParse(formData.get("id"));
   if (!id.success) return;
 
-  const { supabase, access } = await requireAccess();
-  const { error } = await supabase
-    .from("assets")
-    .update({
-      deleted_at: new Date().toISOString(),
-      deleted_by: access.user_id,
-    })
-    .eq("id", id.data);
+  const { supabase } = await requireAccess();
+  const { error } = await supabase.rpc("archive_asset", {
+    target_asset_id: id.data,
+  });
 
   if (!error) {
     revalidatePath("/dashboard");
