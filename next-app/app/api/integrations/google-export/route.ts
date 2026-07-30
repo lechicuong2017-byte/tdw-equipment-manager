@@ -143,7 +143,13 @@ export async function POST(request: Request) {
       url: result.spreadsheet_url,
       row_count: result.row_count,
     });
-  } catch {
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.message.slice(0, 500) : "Unknown export error";
+    console.error("google_export_failed", {
+      job_id: job.id,
+      reason,
+    });
     await markFailed(supabase, job.id, "Tích hợp Google không phản hồi hợp lệ");
     return NextResponse.json(
       { error: "Không thể tạo Google Sheet. Vui lòng thử lại." },
