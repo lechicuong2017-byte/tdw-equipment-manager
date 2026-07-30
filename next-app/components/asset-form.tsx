@@ -209,7 +209,13 @@ export function AssetForm({
       {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
       <div className="form-actions">
         <button className="primary-button" disabled={pending} type="submit">
-          {pending ? "Đang lưu…" : asset ? "Lưu thay đổi" : "Tạo thiết bị"}
+          {pending
+            ? "Đang lưu…"
+            : asset
+              ? "Lưu thay đổi"
+              : defaultKind === "COMPONENT"
+                ? "Tạo linh kiện"
+                : "Tạo thiết bị"}
         </button>
       </div>
     </form>

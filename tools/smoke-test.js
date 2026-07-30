@@ -120,7 +120,9 @@ async function run() {
   const nextAuditPage = read("next-app/app/(protected)/admin/audit/page.tsx");
   const nextAssetDetailPage = read("next-app/app/(protected)/assets/[id]/page.tsx");
   const nextAssetsPage = read("next-app/app/(protected)/assets/page.tsx");
+  const nextNewAssetPage = read("next-app/app/(protected)/assets/new/page.tsx");
   const nextDashboardPage = read("next-app/app/(protected)/dashboard/page.tsx");
+  const nextAssetForm = read("next-app/components/asset-form.tsx");
   const nextReportsPage = read("next-app/app/(protected)/reports/page.tsx");
   const assetQrCard = read("next-app/components/asset-qr-card.tsx");
   const assetQrLabels = read("next-app/components/asset-qr-labels.tsx");
@@ -281,6 +283,8 @@ async function run() {
   assert.ok(nextAssetsPage.includes('name="kind"'));
   assert.ok(nextAssetsPage.includes('query.eq("asset_kind", kind)'));
   assert.ok(nextAssetsPage.includes('/assets/new?kind=component'));
+  assert.ok(nextNewAssetPage.includes('title={isComponent ? "Thêm linh kiện" : "Thêm thiết bị"}'));
+  assert.ok(nextAssetForm.includes('? "Tạo linh kiện"'));
   assert.ok(nextDashboardPage.includes("Linh kiện đang lắp"));
   assert.ok(nextDashboardPage.includes("Linh kiện đang rời"));
   assert.ok(nextDashboardPage.includes('/assets/new?kind=component'));
