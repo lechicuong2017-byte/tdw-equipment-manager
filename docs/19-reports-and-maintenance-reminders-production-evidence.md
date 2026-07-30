@@ -34,9 +34,12 @@ Ngày triển khai: 2026-07-30
 ## Vercel production
 
 - Đã thêm `CRON_SECRET` dạng Sensitive, chỉ cho môi trường Production.
+- Đã thay giá trị `SUPABASE_SERVICE_ROLE_KEY` cũ không còn hợp lệ bằng Secret
+  API key hiện hành của đúng Supabase project; không ghi giá trị vào source,
+  log hoặc tài liệu.
 - `vercel.json` khai báo lịch `0 1 * * *`.
 - Route cron dùng so sánh cố định thời gian và từ chối khi không có secret.
-- Thay đổi biến môi trường có hiệu lực từ deployment kế tiếp.
+- Đã redeploy production với cấu hình mới; deployment ở trạng thái `Ready`.
 
 ## Kiểm thử trước deployment
 
@@ -47,6 +50,20 @@ Ngày triển khai: 2026-07-30
 - `npm run next:build`: đạt.
 - `git diff --check`: đạt.
 - Smoke test Apps Script sử dụng MailApp giả lập, không gửi email thật.
+
+## Kiểm tra production bằng Chrome
+
+- Route `/api/jobs/maintenance-reminders` không có Authorization trả `401`
+  trong Vercel Runtime Logs.
+- Trang Báo cáo hiển thị đủ 4 loại.
+- Đã tạo thành công Google Sheets cho báo cáo bảo trì, luân chuyển và phần mềm.
+  Mỗi báo cáo có 0 dòng, phù hợp dữ liệu nguồn hiện tại.
+- Nút `Gửi nhắc bảo trì` trả kết quả:
+  `Không có email mới cần gửi. Đã kiểm tra 0 kế hoạch.`
+- Form sửa thiết bị của Admin hiển thị người phụ trách chính và người phối hợp;
+  chỉ profile đang hoạt động có email xuất hiện.
+- Không gửi email Gmail thật trong lần kiểm tra vì production chưa có kế hoạch
+  bảo trì hay người phụ trách được gán.
 
 ## Giới hạn bằng chứng
 
