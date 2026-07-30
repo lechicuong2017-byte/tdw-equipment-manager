@@ -8,14 +8,14 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Hạng mục | Trạng thái | Ghi chú |
 |---|---|---|
 | Next.js App Router, SSR, Zod | Đã có nền | Build và typecheck đạt |
-| Supabase PostgreSQL | Đã áp production | Migration `001` đến `010` đã chạy trên project production |
+| Supabase PostgreSQL | Đã áp production | Migration `001` đến `012` đã chạy trên project production |
 | Supabase Auth SSR | Đã có | Login, callback, MFA và bảo vệ route |
 | RLS theo permission | Đã có | Migration `001` |
 | RLS theo từng bản ghi | Đã bổ sung | Migration `002`: all/department/assigned/owned |
 | Supabase Storage private | Đã bổ sung | Quyền object gắn với metadata và asset tương ứng |
 | Quản trị user | Đã bổ sung nền | Invite Auth, role, active, MFA và data scope |
 | Thiết bị và dashboard | Đã có luồng chính | Query/phân trang server, CRUD, soft delete, media |
-| Linh kiện bên trong thiết bị | Đã triển khai | Migration `011`, lịch sử gắn/tháo/thay, RLS, UI hồ sơ và báo cáo phân cấp |
+| Linh kiện bên trong thiết bị | Đã triển khai | Migration `011`–`012`, lịch sử gắn/tháo/thay, RLS, UI hồ sơ, bộ lọc, Dashboard và báo cáo phân cấp |
 | Cache | Đã có mức an toàn ban đầu | Auth/access được memoize trong cùng request; không cache chéo user |
 | Apps Script export | Đã có | Báo cáo thiết bị, bảo trì, luân chuyển và phần mềm; request HMAC, timestamp, nonce, chống formula injection |
 | Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
@@ -123,6 +123,16 @@ Nguyên tắc:
 5. [x] Bổ sung cấu hình hiện tại và lịch sử thay thế trong hồ sơ thiết bị/linh kiện.
 6. [x] Đưa linh kiện vào báo cáo thiết bị ngay sau thiết bị chính, kèm ngày lắp và vị trí/khe.
 7. [x] Vercel production commit `a0be283` đạt Success; Chrome xác nhận UI và tạo XLSX 72 dòng thành công.
+
+### Cổng 8 — Vận hành danh mục linh kiện
+
+1. [x] Bổ sung hành động `Thêm linh kiện` riêng tại Dashboard và danh sách tài sản.
+2. [x] Bổ sung bộ lọc `Thiết bị hoàn chỉnh` / `Linh kiện bên trong`, giữ điều kiện lọc khi chuyển trang.
+3. [x] Bổ sung Dashboard tách số thiết bị, tổng linh kiện, linh kiện đang lắp và linh kiện đang rời.
+4. [x] Giữ hàm thống kê ở chế độ `security invoker` để số liệu tiếp tục tuân thủ RLS của người đăng nhập.
+5. [x] Áp migration `012` lên Supabase production; xác minh 72 thiết bị, 0 linh kiện, 0 đang lắp và 0 đang rời tại thời điểm kiểm tra.
+6. [x] Biểu mẫu mở từ `Thêm linh kiện` chọn sẵn đúng phân loại, tiêu đề và nút tạo đều dùng từ `linh kiện`.
+7. [x] Vercel production commit `fcc01d1` đạt Success; Chrome xác nhận Dashboard, bộ lọc và biểu mẫu trên trang thật.
 
 ## 4. Backlog theo thứ tự ưu tiên
 
