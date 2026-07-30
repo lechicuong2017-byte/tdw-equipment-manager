@@ -1,16 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  createClient as createSupabaseClient,
-  type SupabaseClient,
-} from "@supabase/supabase-js";
 import { getSupabaseEnv } from "@/lib/env";
 
 type PageState = "loading" | "ready" | "invalid";
 
 export default function AuthSetPasswordPage() {
-  const clientRef = useRef<SupabaseClient | null>(null);
+  const accessTokenRef = useRef<string | null>(null);
   const [pageState, setPageState] = useState<PageState>("loading");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -20,10 +16,10 @@ export default function AuthSetPasswordPage() {
   useEffect(() => {
     let active = true;
 
-    async function prepareSession() {
+    function prepareRecovery() {
       const params = new URLSearchParams(window.location.hash.slice(1));
       const accessToken = params.get("access_token");
-      const refreshToken = params.get("refresh_token");
+      const expiresAt = Number(params.get("expires_at"));
 
       window.history.replaceState(
         {},
@@ -31,29 +27,19 @@ export default function AuthSetPasswordPage() {
         `${window.location.pathname}${window.location.search}`,
       );
 
-      if (!accessToken || !refreshToken) {
+      if (
+        !accessToken
+        || (Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt <= Date.now() / 1000)
+      ) {
         if (active) setPageState("invalid");
         return;
       }
 
-      const { url, publishableKey } = getSupabaseEnv();
-      const supabase = createSupabaseClient(url, publishableKey, {
-        auth: {
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-          persistSession: false,
-        },
-      });
-      clientRef.current = supabase;
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      if (!active) return;
-      setPageState(sessionError ? "invalid" : "ready");
+      accessTokenRef.current = accessToken;
+      if (active) setPageState("ready");
     }
 
-    prepareSession();
+    prepareRecovery();
     return () => {
       active = false;
     };
@@ -73,19 +59,39 @@ export default function AuthSetPasswordPage() {
     }
 
     setPending(true);
-    const supabase = clientRef.current;
-    if (!supabase) {
+    const accessToken = accessTokenRef.current;
+    if (!accessToken) {
       setError("Phiên đặt mật khẩu chưa sẵn sàng.");
+      setPending(false);
       return;
     }
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    if (updateError) {
+
+    const { url, publishableKey } = getSupabaseEnv();
+    let response: Response;
+    try {
+      response = await fetch(`${url}/auth/v1/user`, {
+        method: "PUT",
+        headers: {
+          apikey: publishableKey,
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      setError("Không thể kết nối tới dịch vụ xác thực. Hãy thử lại.");
+      setPending(false);
+      return;
+    }
+
+    if (!response.ok) {
       setError("Không thể đặt mật khẩu. Liên kết có thể đã hết hạn.");
       setPending(false);
       return;
     }
 
-    await supabase.auth.signOut({ scope: "local" });
+    accessTokenRef.current = null;
     window.location.replace("/login?status=password-set");
   }
 
