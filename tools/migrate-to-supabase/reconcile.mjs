@@ -1,4 +1,5 @@
 import {
+  assetUnitPrice,
   numberValue,
   printSummary,
   readCsv,
@@ -11,6 +12,20 @@ const sourceDepartments = await readCsv("Departments.csv");
 const sourceMaintenance = await readCsv("MaintenanceLogs.csv");
 const sourceMovements = await readCsv("InventoryMovements.csv");
 const sourceSoftware = await readCsv("SoftwareLicenses.csv");
+
+const expectedDepartmentNames = new Set(
+  [
+    ...sourceDepartments.map((row) => row.department_name),
+    ...sourceAssets.map((row) => row.department),
+  ]
+    .map((value) => String(value || "").trim().toLocaleLowerCase("vi"))
+    .filter(Boolean),
+);
+const expectedSettings = sourceSettings.filter(
+  (row) =>
+    String(row.setting_type || "").trim()
+    && String(row.setting_value || "").trim(),
+);
 
 const [
   { data: targetAssets },
@@ -48,8 +63,7 @@ const unexpectedAssetCodes = [...targetAssetCodes].filter(
 const sourceAssetValue = sourceAssets.reduce(
   (sum, row) =>
     sum +
-    Math.max(1, numberValue(row.quantity, 1)) *
-      Math.max(0, numberValue(row.unit_price, 0)),
+    Math.max(1, numberValue(row.quantity, 1)) * assetUnitPrice(row),
   0,
 );
 const targetAssetValue = (targetAssets ?? []).reduce(
@@ -65,11 +79,12 @@ const result = {
       target: targetAssets?.length ?? 0,
     },
     settings: {
-      source: sourceSettings.length,
+      source: expectedSettings.length,
       target: targetSettings?.length ?? 0,
     },
     departments: {
       explicit_source: sourceDepartments.length,
+      source_including_derived: expectedDepartmentNames.size,
       target_including_derived: targetDepartments?.length ?? 0,
     },
     maintenance_logs: {
@@ -96,6 +111,9 @@ const result = {
 
 result.passed =
   result.counts.assets.source === result.counts.assets.target &&
+  result.counts.settings.source === result.counts.settings.target &&
+  result.counts.departments.source_including_derived ===
+    result.counts.departments.target_including_derived &&
   result.counts.maintenance_logs.source ===
     result.counts.maintenance_logs.target &&
   result.counts.inventory_movements.source ===

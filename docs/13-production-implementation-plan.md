@@ -8,7 +8,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Hạng mục | Trạng thái | Ghi chú |
 |---|---|---|
 | Next.js App Router, SSR, Zod | Đã có nền | Build và typecheck đạt |
-| Supabase PostgreSQL | Đã áp production | Migration `001`, `002`, `003` đã chạy trên project production |
+| Supabase PostgreSQL | Đã áp production | Migration `001` đến `005` đã chạy trên project production |
 | Supabase Auth SSR | Đã có | Login, callback, MFA và bảo vệ route |
 | RLS theo permission | Đã có | Migration `001` |
 | RLS theo từng bản ghi | Đã bổ sung | Migration `002`: all/department/assigned/owned |
@@ -20,7 +20,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
 | Bảo trì, luân chuyển, phần mềm | Chưa hoàn tất UI | Hiện còn trang khung |
 | Google Docs/Gmail theo kiến trúc mới | Chưa hoàn tất | Chưa có job ký số lấy dữ liệu từ Supabase |
-| Migration dữ liệu | Đã có phần nghiệp vụ chính | Import phòng ban, settings, assets, maintenance logs, movements và software; chưa có plans/responsibles/media |
+| Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings và 72 assets đã đối soát; nguồn maintenance/movement/software đang rỗng, chưa có plans/responsibles/media |
 | Migration ảnh Drive | Chưa có | Cần job riêng, checksum và đối soát object |
 | Test RLS live | Đã đạt | JWT thật cho admin AAL1, manager, user, viewer và anonymous; xem `docs/15-supabase-production-security-evidence.md` |
 | Deployment | Đã chuyển sang Next.js | Frontend production hiện chạy Next.js trên Vercel |
@@ -64,7 +64,7 @@ Nguyên tắc:
 
 ### Cổng 1 — Database/Auth
 
-1. [x] Áp migration `001`, `002`, `003`.
+1. [x] Áp migration `001` đến `005`.
 2. [x] Tắt public sign-up; chỉ cho phép invite.
 3. [x] Tạo/gán admin đầu tiên và hoàn tất MFA AAL2.
 4. [x] Chạy phần Auth/RLS/Storage của ma trận `docs/12-supabase-security-test-matrix.md` bằng tài khoản test không chứa dữ liệu thật.
@@ -73,12 +73,12 @@ Nguyên tắc:
 
 ### Cổng 2 — Dữ liệu
 
-1. Đặt hệ thống Sheets cũ ở cửa sổ bảo trì ngắn.
-2. Chạy `migration:dry-run`.
-3. Chạy `migration:apply` với cờ xác nhận.
-4. Mở rộng/chạy import cho maintenance, movement, software, responsibles và media trước khi mở các module tương ứng.
-5. Chạy `migration:reconcile`; chặn cutover nếu số lượng, mã thiết bị hoặc tổng giá trị lệch.
-6. Không xóa dữ liệu nguồn.
+1. [ ] Đặt hệ thống Sheets cũ ở cửa sổ bảo trì ngắn và lấy delta cuối trước cutover.
+2. [x] Chạy `migration:dry-run` với validation mã trùng, ngày, số lượng, giá, orphan và khóa tham chiếu.
+3. [x] Chạy `migration:apply` với cờ xác nhận cho snapshot hiện có.
+4. [ ] Mở rộng/chạy import cho maintenance, movement, software, plans, responsibles và media khi có dữ liệu nguồn.
+5. [x] Chạy `migration:reconcile`; 72 assets, 24 settings, 20 phòng ban và tổng giá trị đều khớp.
+6. [x] Không xóa dữ liệu nguồn.
 
 ### Cổng 3 — Apps Script
 
@@ -98,7 +98,7 @@ Nguyên tắc:
 
 ### P0 — Chặn cutover
 
-- Hoàn tất import/reconcile cho plans, responsibles, notification logs và media.
+- Hoàn tất import/reconcile cho maintenance, movement, software, plans, responsibles, notification logs và media khi nguồn có dữ liệu.
 - Viết job chuyển ảnh Drive sang Storage kèm checksum.
 - ~~Chạy test RLS/Auth/Storage bằng JWT thật.~~ Hoàn tất ngày 2026-07-30.
 - Hoàn tất UI bảo trì, luân chuyển và phần mềm nếu các module này phải dùng ngay ngày cutover.
@@ -131,8 +131,8 @@ Nguyên tắc:
 
 ## 6. Giới hạn bằng chứng hiện tại
 
-- Build, TypeScript, smoke test và cú pháp ba migration đã được kiểm tra local.
-- Migration `001`, `002`, `003` và test JWT live đã được xác minh trên production; bằng chứng không chứa token hoặc mật khẩu.
+- Build, TypeScript, smoke test và cú pháp năm migration đã được kiểm tra local.
+- Migration `001` đến `005`, test JWT live và import nền đã được xác minh trên production; bằng chứng trong Git không chứa token hoặc mật khẩu.
 - Security Advisor có 0 lỗi và 24 cảnh báo. Phần lớn liên quan các hàm `SECURITY DEFINER`; chưa được diễn giải thành “không có rủi ro” và vẫn cần rà soát quyền `EXECUTE`.
 - Socket snapshot của hệ điều hành không đủ để chứng minh không có upload/egress; cần proxy, firewall hoặc network log được tổ chức phê duyệt để đưa ra kết luận đó.
 - Việc “đã có backup” chưa đồng nghĩa backup đã restore thành công; trạng thái restore cần được xác nhận riêng trước thao tác không thể đảo ngược.

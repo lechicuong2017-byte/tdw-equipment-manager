@@ -21,6 +21,10 @@ npm run migration:apply
 
 Không truyền secret trong nội dung ticket, chat hoặc commit.
 
+Biến `SUPABASE_SERVICE_ROLE_KEY` nên chứa secret API key mới dạng
+`sb_secret_...`. Công cụ vẫn nhận JWT service-role legacy để phục vụ chuyển đổi,
+nhưng không nên tạo hoặc bật lại legacy API keys.
+
 ## 3. Đối soát
 
 ```bash
@@ -39,6 +43,9 @@ npm run migration:reconcile
 - số log bảo trì;
 - số dòng luân chuyển;
 - số bản quyền phần mềm.
+
+Lệnh đối soát trả mã lỗi nếu số lượng bắt buộc, mã thiết bị hoặc tổng giá trị
+không khớp.
 
 Tài khoản Auth và ảnh Drive không được tự động nhập bởi công cụ nền này.
 

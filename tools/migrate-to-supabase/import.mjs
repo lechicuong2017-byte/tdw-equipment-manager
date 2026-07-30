@@ -1,4 +1,5 @@
 import {
+  assetUnitPrice,
   booleanValue,
   dateValue,
   importDirectory,
@@ -75,6 +76,220 @@ const settings = sourceSettings
     active: booleanValue(row.active, true),
   }));
 
+function normalized(value) {
+  return String(value ?? "").trim().toLocaleLowerCase("vi");
+}
+
+function duplicateRows(rows, selector) {
+  const indexesByValue = new Map();
+  rows.forEach((row, index) => {
+    const value = normalized(selector(row));
+    if (!value) return;
+    const indexes = indexesByValue.get(value) ?? [];
+    indexes.push(index + 2);
+    indexesByValue.set(value, indexes);
+  });
+  return [...indexesByValue.values()].filter((indexes) => indexes.length > 1);
+}
+
+function invalidOptionalDateRows(rows, fields) {
+  const invalid = [];
+  rows.forEach((row, index) => {
+    for (const field of fields) {
+      if (nullable(row[field]) && !dateValue(row[field])) {
+        invalid.push({ row: index + 2, field });
+      }
+    }
+  });
+  return invalid;
+}
+
+const validationErrors = [];
+const validationWarnings = [];
+const invalidAssetIdentityRows = sourceAssets
+  .map((row, index) => ({
+    row: index + 2,
+    valid: Boolean(nullable(row.asset_code) && nullable(row.asset_name)),
+  }))
+  .filter((item) => !item.valid)
+  .map((item) => item.row);
+const duplicateAssetCodeRows = duplicateRows(
+  sourceAssets,
+  (row) => row.asset_code,
+);
+const duplicateAssetLegacyIdRows = duplicateRows(
+  sourceAssets,
+  (row) => row.asset_id,
+);
+const invalidAssetDateRows = invalidOptionalDateRows(sourceAssets, [
+  "purchase_date",
+  "warranty_until",
+  "last_maintenance_date",
+  "next_check_date",
+]);
+const invalidAssetQuantityRows = sourceAssets
+  .map((row, index) => ({
+    row: index + 2,
+    value: nullable(row.quantity),
+  }))
+  .filter((item) =>
+    item.value !== null
+    && (!Number.isInteger(Number(item.value)) || Number(item.value) < 1)
+  )
+  .map((item) => item.row);
+const invalidAssetPriceRows = sourceAssets
+  .map((row, index) => ({
+    row: index + 2,
+    value: nullable(row.unit_price),
+  }))
+  .filter((item) => {
+    if (item.value === null) return false;
+    const parsed = numberValue(item.value, Number.NaN);
+    return !Number.isFinite(parsed) || parsed < 0;
+  })
+  .map((item) => item.row);
+const assetTotalMismatchRows = sourceAssets
+  .map((row, index) => {
+    const sourceTotal = nullable(row.total_price);
+    if (sourceTotal === null) return null;
+    const expected =
+      Math.max(1, integerValue(row.quantity, 1)) * assetUnitPrice(row);
+    const actual = numberValue(sourceTotal, Number.NaN);
+    return Number.isFinite(actual) && Math.abs(actual - expected) < 0.01
+      ? null
+      : index + 2;
+  })
+  .filter(Boolean);
+const derivedUnitPriceRows = sourceAssets
+  .map((row, index) => ({
+    row: index + 2,
+    derived:
+      numberValue(row.unit_price, 0) === 0
+      && numberValue(row.total_price, 0) > 0,
+  }))
+  .filter((item) => item.derived)
+  .map((item) => item.row);
+
+const invalidDepartmentRows = sourceDepartments
+  .map((row, index) => ({
+    row: index + 2,
+    valid: Boolean(nullable(row.department_name)),
+  }))
+  .filter((item) => !item.valid)
+  .map((item) => item.row);
+const duplicateDepartmentRows = duplicateRows(
+  sourceDepartments,
+  (row) => row.department_name,
+);
+const invalidSettingRows = sourceSettings
+  .map((row, index) => ({
+    row: index + 2,
+    valid: Boolean(
+      nullable(row.setting_type) && nullable(row.setting_value),
+    ),
+  }))
+  .filter((item) => !item.valid)
+  .map((item) => item.row);
+const duplicateSettingRows = duplicateRows(
+  sourceSettings,
+  (row) => `${row.setting_type}\u0000${row.setting_value}`,
+);
+
+const sourceAssetLegacyIds = new Set(
+  sourceAssets.map((row) => normalized(row.asset_id)).filter(Boolean),
+);
+const sourceAssetCodesForValidation = new Set(
+  sourceAssets.map((row) => normalized(row.asset_code)).filter(Boolean),
+);
+const sourceHasAsset = (legacyId, assetCode = "") =>
+  sourceAssetLegacyIds.has(normalized(legacyId))
+  || sourceAssetCodesForValidation.has(normalized(assetCode));
+const orphanMaintenanceRows = sourceMaintenanceLogs
+  .map((row, index) => ({
+    row: index + 2,
+    orphan: !sourceHasAsset(row.asset_id, row.asset_code),
+  }))
+  .filter((item) => item.orphan)
+  .map((item) => item.row);
+const invalidMaintenanceDateRows = sourceMaintenanceLogs
+  .map((row, index) => ({
+    row: index + 2,
+    invalid:
+      !dateValue(row.date || row.maintenance_date),
+  }))
+  .filter((item) => item.invalid)
+  .map((item) => item.row);
+const orphanMovementRows = sourceMovements
+  .map((row, index) => ({
+    row: index + 2,
+    orphan: !sourceHasAsset(row.asset_id, row.asset_code),
+  }))
+  .filter((item) => item.orphan)
+  .map((item) => item.row);
+const invalidMovementDateRows = sourceMovements
+  .map((row, index) => ({
+    row: index + 2,
+    invalid:
+      !nullable(row.movement_date) || !dateValue(row.movement_date),
+  }))
+  .filter((item) => item.invalid)
+  .map((item) => item.row);
+const orphanSoftwareRows = sourceSoftware
+  .map((row, index) => {
+    const hasAssignment =
+      nullable(row.assigned_asset_id)
+      || nullable(row.assigned_asset_code);
+    return {
+      row: index + 2,
+      orphan:
+        Boolean(hasAssignment)
+        && !sourceHasAsset(
+          row.assigned_asset_id,
+          row.assigned_asset_code,
+        ),
+    };
+  })
+  .filter((item) => item.orphan)
+  .map((item) => item.row);
+const invalidSoftwareExpiryRows = invalidOptionalDateRows(
+  sourceSoftware,
+  ["expiry_date"],
+);
+
+const validationGroups = [
+  ["Thiết bị thiếu mã hoặc tên", invalidAssetIdentityRows],
+  ["Mã thiết bị bị trùng", duplicateAssetCodeRows],
+  ["Legacy ID thiết bị bị trùng", duplicateAssetLegacyIdRows],
+  ["Ngày thiết bị không hợp lệ", invalidAssetDateRows],
+  ["Số lượng thiết bị không hợp lệ", invalidAssetQuantityRows],
+  ["Đơn giá thiết bị không hợp lệ", invalidAssetPriceRows],
+  ["Phòng ban thiếu tên", invalidDepartmentRows],
+  ["Tên phòng ban bị trùng", duplicateDepartmentRows],
+  ["Danh mục thiếu loại hoặc giá trị", invalidSettingRows],
+  ["Danh mục bị trùng", duplicateSettingRows],
+  ["Bảo trì tham chiếu asset không tồn tại", orphanMaintenanceRows],
+  ["Bảo trì thiếu ngày hợp lệ", invalidMaintenanceDateRows],
+  ["Luân chuyển tham chiếu asset không tồn tại", orphanMovementRows],
+  ["Luân chuyển thiếu ngày hợp lệ", invalidMovementDateRows],
+  ["Phần mềm tham chiếu asset không tồn tại", orphanSoftwareRows],
+  ["Ngày hết hạn phần mềm không hợp lệ", invalidSoftwareExpiryRows],
+];
+for (const [message, rows] of validationGroups) {
+  if (rows.length) {
+    validationErrors.push(`${message}: ${rows.length} nhóm/dòng`);
+  }
+}
+if (assetTotalMismatchRows.length) {
+  validationWarnings.push(
+    `Tổng giá trị nguồn lệch quantity * unit_price: ${assetTotalMismatchRows.length} dòng; PostgreSQL sẽ tính lại`,
+  );
+}
+if (derivedUnitPriceRows.length) {
+  validationWarnings.push(
+    `Suy ra unit_price từ total_price / quantity: ${derivedUnitPriceRows.length} dòng`,
+  );
+}
+
 const dryRunSummary = {
   mode: apply ? "apply" : "dry-run",
   source_directory: importDirectory,
@@ -85,6 +300,11 @@ const dryRunSummary = {
     maintenance_logs: sourceMaintenanceLogs.length,
     inventory_movements: sourceMovements.length,
     software_licenses: sourceSoftware.length,
+  },
+  validation: {
+    passed: validationErrors.length === 0,
+    errors: validationErrors,
+    warnings: validationWarnings,
   },
   warnings: [
     ...(sourceMaintenanceLogs.length
@@ -103,7 +323,14 @@ const dryRunSummary = {
 
 if (!apply) {
   printSummary(dryRunSummary);
-  process.exit(0);
+  if (!dryRunSummary.validation.passed) process.exitCode = 1;
+  process.exit();
+}
+
+if (!dryRunSummary.validation.passed) {
+  throw new Error(
+    `Dữ liệu nguồn không đạt validation: ${validationErrors.join("; ")}`,
+  );
 }
 
 if (process.env.TDW_MIGRATION_CONFIRM !== "APPLY_TO_SUPABASE") {
@@ -144,7 +371,7 @@ const assets = sourceAssets
       purchase_year: integerValue(row.purchase_year),
       purchase_date: dateValue(row.purchase_date),
       quantity: Math.max(1, integerValue(row.quantity, 1)),
-      unit_price: Math.max(0, numberValue(row.unit_price, 0)),
+      unit_price: assetUnitPrice(row),
       assigned_to_name: nullable(row.assigned_to) ?? "",
       department_id: departmentName
         ? departmentIdByName.get(departmentName.toLocaleLowerCase("vi")) ?? null

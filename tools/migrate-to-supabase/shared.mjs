@@ -90,6 +90,14 @@ export function integerValue(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+export function assetUnitPrice(row) {
+  const quantity = Math.max(1, integerValue(row.quantity, 1));
+  const unitPrice = Math.max(0, numberValue(row.unit_price, 0));
+  const totalPrice = Math.max(0, numberValue(row.total_price, 0));
+  if (unitPrice > 0 || totalPrice === 0) return unitPrice;
+  return Math.round((totalPrice / quantity) * 100) / 100;
+}
+
 export function booleanValue(value, fallback = true) {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (!normalized) return fallback;
@@ -137,11 +145,14 @@ export function requireMigrationEnv() {
 
 export async function supabaseRest(path, options = {}) {
   const { url, serviceRoleKey } = requireMigrationEnv();
+  const authorizationHeader = serviceRoleKey.startsWith("sb_secret_")
+    ? {}
+    : { Authorization: `Bearer ${serviceRoleKey}` };
   const response = await fetch(`${url}/rest/v1/${path}`, {
     method: options.method ?? "GET",
     headers: {
       apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
+      ...authorizationHeader,
       "Content-Type": "application/json",
       Prefer: options.prefer ?? "return=representation",
       ...options.headers,
