@@ -14,7 +14,15 @@
 
 ## QR va deep-link
 
-QR chua URL Vercel theo mau `/?asset=<asset_id>`. Neu chua dang nhap, user dang nhap truoc; sau do ung dung tu mo popup ho so dung thiet bi. QR khong chua serial, gia, bao hanh hay thong tin nguoi dung.
+QR chỉ chứa URL hồ sơ theo mẫu `/assets/<asset_id>`. URL được tạo từ origin hiện tại nên cùng mã nguồn có thể dùng đúng trên production, preview hoặc môi trường nội bộ mà không phải ghi cứng domain.
+
+- QR được tạo ngay trong trình duyệt bằng thư viện `qrcode`; ứng dụng không gọi dịch vụ tạo QR bên ngoài.
+- QR không chứa serial, giá, bảo hành, người sử dụng hoặc dữ liệu nghiệp vụ khác.
+- Khi chưa đăng nhập, middleware chuyển người dùng đến trang đăng nhập và giữ tham số `next` để quay lại đúng hồ sơ sau khi xác thực.
+- Trang chi tiết thiết bị cho phép tải PNG và in một tem có logo TDW.
+- Trang Báo cáo cho phép lọc theo nhóm, chọn từng thiết bị hoặc toàn bộ nhóm rồi in hàng loạt.
+- Hai bố cục in được hỗ trợ: A4 dàn nhiều tem và tem 100 × 70 mm, hai tem mỗi trang.
+- Dữ liệu danh sách QR được đọc bằng phiên Supabase hiện tại và chịu RLS; không dùng service-role key ở giao diện.
 
 ## Deploy
 
