@@ -707,6 +707,7 @@ function requireSignedIntegrationRequest_(body) {
   const payloadJson = String(body.payload_json || "");
   const signature = String(body.signature || "");
   if (!timestamp || !nonce || !payloadJson || !signature) throw new Error("Yêu cầu tích hợp không đầy đủ");
+  if (!Number.isFinite(timestamp) || !Number.isInteger(timestamp)) throw new Error("Timestamp không hợp lệ");
   if (Math.abs(Date.now() - timestamp) > 5 * 60 * 1000) throw new Error("Yêu cầu tích hợp đã hết hạn");
   if (!/^[a-zA-Z0-9_-]{16,120}$/.test(nonce)) throw new Error("Nonce không hợp lệ");
   if (payloadJson.length > 1500000) throw new Error("Dữ liệu xuất vượt quá giới hạn");
@@ -717,12 +718,42 @@ function requireSignedIntegrationRequest_(body) {
   ).replace(/=+$/g, "");
   if (!constantTimeEqual_(signature, expected)) throw new Error("Chữ ký tích hợp không hợp lệ");
 
-  const cache = CacheService.getScriptCache();
-  const nonceKey = `integration_nonce_${nonce}`;
-  if (cache.get(nonceKey)) throw new Error("Yêu cầu tích hợp đã được sử dụng");
-  cache.put(nonceKey, "1", 600);
+  claimIntegrationNonce_(properties, nonce, timestamp);
 
   return JSON.parse(payloadJson);
+}
+
+function claimIntegrationNonce_(properties, nonce, timestamp) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error("Không thể xác nhận yêu cầu tích hợp");
+
+  try {
+    const propertyName = "TDW_INTEGRATION_NONCE_LEDGER";
+    const now = Date.now();
+    const cutoff = now - 10 * 60 * 1000;
+    let previous = {};
+    try {
+      previous = JSON.parse(properties.getProperty(propertyName) || "{}");
+    } catch (_error) {
+      previous = {};
+    }
+
+    const activeEntries = Object.keys(previous)
+      .map((key) => [key, Number(previous[key] || 0)])
+      .filter((entry) => entry[1] >= cutoff && entry[1] <= now + 5 * 60 * 1000);
+    if (activeEntries.some((entry) => entry[0] === nonce)) {
+      throw new Error("Yêu cầu tích hợp đã được sử dụng");
+    }
+
+    activeEntries.push([nonce, timestamp]);
+    const ledger = {};
+    activeEntries.slice(-50).forEach((entry) => {
+      ledger[entry[0]] = entry[1];
+    });
+    properties.setProperty(propertyName, JSON.stringify(ledger));
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function exportSupabaseReport_(payload) {

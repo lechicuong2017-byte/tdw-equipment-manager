@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -272,6 +273,105 @@ async function run() {
     /đã ngừng hoạt động/,
   );
   assert.equal(vm.runInContext('constantTimeEqual_("same", "diff")', permissions), false);
+  const integrationSecret = "test-integration-secret-at-least-32-characters";
+  const integrationPayload = JSON.stringify({
+    report_type: "assets",
+    title: "Báo cáo kiểm thử",
+    requested_by: "admin@example.com",
+    columns: [{ key: "asset_name", label: "Tên thiết bị" }],
+    rows: [{ asset_name: "=HYPERLINK(\"https://example.test\")" }],
+  });
+  const integrationTimestamp = Date.now();
+  const integrationNonce = "0123456789abcdef0123456789abcdef";
+  const signIntegrationRequest = (timestamp, nonce, payloadJson) =>
+    crypto
+      .createHmac("sha256", integrationSecret)
+      .update(`${timestamp}.${nonce}.${payloadJson}`)
+      .digest("base64url");
+  permissions.computeHmacForTest = (canonical, secret) =>
+    Array.from(crypto.createHmac("sha256", secret).update(canonical).digest())
+      .map((byte) => (byte > 127 ? byte - 256 : byte));
+  permissions.base64WebSafeForTest = (bytes) =>
+    Buffer.from(Array.from(bytes, (byte) => (byte < 0 ? byte + 256 : byte)))
+      .toString("base64url");
+  permissions.integrationPropertiesForTest = {
+    TDW_NEXT_INTEGRATION_SECRET: integrationSecret,
+  };
+  permissions.integrationRequestForTest = {
+    timestamp: integrationTimestamp,
+    nonce: integrationNonce,
+    payload_json: integrationPayload,
+    signature: signIntegrationRequest(
+      integrationTimestamp,
+      integrationNonce,
+      integrationPayload,
+    ),
+  };
+  vm.runInContext(`
+    PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (name) => integrationPropertiesForTest[name] || "",
+        setProperty: (name, value) => {
+          integrationPropertiesForTest[name] = String(value);
+        }
+      })
+    };
+    Utilities = {
+      computeHmacSha256Signature: (canonical, secret) => computeHmacForTest(canonical, secret),
+      base64EncodeWebSafe: (bytes) => base64WebSafeForTest(bytes)
+    };
+    LockService = {
+      getScriptLock: () => ({
+        tryLock: () => true,
+        releaseLock: () => {}
+      })
+    };
+  `, permissions);
+  assert.equal(
+    vm.runInContext(
+      "requireSignedIntegrationRequest_(integrationRequestForTest).report_type",
+      permissions,
+    ),
+    "assets",
+  );
+  assert.throws(
+    () => vm.runInContext(
+      "requireSignedIntegrationRequest_(integrationRequestForTest)",
+      permissions,
+    ),
+    /đã được sử dụng/,
+  );
+  permissions.invalidSignatureRequestForTest = {
+    ...permissions.integrationRequestForTest,
+    nonce: "1123456789abcdef0123456789abcdef",
+    signature: "invalid-signature",
+  };
+  assert.throws(
+    () => vm.runInContext(
+      "requireSignedIntegrationRequest_(invalidSignatureRequestForTest)",
+      permissions,
+    ),
+    /Chữ ký tích hợp không hợp lệ/,
+  );
+  permissions.expiredRequestForTest = {
+    ...permissions.integrationRequestForTest,
+    timestamp: integrationTimestamp - 5 * 60 * 1000 - 1,
+    nonce: "2123456789abcdef0123456789abcdef",
+  };
+  assert.throws(
+    () => vm.runInContext(
+      "requireSignedIntegrationRequest_(expiredRequestForTest)",
+      permissions,
+    ),
+    /đã hết hạn/,
+  );
+  assert.equal(
+    vm.runInContext(
+      'safeSpreadsheetValue_("=HYPERLINK(\\"https://example.test\\")")',
+      permissions,
+    ),
+    "'=HYPERLINK(\"https://example.test\")",
+  );
   assert.equal(vm.runInContext('normalizeUser_({ user_id: "user-id", username: "user", email: "TDW@Example.com", role: "user", password_salt: "salt", password_hash: "hash" }).email', permissions), "tdw@example.com");
   assert.throws(() => vm.runInContext('normalizeEmail_("not-an-email")', permissions), /Email không đúng định dạng/);
   assert.equal(vm.runInContext('isNotificationReadyUser_({ active: "TRUE", email: "notice@example.com" })', permissions), true);
