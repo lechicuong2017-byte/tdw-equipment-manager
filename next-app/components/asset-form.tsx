@@ -6,18 +6,35 @@ import {
   type AssetFormState,
 } from "@/app/(protected)/assets/actions";
 import { statusLabels } from "@/lib/format";
-import type { Asset, Department } from "@/lib/types";
+import type {
+  Asset,
+  AssetResponsible,
+  Department,
+  ResponsibleUser,
+} from "@/lib/types";
 
 const initialState: AssetFormState = {};
 
 export function AssetForm({
   asset,
   departments,
+  responsibleUsers = [],
+  responsibles = [],
 }: {
   asset?: Asset;
   departments: Department[];
+  responsibleUsers?: ResponsibleUser[];
+  responsibles?: AssetResponsible[];
 }) {
   const [state, formAction, pending] = useActionState(saveAsset, initialState);
+  const primaryUserId = responsibles.find(
+    (item) => item.responsibility_role === "primary",
+  )?.user_id;
+  const secondaryUserIds = new Set(
+    responsibles
+      .filter((item) => item.responsibility_role === "secondary")
+      .map((item) => item.user_id),
+  );
 
   return (
     <form action={formAction} className="data-form">
@@ -131,6 +148,51 @@ export function AssetForm({
           <textarea defaultValue={asset?.note} maxLength={3000} name="note" rows={4} />
         </label>
       </div>
+
+      {asset && responsibleUsers.length ? (
+        <>
+          <div className="form-section-heading">
+            <div>
+              <p className="eyebrow">NGƯỜI PHỤ TRÁCH</p>
+              <h2>Người nhận email nhắc bảo trì</h2>
+            </div>
+            <span>Chỉ quản trị viên thay đổi danh sách này</span>
+          </div>
+          <input name="manage_responsibles" type="hidden" value="1" />
+          <div className="form-grid">
+            <label className="span-2">
+              Người phụ trách chính
+              <select defaultValue={primaryUserId ?? ""} name="primary_responsible_id">
+                <option value="">Chưa gán</option>
+                {responsibleUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name || user.email} — {user.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Người phối hợp
+              <select
+                defaultValue={[...secondaryUserIds]}
+                multiple
+                name="secondary_responsible_ids"
+                size={Math.min(5, Math.max(3, responsibleUsers.length))}
+              >
+                {responsibleUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name || user.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="form-help span-3">
+              Email chỉ được gửi khi thiết bị có kế hoạch đến đúng mốc 7, 3, 1,
+              0 ngày hoặc quá hạn theo chu kỳ 7 ngày.
+            </p>
+          </div>
+        </>
+      ) : null}
 
       {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
       <div className="form-actions">

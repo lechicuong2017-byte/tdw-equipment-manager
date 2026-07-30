@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-export function ExportAssetsButton() {
+export function ExportReportButton({
+  reportType,
+  buttonLabel = "Xuất Google Sheet",
+}: {
+  reportType: "assets" | "maintenance" | "movement" | "software";
+  buttonLabel?: string;
+}) {
   const [state, setState] = useState<
     {
       status: "idle" | "loading" | "error" | "success";
@@ -11,7 +17,7 @@ export function ExportAssetsButton() {
     }
   >({ status: "idle" });
 
-  async function exportAssets() {
+  async function exportReport() {
     setState({ status: "loading" });
     const reportWindow = window.open("about:blank", "_blank");
     if (reportWindow) {
@@ -22,7 +28,7 @@ export function ExportAssetsButton() {
       const response = await fetch("/api/integrations/google-export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ report_type: "assets" }),
+        body: JSON.stringify({ report_type: reportType }),
       });
       const result = await response.json();
       if (!response.ok || !result.url) {
@@ -48,10 +54,10 @@ export function ExportAssetsButton() {
       <button
         className="primary-button"
         disabled={state.status === "loading"}
-        onClick={exportAssets}
+        onClick={exportReport}
         type="button"
       >
-        {state.status === "loading" ? "Đang tạo Google Sheet…" : "Xuất Google Sheet"}
+        {state.status === "loading" ? "Đang tạo Google Sheet…" : buttonLabel}
       </button>
       {state.message ? (
         <small data-status={state.status} role="status">{state.message}</small>

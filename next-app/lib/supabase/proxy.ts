@@ -44,7 +44,8 @@ export async function updateSession(
   const isPublicRoute =
     pathname === "/login" ||
     pathname === "/setup" ||
-    pathname.startsWith("/auth/");
+    pathname.startsWith("/auth/") ||
+    pathname === "/api/jobs/maintenance-reminders";
 
   if (!isAuthenticated && !isPublicRoute) {
     const loginUrl = request.nextUrl.clone();

@@ -67,7 +67,7 @@ export async function saveAsset(
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
   }
 
-  const { supabase } = await requireAccess();
+  const { supabase, access } = await requireAccess();
   const { id, ...payload } = parsed.data;
   const query = id
     ? supabase.from("assets").update(payload).eq("id", id).select("id").single()
@@ -79,6 +79,35 @@ export async function saveAsset(
       return { error: "Mã thiết bị đã tồn tại." };
     }
     return { error: "Không thể lưu thiết bị. Vui lòng kiểm tra quyền và dữ liệu." };
+  }
+
+  if (id && formData.get("manage_responsibles") === "1") {
+    if (!access.roles.includes("admin")) {
+      return { error: "Thiết bị đã lưu, nhưng bạn không có quyền đổi người phụ trách." };
+    }
+
+    const responsibleInput = z.object({
+      primary: z.preprocess(emptyToNull, z.uuid().nullable()),
+      secondary: z.array(z.uuid()).max(20),
+    }).safeParse({
+      primary: formData.get("primary_responsible_id"),
+      secondary: formData.getAll("secondary_responsible_ids"),
+    });
+    if (!responsibleInput.success) {
+      return { error: "Thiết bị đã lưu, nhưng danh sách người phụ trách chưa hợp lệ." };
+    }
+
+    const { error: responsibleError } = await supabase.rpc(
+      "admin_set_asset_responsibles",
+      {
+        target_asset_id: data.id,
+        target_primary_user_id: responsibleInput.data.primary,
+        target_secondary_user_ids: responsibleInput.data.secondary,
+      },
+    );
+    if (responsibleError) {
+      return { error: "Thiết bị đã lưu, nhưng chưa cập nhật được người phụ trách." };
+    }
   }
 
   revalidatePath("/dashboard");

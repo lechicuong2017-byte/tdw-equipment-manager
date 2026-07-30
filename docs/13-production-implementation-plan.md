@@ -8,7 +8,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Hạng mục | Trạng thái | Ghi chú |
 |---|---|---|
 | Next.js App Router, SSR, Zod | Đã có nền | Build và typecheck đạt |
-| Supabase PostgreSQL | Đã áp production | Migration `001` đến `005` đã chạy trên project production |
+| Supabase PostgreSQL | Đã áp production | Migration `001` đến `008` đã chạy trên project production |
 | Supabase Auth SSR | Đã có | Login, callback, MFA và bảo vệ route |
 | RLS theo permission | Đã có | Migration `001` |
 | RLS theo từng bản ghi | Đã bổ sung | Migration `002`: all/department/assigned/owned |
@@ -16,10 +16,11 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Quản trị user | Đã bổ sung nền | Invite Auth, role, active, MFA và data scope |
 | Thiết bị và dashboard | Đã có luồng chính | Query/phân trang server, CRUD, soft delete, media |
 | Cache | Đã có mức an toàn ban đầu | Auth/access được memoize trong cùng request; không cache chéo user |
-| Apps Script export | Đã có | Request HMAC, timestamp, nonce, chống formula injection |
+| Apps Script export | Đã có | Báo cáo thiết bị, bảo trì, luân chuyển và phần mềm; request HMAC, timestamp, nonce, chống formula injection |
 | Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
 | Bảo trì, luân chuyển, phần mềm | Đã có luồng chính | CRUD có kiểm tra đầu vào, RLS; luân chuyển dùng RPC giao dịch bất biến |
-| Google Docs/Gmail theo kiến trúc mới | Chưa hoàn tất | Chưa có job ký số lấy dữ liệu từ Supabase |
+| Gmail theo kiến trúc mới | Đã có | Job Next.js đọc Supabase, claim idempotency rồi gửi payload ký số sang Apps Script |
+| Google Docs/PDF theo kiến trúc mới | Chưa hoàn tất | Chưa có mẫu Docs/PDF production |
 | Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings và 72 assets đã đối soát; nguồn maintenance/movement/software đang rỗng, chưa có plans/responsibles/media |
 | Migration ảnh Drive | Chưa có | Cần job riêng, checksum và đối soát object |
 | Test RLS live | Đã đạt | JWT thật cho admin AAL1, manager, user, viewer và anonymous; xem `docs/15-supabase-production-security-evidence.md` |
@@ -64,7 +65,7 @@ Nguyên tắc:
 
 ### Cổng 1 — Database/Auth
 
-1. [x] Áp migration `001` đến `007`.
+1. [x] Áp migration `001` đến `008`.
 2. [x] Tắt public sign-up; chỉ cho phép invite.
 3. [x] Tạo/gán admin đầu tiên và hoàn tất MFA AAL2.
 4. [x] Chạy phần Auth/RLS/Storage của ma trận `docs/12-supabase-security-test-matrix.md` bằng tài khoản test không chứa dữ liệu thật.
@@ -94,6 +95,15 @@ Nguyên tắc:
 3. Kiểm tra login, MFA, dashboard, asset list/detail, CRUD, private media, export và admin user.
 4. Chỉ mở user nghiệp vụ sau khi RLS live test đạt.
 
+### Cổng 5 — Báo cáo và nhắc bảo trì
+
+1. [x] Bổ sung báo cáo Sheets cho thiết bị, bảo trì, luân chuyển và phần mềm.
+2. [x] Bổ sung phân công người phụ trách chính/phụ tại màn hình sửa thiết bị.
+3. [x] Bổ sung job nhắc bảo trì đọc Supabase và claim từng email bằng khóa idempotency.
+4. [x] Gửi Gmail qua Apps Script bằng request HMAC; không cấp Supabase key cho Apps Script.
+5. [x] Cấu hình Vercel Cron chạy lúc `01:00 UTC`, tương đương `08:00 Asia/Ho_Chi_Minh`.
+6. [x] Giữ nút chạy thủ công cho Admin và bảo vệ endpoint cron bằng `CRON_SECRET`.
+
 ## 4. Backlog theo thứ tự ưu tiên
 
 ### P0 — Chặn cutover
@@ -106,9 +116,9 @@ Nguyên tắc:
 
 ### P1 — Hoàn thiện kiến trúc mục tiêu
 
-- Tạo job maintenance trên server đọc Supabase, sau đó gửi payload ký số sang Apps Script/Gmail.
+- ~~Tạo job maintenance trên server đọc Supabase, sau đó gửi payload ký số sang Apps Script/Gmail.~~ Hoàn tất ngày 2026-07-30.
 - Thêm Google Docs/PDF report qua cùng cơ chế job + HMAC + idempotency.
-- Bổ sung báo cáo maintenance/software/movement.
+- ~~Bổ sung báo cáo maintenance/software/movement.~~ Hoàn tất ngày 2026-07-30.
 - Thêm audit UI và health check Next.js/Supabase/Apps Script.
 - Tạo thumbnail khi upload; hiện tại danh sách chưa hiển thị ảnh nên chưa phát sinh tải ảnh gốc.
 

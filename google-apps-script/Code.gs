@@ -515,6 +515,10 @@ function doPost(event) {
       const payload = requireSignedIntegrationRequest_(body);
       return jsonResponse_(exportSupabaseReport_(payload));
     }
+    if (action === "sendSupabaseMaintenanceReminders") {
+      const payload = requireSignedIntegrationRequest_(body);
+      return jsonResponse_(sendSupabaseMaintenanceReminders_(payload));
+    }
 
     requireProxySecret_(body.proxy_secret);
     requireLegacyActionAllowed_(action);
@@ -815,6 +819,92 @@ function safeSpreadsheetValue_(value) {
 
 function propertiesSafeGet_(name) {
   return String(PropertiesService.getScriptProperties().getProperty(name) || "").trim();
+}
+
+function sendSupabaseMaintenanceReminders_(payload) {
+  const notifications = Array.isArray(payload.notifications)
+    ? payload.notifications
+    : [];
+  if (!notifications.length || notifications.length > 200) {
+    throw new Error("Danh sách email phải có từ 1 đến 200 mục");
+  }
+
+  const results = notifications.map((item) => {
+    const notificationId = String(item.notification_id || "").trim();
+    const recipientEmail = normalizeEmail_(item.recipient_email || "");
+    const recipientName = String(item.recipient_name || recipientEmail)
+      .trim()
+      .slice(0, 160);
+    const assetCode = String(item.asset_code || "").trim().slice(0, 80);
+    const assetName = String(item.asset_name || "Thiết bị TDW")
+      .trim()
+      .slice(0, 200);
+    const title = String(item.title || "Bảo trì định kỳ")
+      .trim()
+      .slice(0, 200);
+    const dueDate = normalizeIsoDate_(item.due_date || "");
+    const notificationType = String(item.notification_type || "").trim();
+
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationId)) {
+      throw new Error("Mã email nhắc không hợp lệ");
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+      throw new Error("Ngày đến hạn không hợp lệ");
+    }
+    if (!/^(DUE_(7|3|1|0)|OVERDUE_[0-9]+)$/.test(notificationType)) {
+      throw new Error("Loại nhắc bảo trì không hợp lệ");
+    }
+
+    try {
+      MailApp.sendEmail({
+        to: recipientEmail,
+        subject: `[TDW] Nhắc bảo trì: ${assetName}`.slice(0, 240),
+        body: supabaseMaintenanceReminderText_({
+          asset_code: assetCode,
+          asset_name: assetName,
+          title,
+          due_date: dueDate,
+          notification_type: notificationType,
+        }),
+        htmlBody: supabaseMaintenanceReminderHtml_({
+          recipient_name: recipientName,
+          asset_code: assetCode,
+          asset_name: assetName,
+          title,
+          due_date: dueDate,
+          notification_type: notificationType,
+        }),
+        name: "TDW Equipment Manager",
+      });
+      return {
+        notification_id: notificationId,
+        status: "SENT",
+        error: "",
+      };
+    } catch (error) {
+      return {
+        notification_id: notificationId,
+        status: "FAILED",
+        error: String(error && error.message ? error.message : error).slice(0, 500),
+      };
+    }
+  });
+
+  return {
+    ok: true,
+    processed: results.length,
+    sent: results.filter((item) => item.status === "SENT").length,
+    failed: results.filter((item) => item.status === "FAILED").length,
+    results,
+  };
+}
+
+function supabaseMaintenanceReminderText_(item) {
+  return `TDW Equipment Manager\n\nNhắc bảo trì: ${item.asset_name}\nMã tài sản: ${item.asset_code || "Chưa có"}\nNội dung: ${item.title}\nNgày đến hạn: ${formatIsoDate_(item.due_date)}\nTrạng thái: ${maintenanceReminderStatus_(item.notification_type)}\n\nVui lòng kiểm tra và cập nhật lịch sử bảo trì sau khi thực hiện.`;
+}
+
+function supabaseMaintenanceReminderHtml_(item) {
+  return `<div style="font-family:Arial,sans-serif;color:#17202a;line-height:1.55"><h2 style="color:#176fa6">Nhắc bảo trì thiết bị TDW</h2><p>Chào ${escapeHtml_(item.recipient_name)},</p><p>Thiết bị sau cần được theo dõi:</p><table style="border-collapse:collapse"><tr><td style="padding:4px 12px 4px 0;color:#64748b">Thiết bị</td><td><strong>${escapeHtml_(item.asset_name)}</strong></td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b">Mã tài sản</td><td>${escapeHtml_(item.asset_code || "Chưa có")}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b">Nội dung</td><td>${escapeHtml_(item.title)}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b">Đến hạn</td><td><strong>${escapeHtml_(formatIsoDate_(item.due_date))}</strong></td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b">Trạng thái</td><td>${escapeHtml_(maintenanceReminderStatus_(item.notification_type))}</td></tr></table><p>Vui lòng kiểm tra và cập nhật lịch sử bảo trì sau khi thực hiện.</p></div>`;
 }
 
 function readSheetAsObjects_(sheetName) {

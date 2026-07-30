@@ -52,6 +52,17 @@ export type Department = {
   name: string;
 };
 
+export type ResponsibleUser = {
+  id: string;
+  email: string;
+  full_name: string;
+};
+
+export type AssetResponsible = {
+  user_id: string;
+  responsibility_role: "primary" | "secondary";
+};
+
 export type MediaFile = {
   id: string;
   object_path: string;

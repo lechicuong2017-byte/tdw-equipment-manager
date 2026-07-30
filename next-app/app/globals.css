@@ -226,6 +226,12 @@ textarea:focus {
   padding: 0.75rem 0.85rem;
 }
 
+.form-help {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  margin: 0;
+}
+
 .form-error {
   background: var(--red-soft);
   color: var(--red);
@@ -487,6 +493,27 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+}
+
+.header-action-stack {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.action-message {
+  font-size: 0.68rem;
+  max-width: 320px;
+  text-align: right;
+}
+
+.action-error {
+  color: var(--red);
+}
+
+.action-success {
+  color: var(--green);
 }
 
 .metric-grid {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MaintenanceForms } from "@/components/maintenance-forms";
+import { MaintenanceReminderButton } from "@/components/maintenance-reminder-button";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -68,6 +69,9 @@ export default async function MaintenancePage() {
         eyebrow="BẢO TRÌ"
         title="Bảo trì thiết bị"
         description="Kế hoạch và lịch sử được đọc trực tiếp từ PostgreSQL, giới hạn theo quyền từng thiết bị."
+        actions={
+          access.roles.includes("admin") ? <MaintenanceReminderButton /> : null
+        }
       />
 
       {canManage ? (

@@ -187,6 +187,8 @@ async function run() {
   assert.ok(appsScript.includes("function requireLegacyActionAllowed_(action)"));
   assert.ok(appsScript.includes('"read-write", "read-only", "disabled"'));
   assert.ok(appsScript.includes('"exportSupabaseReport"'));
+  assert.ok(appsScript.includes('"sendSupabaseMaintenanceReminders"'));
+  assert.ok(appsScript.includes("function sendSupabaseMaintenanceReminders_(payload)"));
   assert.ok(recordScopeMigration.includes("create table public.data_access_scopes"));
   assert.ok(recordScopeMigration.includes("create or replace function public.can_access_asset"));
   assert.ok(recordScopeMigration.includes("public.can_read_storage_object(name)"));
@@ -373,6 +375,42 @@ async function run() {
     ),
     "'=HYPERLINK(\"https://example.test\")",
   );
+  permissions.supabaseReminderPayloadForTest = {
+    notifications: [{
+      notification_id: "00000000-0000-4000-8000-000000000001",
+      recipient_email: "notice@example.com",
+      recipient_name: "<Admin>",
+      asset_code: "TDW-TEST",
+      asset_name: "Thiết bị kiểm thử",
+      title: "Bảo trì định kỳ",
+      due_date: "2026-08-01",
+      notification_type: "DUE_1",
+    }],
+  };
+  permissions.sentEmailForTest = null;
+  vm.runInContext(`
+    MailApp = {
+      sendEmail: (message) => {
+        sentEmailForTest = message;
+      }
+    };
+  `, permissions);
+  assert.equal(
+    vm.runInContext(
+      "sendSupabaseMaintenanceReminders_(supabaseReminderPayloadForTest).sent",
+      permissions,
+    ),
+    1,
+  );
+  assert.equal(permissions.sentEmailForTest.to, "notice@example.com");
+  assert.ok(permissions.sentEmailForTest.htmlBody.includes("&lt;Admin&gt;"));
+  assert.throws(
+    () => vm.runInContext(
+      "sendSupabaseMaintenanceReminders_({ notifications: [] })",
+      permissions,
+    ),
+    /từ 1 đến 200/,
+  );
   assert.equal(vm.runInContext('normalizeUser_({ user_id: "user-id", username: "user", email: "TDW@Example.com", role: "user", password_salt: "salt", password_hash: "hash" }).email', permissions), "tdw@example.com");
   assert.throws(() => vm.runInContext('normalizeEmail_("not-an-email")', permissions), /Email không đúng định dạng/);
   assert.equal(vm.runInContext('isNotificationReadyUser_({ active: "TRUE", email: "notice@example.com" })', permissions), true);
@@ -506,6 +544,10 @@ async function run() {
   assert.equal(nextVercel.framework, "nextjs");
   assert.equal(nextVercel.installCommand, "npm ci");
   assert.equal(nextVercel.buildCommand, "npm run build");
+  assert.ok(nextVercel.crons.some((cron) =>
+    cron.path === "/api/jobs/maintenance-reminders"
+      && cron.schedule === "0 1 * * *"
+  ));
   assert.ok(index.includes('integrity="sha512-'));
 
   const unauthenticated = await invokeProxy({ fn: "healthCheck", args: [] });

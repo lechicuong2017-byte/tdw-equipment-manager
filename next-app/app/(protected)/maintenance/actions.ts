@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
+import { runMaintenanceReminders } from "@/lib/maintenance-reminders";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
@@ -29,6 +30,11 @@ const logSchema = z.object({
 });
 
 export type MaintenanceFormState = {
+  error?: string;
+  success?: string;
+};
+
+export type ReminderFormState = {
   error?: string;
   success?: string;
 };
@@ -123,4 +129,31 @@ export async function deleteMaintenanceRecord(formData: FormData) {
     parsed.data.kind === "plan" ? "maintenance_plans" : "maintenance_logs";
   await supabase.from(table).delete().eq("id", parsed.data.id);
   revalidatePath("/maintenance");
+}
+
+export async function sendMaintenanceReminders(
+  _previousState: ReminderFormState,
+): Promise<ReminderFormState> {
+  const { access } = await requireAccess();
+  if (!access.roles.includes("admin")) {
+    return { error: "Chỉ quản trị viên được gửi email nhắc bảo trì." };
+  }
+
+  try {
+    const result = await runMaintenanceReminders();
+    revalidatePath("/maintenance");
+    return {
+      success: result.claimed
+        ? `Đã gửi ${result.sent}; lỗi ${result.failed}; chưa xác nhận ${result.unknown}.`
+        : `Không có email mới cần gửi. Đã kiểm tra ${result.checked} kế hoạch.`,
+    };
+  } catch (error) {
+    console.error("manual_maintenance_reminder_failed", {
+      reason:
+        error instanceof Error ? error.message.slice(0, 500) : "Unknown error",
+    });
+    return {
+      error: "Không thể hoàn tất gửi email. Hãy xem nhật ký hệ thống.",
+    };
+  }
 }
