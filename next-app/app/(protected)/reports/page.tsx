@@ -50,7 +50,7 @@ export default async function ReportsPage() {
       <PageHeader
         eyebrow="BÁO CÁO"
         title="Báo cáo và xuất dữ liệu"
-        description="Dữ liệu được đọc từ Supabase; Apps Script chỉ đảm nhiệm tạo tệp XLSX và PDF trên Google Drive."
+        description="Dữ liệu được đọc từ Supabase; Apps Script chỉ đảm nhiệm tạo liên kết tải XLSX và PDF từ Google Drive."
       />
       <section className="report-grid">
         {reports.map((report) => (

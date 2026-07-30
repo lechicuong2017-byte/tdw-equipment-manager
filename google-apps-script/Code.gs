@@ -881,16 +881,10 @@ function exportSupabaseReportFile_(payload) {
     SpreadsheetApp.flush();
     Utilities.sleep(500);
 
-    const mimeType = outputFormat === "xlsx"
-      ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      : MimeType.PDF;
-    const blob = Drive.Files
-      .export(spreadsheet.getId(), mimeType, { alt: "media" })
-      .setName(`${safeDriveFileName_(title)}.${outputFormat}`);
     const folderId = propertiesSafeGet_("TDW_EXPORT_FOLDER_ID");
     const folder = folderId ? DriveApp.getFolderById(folderId) : null;
-    const outputFile = folder ? folder.createFile(blob) : DriveApp.createFile(blob);
-    shareExportFileWithRequester_(outputFile, requestedBy);
+    if (folder) spreadsheetFile.moveTo(folder);
+    shareExportFileWithRequester_(spreadsheetFile, requestedBy);
 
     const result = {
       ok: true,
@@ -898,15 +892,34 @@ function exportSupabaseReportFile_(payload) {
       report_type: reportType,
       output_format: outputFormat,
       row_count: rows.length,
-      result_url: outputFile.getUrl(),
-      file_id: outputFile.getId(),
+      result_url: spreadsheetExportUrl_(spreadsheet.getId(), sheet.getSheetId(), outputFormat),
+      file_id: spreadsheet.getId(),
       created_at: new Date().toISOString(),
     };
     saveReportFileLedgerEntry_(result);
     return result;
-  } finally {
+  } catch (error) {
     spreadsheetFile.setTrashed(true);
+    throw error;
   }
+}
+
+function spreadsheetExportUrl_(spreadsheetId, sheetId, outputFormat) {
+  const baseUrl = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/export`;
+  if (outputFormat === "xlsx") return `${baseUrl}?format=xlsx`;
+  const params = [
+    "format=pdf",
+    "size=A4",
+    "portrait=false",
+    "fitw=true",
+    "sheetnames=false",
+    "printtitle=false",
+    "pagenumbers=true",
+    "gridlines=false",
+    "fzr=true",
+    `gid=${encodeURIComponent(sheetId)}`,
+  ];
+  return `${baseUrl}?${params.join("&")}`;
 }
 
 function safeDocumentText_(value, maxLength) {
