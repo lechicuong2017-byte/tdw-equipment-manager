@@ -1,11 +1,21 @@
 import { ExportReportButton } from "@/components/export-assets-button";
+import { AssetQrLabels } from "@/components/asset-qr-labels";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
+import type { AssetQrData } from "@/lib/asset-qr";
 
 export const metadata = { title: "Báo cáo" };
 
 export default async function ReportsPage() {
-  const { access } = await requireAccess();
+  const { supabase, access } = await requireAccess();
+  const canExportAssets = can(access, "reports.assets.export");
+  const { data: qrAssetData } = canExportAssets
+    ? await supabase
+        .from("assets")
+        .select("id,asset_code,asset_name,asset_group,asset_group_label,purchase_year,last_maintenance_date,warranty_end_date")
+        .is("deleted_at", null)
+        .order("asset_code")
+    : { data: [] };
   const reports = [
     {
       type: "assets",
@@ -76,6 +86,7 @@ export default async function ReportsPage() {
           </article>
         ))}
       </section>
+      {canExportAssets ? <AssetQrLabels assets={(qrAssetData ?? []) as AssetQrData[]} /> : null}
     </>
   );
 }

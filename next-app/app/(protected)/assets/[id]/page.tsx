@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AssetQrCard } from "@/components/asset-qr-card";
 import { MediaUpload } from "@/components/media-upload";
 import { PageHeader } from "@/components/page-header";
 import { archiveAsset, deleteAssetMedia } from "../actions";
@@ -88,6 +89,16 @@ export default async function AssetDetailPage({ params }: AssetDetailProps) {
             <div><dt>Giá trị</dt><dd>{formatMoney(asset.total_price)}</dd></div>
           </dl>
           {asset.note ? <p className="profile-note">{asset.note}</p> : null}
+          <AssetQrCard asset={{
+            id: asset.id,
+            asset_code: asset.asset_code,
+            asset_name: asset.asset_name,
+            asset_group: asset.asset_group,
+            asset_group_label: asset.asset_group_label,
+            purchase_year: asset.purchase_year,
+            last_maintenance_date: asset.last_maintenance_date,
+            warranty_end_date: asset.warranty_end_date,
+          }} />
           {can(access, "assets.delete") ? (
             <form action={archiveAsset} className="danger-zone">
               <input name="id" type="hidden" value={asset.id} />
