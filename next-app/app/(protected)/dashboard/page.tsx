@@ -18,7 +18,7 @@ export default async function DashboardPage() {
     supabase
       .from("assets")
       .select(
-        "id, asset_code, asset_name, status, location, total_price, updated_at",
+        "id, asset_kind, asset_code, asset_name, status, location, total_price, updated_at",
       )
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -27,6 +27,10 @@ export default async function DashboardPage() {
 
   const stats = (statsData ?? {
     total_assets: 0,
+    device_assets: 0,
+    component_assets: 0,
+    installed_components: 0,
+    available_components: 0,
     active_assets: 0,
     needs_attention: 0,
     stored_assets: 0,
@@ -36,7 +40,7 @@ export default async function DashboardPage() {
 
   const assets = (recentAssets ?? []) as Pick<
     Asset,
-    "id" | "asset_code" | "asset_name" | "status" | "location" | "total_price" | "updated_at"
+    "id" | "asset_kind" | "asset_code" | "asset_name" | "status" | "location" | "total_price" | "updated_at"
   >[];
 
   return (
@@ -47,7 +51,10 @@ export default async function DashboardPage() {
         description="Tình trạng tài sản được tổng hợp trực tiếp từ cơ sở dữ liệu."
         actions={
           can(access, "assets.manage") ? (
-            <Link className="primary-button" href="/assets/new">+ Thêm thiết bị</Link>
+            <>
+              <Link className="secondary-button" href="/assets/new?kind=component">+ Thêm linh kiện</Link>
+              <Link className="primary-button" href="/assets/new">+ Thêm thiết bị</Link>
+            </>
           ) : null
         }
       />
@@ -55,7 +62,7 @@ export default async function DashboardPage() {
       <section className="metric-grid" aria-label="Chỉ số thiết bị">
         <article className="metric-card metric-primary">
           <span className="metric-icon" aria-hidden="true">▤</span>
-          <p>Tổng thiết bị</p>
+          <p>Tổng tài sản</p>
           <strong>{formatNumber(stats.total_assets)}</strong>
           <small>Đang quản lý trong hệ thống</small>
         </article>
@@ -76,6 +83,33 @@ export default async function DashboardPage() {
           <p>Tổng giá trị</p>
           <strong className="metric-money">{formatMoney(stats.total_value)}</strong>
           <small>Theo dữ liệu đã nhập</small>
+        </article>
+      </section>
+
+      <section className="metric-grid metric-grid-components" aria-label="Chỉ số linh kiện">
+        <article className="metric-card">
+          <span className="metric-icon metric-icon-slate" aria-hidden="true">▣</span>
+          <p>Thiết bị hoàn chỉnh</p>
+          <strong>{formatNumber(stats.device_assets)}</strong>
+          <small>Máy tính, laptop và thiết bị chính</small>
+        </article>
+        <article className="metric-card">
+          <span className="metric-icon" aria-hidden="true">◆</span>
+          <p>Tổng linh kiện</p>
+          <strong>{formatNumber(stats.component_assets)}</strong>
+          <small>RAM, ổ cứng và linh kiện theo dõi riêng</small>
+        </article>
+        <article className="metric-card">
+          <span className="metric-icon metric-icon-green" aria-hidden="true">↳</span>
+          <p>Linh kiện đang lắp</p>
+          <strong>{formatNumber(stats.installed_components)}</strong>
+          <small>Đang gắn với một thiết bị hoàn chỉnh</small>
+        </article>
+        <article className="metric-card">
+          <span className="metric-icon metric-icon-amber" aria-hidden="true">◇</span>
+          <p>Linh kiện đang rời</p>
+          <strong>{formatNumber(stats.available_components)}</strong>
+          <small>Sẵn sàng để gắn hoặc đang lưu kho</small>
         </article>
       </section>
 
@@ -117,7 +151,7 @@ export default async function DashboardPage() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">CẬP NHẬT GẦN ĐÂY</p>
-              <h2>Thiết bị mới thay đổi</h2>
+              <h2>Tài sản mới thay đổi</h2>
             </div>
             <Link className="text-link" href="/assets">Xem tất cả →</Link>
           </div>
@@ -137,7 +171,10 @@ export default async function DashboardPage() {
                     <td>
                       <Link className="asset-name" href={`/assets/${asset.id}`}>
                         <strong>{asset.asset_name}</strong>
-                        <small>{asset.asset_code}</small>
+                        <small>
+                          {asset.asset_code}
+                          {asset.asset_kind === "COMPONENT" ? " · Linh kiện" : ""}
+                        </small>
                       </Link>
                     </td>
                     <td><span className="status-pill">{labelStatus(asset.status)}</span></td>
@@ -146,7 +183,7 @@ export default async function DashboardPage() {
                   </tr>
                 ))}
                 {!assets.length ? (
-                  <tr><td className="empty-cell" colSpan={4}>Chưa có thiết bị.</td></tr>
+                  <tr><td className="empty-cell" colSpan={4}>Chưa có tài sản.</td></tr>
                 ) : null}
               </tbody>
             </table>

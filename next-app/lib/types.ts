@@ -68,6 +68,10 @@ export type AssetComponentInstallation = {
 
 export type DashboardStats = {
   total_assets: number;
+  device_assets: number;
+  component_assets: number;
+  installed_components: number;
+  available_components: number;
   active_assets: number;
   needs_attention: number;
   stored_assets: number;

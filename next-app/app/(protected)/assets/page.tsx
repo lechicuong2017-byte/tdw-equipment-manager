@@ -14,10 +14,13 @@ const allowedStatuses = new Set([
   "LUU_KHO_THANH_LY",
 ]);
 
+const allowedKinds = new Set(["DEVICE", "COMPONENT"]);
+
 type AssetsPageProps = {
   searchParams: Promise<{
     q?: string;
     status?: string;
+    kind?: string;
     page?: string;
   }>;
 };
@@ -31,6 +34,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     .slice(0, 80);
   const status = allowedStatuses.has(String(params.status))
     ? String(params.status)
+    : "";
+  const kind = allowedKinds.has(String(params.kind))
+    ? String(params.kind)
     : "";
   const page = Math.max(1, Math.min(10000, Number.parseInt(params.page ?? "1", 10) || 1));
   const pageSize = 20;
@@ -52,6 +58,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     );
   }
   if (status) query = query.eq("status", status);
+  if (kind) query = query.eq("asset_kind", kind);
 
   const { data, count } = await query;
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize));
@@ -60,6 +67,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     const nextParams = new URLSearchParams();
     if (search) nextParams.set("q", search);
     if (status) nextParams.set("status", status);
+    if (kind) nextParams.set("kind", kind);
     nextParams.set("page", String(targetPage));
     return `/assets?${nextParams.toString()}`;
   };
@@ -72,7 +80,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         description="Dữ liệu được lọc và phân trang trực tiếp tại PostgreSQL."
         actions={
           can(access, "assets.manage") ? (
-            <Link className="primary-button" href="/assets/new">+ Thêm thiết bị</Link>
+            <>
+              <Link className="secondary-button" href="/assets/new?kind=component">+ Thêm linh kiện</Link>
+              <Link className="primary-button" href="/assets/new">+ Thêm thiết bị</Link>
+            </>
           ) : null
         }
       />
@@ -92,11 +103,19 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <option value="KHONG_SU_DUNG">Không sử dụng</option>
             <option value="LUU_KHO_THANH_LY">Lưu kho / thanh lý</option>
           </select>
+          <select defaultValue={kind} name="kind">
+            <option value="">Tất cả phân loại</option>
+            <option value="DEVICE">Thiết bị hoàn chỉnh</option>
+            <option value="COMPONENT">Linh kiện bên trong</option>
+          </select>
           <button className="secondary-button" type="submit">Lọc dữ liệu</button>
         </form>
 
         <div className="table-summary">
-          <span>{count ?? 0} thiết bị</span>
+          <span>
+            {count ?? 0}{" "}
+            {kind === "COMPONENT" ? "linh kiện" : kind === "DEVICE" ? "thiết bị" : "tài sản"}
+          </span>
           <small>Trang {Math.min(page, totalPages)} / {totalPages}</small>
         </div>
 

@@ -110,12 +110,17 @@ async function run() {
   const assetComponentMigration = read(
     "supabase/migrations/202607300011_asset_components.sql",
   );
+  const componentDashboardMigration = read(
+    "supabase/migrations/202607300012_component_dashboard_stats.sql",
+  );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextSidebar = read("next-app/components/sidebar.tsx");
   const nextHealthPage = read("next-app/app/(protected)/admin/health/page.tsx");
   const nextAuditPage = read("next-app/app/(protected)/admin/audit/page.tsx");
   const nextAssetDetailPage = read("next-app/app/(protected)/assets/[id]/page.tsx");
+  const nextAssetsPage = read("next-app/app/(protected)/assets/page.tsx");
+  const nextDashboardPage = read("next-app/app/(protected)/dashboard/page.tsx");
   const nextReportsPage = read("next-app/app/(protected)/reports/page.tsx");
   const assetQrCard = read("next-app/components/asset-qr-card.tsx");
   const assetQrLabels = read("next-app/components/asset-qr-labels.tsx");
@@ -267,6 +272,18 @@ async function run() {
   assert.ok(googleExportRoute.includes('relation: "↳ Linh kiện đang lắp"'));
   assert.ok(googleExportRoute.includes('{ key: "parent_asset", label: "Thuộc thiết bị" }'));
   assert.ok(!assetComponentManager.includes("service_role"));
+  assert.ok(componentDashboardMigration.includes("security invoker"));
+  assert.ok(componentDashboardMigration.includes("'device_assets'"));
+  assert.ok(componentDashboardMigration.includes("'installed_components'"));
+  assert.ok(componentDashboardMigration.includes("'available_components'"));
+  assert.ok(componentDashboardMigration.includes("asset_kind = 'COMPONENT'"));
+  assert.ok(componentDashboardMigration.includes("removed_at is null"));
+  assert.ok(nextAssetsPage.includes('name="kind"'));
+  assert.ok(nextAssetsPage.includes('query.eq("asset_kind", kind)'));
+  assert.ok(nextAssetsPage.includes('/assets/new?kind=component'));
+  assert.ok(nextDashboardPage.includes("Linh kiện đang lắp"));
+  assert.ok(nextDashboardPage.includes("Linh kiện đang rời"));
+  assert.ok(nextDashboardPage.includes('/assets/new?kind=component'));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-logo.webp")));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-icon-192.png")));
   assert.ok(fs.existsSync(path.join(root, "next-app/app/favicon.ico")));
