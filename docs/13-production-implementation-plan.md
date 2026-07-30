@@ -18,7 +18,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Cache | Đã có mức an toàn ban đầu | Auth/access được memoize trong cùng request; không cache chéo user |
 | Apps Script export | Đã có | Request HMAC, timestamp, nonce, chống formula injection |
 | Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
-| Bảo trì, luân chuyển, phần mềm | Chưa hoàn tất UI | Hiện còn trang khung |
+| Bảo trì, luân chuyển, phần mềm | Đã có luồng chính | CRUD có kiểm tra đầu vào, RLS; luân chuyển dùng RPC giao dịch bất biến |
 | Google Docs/Gmail theo kiến trúc mới | Chưa hoàn tất | Chưa có job ký số lấy dữ liệu từ Supabase |
 | Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings và 72 assets đã đối soát; nguồn maintenance/movement/software đang rỗng, chưa có plans/responsibles/media |
 | Migration ảnh Drive | Chưa có | Cần job riêng, checksum và đối soát object |
@@ -64,7 +64,7 @@ Nguyên tắc:
 
 ### Cổng 1 — Database/Auth
 
-1. [x] Áp migration `001` đến `005`.
+1. [x] Áp migration `001` đến `007`.
 2. [x] Tắt public sign-up; chỉ cho phép invite.
 3. [x] Tạo/gán admin đầu tiên và hoàn tất MFA AAL2.
 4. [x] Chạy phần Auth/RLS/Storage của ma trận `docs/12-supabase-security-test-matrix.md` bằng tài khoản test không chứa dữ liệu thật.
@@ -101,7 +101,7 @@ Nguyên tắc:
 - Hoàn tất import/reconcile cho maintenance, movement, software, plans, responsibles, notification logs và media khi nguồn có dữ liệu.
 - Viết job chuyển ảnh Drive sang Storage kèm checksum.
 - ~~Chạy test RLS/Auth/Storage bằng JWT thật.~~ Hoàn tất ngày 2026-07-30.
-- Hoàn tất UI bảo trì, luân chuyển và phần mềm nếu các module này phải dùng ngay ngày cutover.
+- ~~Hoàn tất UI bảo trì, luân chuyển và phần mềm nếu các module này phải dùng ngay ngày cutover.~~ Hoàn tất luồng chính ngày 2026-07-30.
 - Thay deployment root từ frontend cũ sang Next.js.
 
 ### P1 — Hoàn thiện kiến trúc mục tiêu

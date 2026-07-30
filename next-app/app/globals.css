@@ -825,6 +825,108 @@ tbody tr:hover td {
   justify-content: flex-end;
 }
 
+.module-form-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.module-list-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.module-single-form {
+  margin-bottom: 1rem;
+}
+
+.compact-form {
+  align-content: start;
+  gap: 1rem;
+}
+
+.inline-fields {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compact-form > .primary-button {
+  justify-self: end;
+}
+
+.module-table {
+  margin-top: 1rem;
+}
+
+.row-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
+.row-actions form {
+  margin: 0;
+}
+
+.text-button {
+  background: transparent;
+  border: 0;
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+  padding: 0.25rem;
+  white-space: nowrap;
+}
+
+.text-danger {
+  color: var(--red) !important;
+}
+
+.status-muted {
+  background: #edf1f5;
+  color: var(--ink-soft);
+}
+
+.status-danger {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.movement-change {
+  align-items: flex-start;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.movement-change small {
+  color: #8995a2;
+  font-size: 0.69rem;
+}
+
+.movement-change b {
+  color: var(--brand);
+  font-size: 0.7rem;
+}
+
+.movement-change strong {
+  color: var(--ink);
+  font-size: 0.75rem;
+}
+
+.masked-key {
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink-soft);
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.45rem;
+}
+
 .profile-grid {
   display: grid;
   gap: 1rem;
@@ -1136,7 +1238,8 @@ tbody tr:hover td {
   .dashboard-grid,
   .profile-grid,
   .report-grid,
-  .user-access-grid {
+  .user-access-grid,
+  .module-form-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1181,7 +1284,8 @@ tbody tr:hover td {
 
   .filter-bar,
   .form-grid,
-  .scope-row {
+  .scope-row,
+  .inline-fields {
     grid-template-columns: 1fr;
   }
 

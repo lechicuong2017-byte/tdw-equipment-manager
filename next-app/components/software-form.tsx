@@ -1,0 +1,102 @@
+"use client";
+
+import { useActionState } from "react";
+import {
+  createSoftwareLicense,
+  type SoftwareFormState,
+} from "@/app/(protected)/software/actions";
+
+type AssetOption = {
+  id: string;
+  asset_code: string;
+  asset_name: string;
+};
+
+const initialState: SoftwareFormState = {};
+
+export function SoftwareForm({ assets }: { assets: AssetOption[] }) {
+  const [state, formAction, pending] = useActionState(
+    createSoftwareLicense,
+    initialState,
+  );
+
+  return (
+    <form action={formAction} className="panel data-form module-single-form">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">BẢN QUYỀN MỚI</p>
+          <h2>Thêm phần mềm</h2>
+        </div>
+        <small>Không nhập khóa bản quyền thật vào biểu mẫu này</small>
+      </div>
+      <div className="form-grid">
+        <label className="span-2">
+          Tên phần mềm *
+          <input maxLength={200} name="software_name" required />
+        </label>
+        <label>
+          Phiên bản
+          <input maxLength={120} name="version" />
+        </label>
+        <label>
+          Trạng thái
+          <select defaultValue="ACTIVE" name="status">
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="EXPIRING">Sắp hết hạn</option>
+            <option value="EXPIRED">Đã hết hạn</option>
+            <option value="SUSPENDED">Tạm dừng</option>
+            <option value="">Chưa xác định</option>
+          </select>
+        </label>
+        <label>
+          Ngày hết hạn
+          <input name="expiry_date" type="date" />
+        </label>
+        <label>
+          Người được cấp
+          <input maxLength={200} name="assigned_user_name" />
+        </label>
+        <label className="span-2">
+          Thiết bị được cấp
+          <select name="assigned_asset_id">
+            <option value="">Không gắn thiết bị</option>
+            {assets.map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                {asset.asset_code} — {asset.asset_name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Khóa đã che
+          <input
+            autoComplete="off"
+            maxLength={200}
+            name="license_key_masked"
+            placeholder="Ví dụ: ****-****-AB12"
+          />
+        </label>
+        <label className="span-3">
+          Tham chiếu secret manager
+          <input
+            autoComplete="off"
+            maxLength={300}
+            name="license_secret_ref"
+            placeholder="Chỉ nhập tên/ID tham chiếu, không nhập giá trị bí mật"
+          />
+        </label>
+        <label className="span-3">
+          Ghi chú
+          <textarea maxLength={3000} name="note" rows={3} />
+        </label>
+      </div>
+      {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
+      {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
+      <div className="form-actions">
+        <button className="primary-button" disabled={pending} type="submit">
+          {pending ? "Đang lưu…" : "Thêm bản quyền"}
+        </button>
+      </div>
+    </form>
+  );
+}
