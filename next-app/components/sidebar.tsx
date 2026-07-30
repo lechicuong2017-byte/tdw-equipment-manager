@@ -52,6 +52,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
             <Link href="/admin/users"><span aria-hidden="true">♙</span>Người dùng</Link>
             <Link href="/admin/settings"><span aria-hidden="true">⚙</span>Cấu hình</Link>
             <Link href="/admin/audit"><span aria-hidden="true">◷</span>Nhật ký</Link>
+            <Link href="/admin/health"><span aria-hidden="true">●</span>Trạng thái</Link>
           </>
         ) : null}
       </nav>

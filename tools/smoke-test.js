@@ -110,6 +110,9 @@ async function run() {
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextSidebar = read("next-app/components/sidebar.tsx");
+  const nextHealthPage = read("next-app/app/(protected)/admin/health/page.tsx");
+  const nextAuditPage = read("next-app/app/(protected)/admin/audit/page.tsx");
+  const systemHealth = read("next-app/lib/system-health.ts");
   const index = read("app/index.html");
   const styles = read("app/styles.css");
   const icons = read("app/assets/tdw-icons.svg");
@@ -216,6 +219,15 @@ async function run() {
   assert.ok(nextSidebar.includes('alt="TDW — Better Service For Life"'));
   assert.ok(nextLayout.includes('icon: "/favicon.ico"'));
   assert.ok(nextLayout.includes('apple: "/tdw-icon-192.png"'));
+  assert.ok(nextSidebar.includes('href="/admin/health"'));
+  assert.ok(nextHealthPage.includes('"integrationHealthCheck"'));
+  assert.ok(nextHealthPage.includes('supabase.from("audit_logs").select("id").limit(1)'));
+  assert.ok(nextHealthPage.includes("không hiển thị URL, khóa hoặc secret tích hợp"));
+  assert.ok(systemHealth.includes('"operational" | "degraded" | "down"'));
+  assert.ok(nextAuditPage.includes('from("audit_logs")'));
+  assert.ok(nextAuditPage.includes('select("id,actor_user_id,action,table_name,record_id,metadata,created_at"'));
+  assert.ok(!nextAuditPage.includes("old_data"));
+  assert.ok(!nextAuditPage.includes("new_data"));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-logo.webp")));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-icon-192.png")));
   assert.ok(fs.existsSync(path.join(root, "next-app/app/favicon.ico")));
@@ -230,6 +242,9 @@ async function run() {
   assert.ok(appsScript.includes("file.getAccess(email) === DriveApp.Permission.NONE"));
   assert.ok(appsScript.includes('"sendSupabaseMaintenanceReminders"'));
   assert.ok(appsScript.includes("function sendSupabaseMaintenanceReminders_(payload)"));
+  assert.ok(appsScript.includes('if (action === "integrationHealthCheck")'));
+  assert.ok(appsScript.includes("requireSignedIntegrationRequest_(body)"));
+  assert.ok(appsScript.includes("function integrationHealthCheck_()"));
   assert.ok(recordScopeMigration.includes("create table public.data_access_scopes"));
   assert.ok(recordScopeMigration.includes("create or replace function public.can_access_asset"));
   assert.ok(recordScopeMigration.includes("public.can_read_storage_object(name)"));
@@ -257,6 +272,13 @@ async function run() {
 
   const permissions = vm.createContext();
   vm.runInContext(appsScript, permissions, { filename: "google-apps-script/Code.gs" });
+  const integrationHealth = JSON.parse(
+    vm.runInContext("JSON.stringify(integrationHealthCheck_())", permissions),
+  );
+  assert.equal(integrationHealth.ok, true);
+  assert.equal(integrationHealth.service, "tdw-google-integration");
+  assert.equal(integrationHealth.integration_version, "2026.07.30.3");
+  assert.match(integrationHealth.checked_at, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(
     vm.runInContext('safeDocumentText_("  Báo cáo\\u0000 TDW  ", 20)', permissions),
     "Báo cáo TDW",
