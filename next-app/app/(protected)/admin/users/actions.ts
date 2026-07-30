@@ -43,7 +43,7 @@ export async function inviteUser(formData: FormData) {
     parsed.data.email,
     {
       data: { full_name: parsed.data.full_name },
-      redirectTo: `${appUrl}/auth/callback`,
+      redirectTo: `${appUrl}/set-password`,
     },
   );
   if (error) {
@@ -111,4 +111,3 @@ export async function updateUserAccess(formData: FormData) {
   revalidatePath("/dashboard");
   redirect("/admin/users?ok=Đã cập nhật quyền");
 }
-
