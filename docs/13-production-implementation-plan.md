@@ -8,7 +8,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Hạng mục | Trạng thái | Ghi chú |
 |---|---|---|
 | Next.js App Router, SSR, Zod | Đã có nền | Build và typecheck đạt |
-| Supabase PostgreSQL | Đã áp production | Migration `001` đến `008` đã chạy trên project production |
+| Supabase PostgreSQL | Đã áp production | Migration `001` đến `010` đã chạy trên project production |
 | Supabase Auth SSR | Đã có | Login, callback, MFA và bảo vệ route |
 | RLS theo permission | Đã có | Migration `001` |
 | RLS theo từng bản ghi | Đã bổ sung | Migration `002`: all/department/assigned/owned |
@@ -20,7 +20,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
 | Bảo trì, luân chuyển, phần mềm | Đã có luồng chính | CRUD có kiểm tra đầu vào, RLS; luân chuyển dùng RPC giao dịch bất biến |
 | Gmail theo kiến trúc mới | Đã có | Job Next.js đọc Supabase, claim idempotency rồi gửi payload ký số sang Apps Script |
-| Google Docs/PDF theo kiến trúc mới | Chưa hoàn tất | Chưa có mẫu Docs/PDF production |
+| XLSX/PDF theo kiến trúc mới | Đã có | Cả bốn báo cáo dùng job HMAC + idempotency; logo, tên báo cáo và định dạng TDW được tạo trên Google Sheets rồi tải trực tiếp |
 | Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings và 72 assets đã đối soát; nguồn maintenance/movement/software đang rỗng, chưa có plans/responsibles/media |
 | Migration ảnh Drive | Chưa có | Cần job riêng, checksum và đối soát object |
 | Test RLS live | Đã đạt | JWT thật cho admin AAL1, manager, user, viewer và anonymous; xem `docs/15-supabase-production-security-evidence.md` |
@@ -36,7 +36,7 @@ Browser
       -> Supabase Storage private
       -> API server-only có kiểm tra quyền
           -> Apps Script có HMAC
-              -> Google Sheets / Docs / Drive / Gmail
+              -> Google Sheets / XLSX / PDF / Drive / Gmail
 ```
 
 Nguyên tắc:
@@ -65,7 +65,7 @@ Nguyên tắc:
 
 ### Cổng 1 — Database/Auth
 
-1. [x] Áp migration `001` đến `008`.
+1. [x] Áp migration `001` đến `010`.
 2. [x] Tắt public sign-up; chỉ cho phép invite.
 3. [x] Tạo/gán admin đầu tiên và hoàn tất MFA AAL2.
 4. [x] Chạy phần Auth/RLS/Storage của ma trận `docs/12-supabase-security-test-matrix.md` bằng tài khoản test không chứa dữ liệu thật.
@@ -104,6 +104,15 @@ Nguyên tắc:
 5. [x] Cấu hình Vercel Cron chạy lúc `01:00 UTC`, tương đương `08:00 Asia/Ho_Chi_Minh`.
 6. [x] Giữ nút chạy thủ công cho Admin và bảo vệ endpoint cron bằng `CRON_SECRET`.
 
+### Cổng 6 — XLSX/PDF và nhận diện TDW
+
+1. [x] Giới hạn định dạng mới còn `xlsx` và `pdf`; giữ phân quyền theo từng loại báo cáo.
+2. [x] Xuất đủ thiết bị, bảo trì, luân chuyển và phần mềm từ dữ liệu Supabase.
+3. [x] Thêm logo TDW, tên báo cáo, ngày xuất, số dòng, STT, dải tiêu đề, dòng xen kẽ và hàng tổng theo mẫu hệ cũ.
+4. [x] Triển khai Apps Script version 10; giữ nguyên Web App deployment ID/URL.
+5. [x] Cập nhật logo dashboard và favicon; Vercel production commit `b60dffb` đạt Ready.
+6. [x] Kiểm tra production: XLSX và PDF thiết bị đều tạo thành công với 72 dòng; Google Sheets nguồn hiển thị đúng logo và tiêu đề.
+
 ## 4. Backlog theo thứ tự ưu tiên
 
 ### P0 — Chặn cutover
@@ -117,7 +126,7 @@ Nguyên tắc:
 ### P1 — Hoàn thiện kiến trúc mục tiêu
 
 - ~~Tạo job maintenance trên server đọc Supabase, sau đó gửi payload ký số sang Apps Script/Gmail.~~ Hoàn tất ngày 2026-07-30.
-- Thêm Google Docs/PDF report qua cùng cơ chế job + HMAC + idempotency.
+- ~~Thêm XLSX/PDF report qua cùng cơ chế job + HMAC + idempotency.~~ Hoàn tất ngày 2026-07-30.
 - ~~Bổ sung báo cáo maintenance/software/movement.~~ Hoàn tất ngày 2026-07-30.
 - Thêm audit UI và health check Next.js/Supabase/Apps Script.
 - Tạo thumbnail khi upload; hiện tại danh sách chưa hiển thị ảnh nên chưa phát sinh tải ảnh gốc.
@@ -141,8 +150,8 @@ Nguyên tắc:
 
 ## 6. Giới hạn bằng chứng hiện tại
 
-- Build, TypeScript, smoke test và cú pháp năm migration đã được kiểm tra local.
-- Migration `001` đến `005`, test JWT live và import nền đã được xác minh trên production; bằng chứng trong Git không chứa token hoặc mật khẩu.
+- Build, TypeScript, smoke test và cú pháp các migration liên quan đã được kiểm tra local.
+- Migration `001` đến `010`, test JWT live và import nền đã được xác minh trên production; bằng chứng trong Git không chứa token hoặc mật khẩu.
 - Security Advisor có 0 lỗi và 24 cảnh báo. Phần lớn liên quan các hàm `SECURITY DEFINER`; chưa được diễn giải thành “không có rủi ro” và vẫn cần rà soát quyền `EXECUTE`.
 - Socket snapshot của hệ điều hành không đủ để chứng minh không có upload/egress; cần proxy, firewall hoặc network log được tổ chức phê duyệt để đưa ra kết luận đó.
 - Việc “đã có backup” chưa đồng nghĩa backup đã restore thành công; trạng thái restore cần được xác nhận riêng trước thao tác không thể đảo ngược.
