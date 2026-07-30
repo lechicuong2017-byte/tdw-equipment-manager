@@ -2,8 +2,22 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/env";
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+export async function updateSession(
+  request: NextRequest,
+  requestHeaders: Headers,
+  contentSecurityPolicy: string,
+) {
+  const nextResponse = () => {
+    const next = NextResponse.next({ request: { headers: requestHeaders } });
+    next.headers.set("Content-Security-Policy", contentSecurityPolicy);
+    return next;
+  };
+  const redirectResponse = (url: URL) => {
+    const redirect = NextResponse.redirect(url);
+    redirect.headers.set("Content-Security-Policy", contentSecurityPolicy);
+    return redirect;
+  };
+  let response = nextResponse();
   const { url, publishableKey } = getSupabaseEnv();
 
   const supabase = createServerClient(url, publishableKey, {
@@ -13,7 +27,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet, headers) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = nextResponse();
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });
@@ -36,14 +50,14 @@ export async function updateSession(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return redirectResponse(loginUrl);
   }
 
   if (isAuthenticated && pathname === "/login") {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     dashboardUrl.search = "";
-    return NextResponse.redirect(dashboardUrl);
+    return redirectResponse(dashboardUrl);
   }
 
   return response;
