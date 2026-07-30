@@ -43,7 +43,7 @@ export async function inviteUser(formData: FormData) {
     parsed.data.email,
     {
       data: { full_name: parsed.data.full_name },
-      redirectTo: `${appUrl}/set-password`,
+      redirectTo: `${appUrl}/auth/set-password`,
     },
   );
   if (error) {
