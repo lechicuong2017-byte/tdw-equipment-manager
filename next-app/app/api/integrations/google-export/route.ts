@@ -11,12 +11,12 @@ export const runtime = "nodejs";
 
 const reportTypes = ["assets", "maintenance", "movement", "software"] as const;
 type ReportType = (typeof reportTypes)[number];
-const outputFormats = ["spreadsheet", "google_doc", "pdf"] as const;
+const outputFormats = ["xlsx", "pdf"] as const;
 type OutputFormat = (typeof outputFormats)[number];
 
 const requestSchema = z.object({
   report_type: z.enum(reportTypes),
-  output_format: z.enum(outputFormats).default("spreadsheet"),
+  output_format: z.enum(outputFormats).default("xlsx"),
   idempotency_token: z.uuid(),
 });
 
@@ -42,31 +42,6 @@ type ExportJobClaim = {
   job_status: "pending" | "processing" | "completed" | "failed";
   result_url: string | null;
   is_new: boolean;
-};
-
-type DocumentReportPayload = {
-  job_id: string;
-  report_type: "assets_summary";
-  output_format: "google_doc" | "pdf";
-  title: string;
-  requested_by: string;
-  created_at: string;
-  summary: {
-    asset_count: number;
-    total_quantity: number;
-    total_value: number;
-    status_groups: Array<{ label: string; count: number }>;
-    department_groups: Array<{ label: string; count: number }>;
-  };
-  assets: Array<{
-    asset_code: string;
-    asset_name: string;
-    status: string;
-    department: string;
-    location: string;
-    total_price: number;
-  }>;
-  truncated: boolean;
 };
 
 type RelatedAsset =
@@ -105,13 +80,6 @@ export async function POST(request: Request) {
   if (!access || !can(access, permissionByReport[reportType])) {
     return NextResponse.json({ error: "Không có quyền xuất báo cáo" }, { status: 403 });
   }
-  if (outputFormat !== "spreadsheet" && reportType !== "assets") {
-    return NextResponse.json(
-      { error: "Google Docs và PDF hiện hỗ trợ báo cáo thiết bị" },
-      { status: 400 },
-    );
-  }
-
   const idempotencyKey = createHash("sha256")
     .update(
       `${access.user_id}:${reportType}:${outputFormat}:${parsed.data.idempotency_token}`,
@@ -153,30 +121,20 @@ export async function POST(request: Request) {
 
   try {
     const payload = await buildReportPayload(supabase, reportType, access.email);
-    const result =
-      outputFormat === "spreadsheet"
-        ? await callAppsScript<{
-            ok: true;
-            spreadsheet_url: string;
-            row_count: number;
-          }>("exportSupabaseReport", payload)
-        : await callAppsScript<{
-            ok: true;
-            result_url: string;
-            row_count: number;
-          }>(
-            "exportSupabaseDocumentReport",
-            buildDocumentPayload(payload, job.job_id, outputFormat),
-            90000,
-          );
-    const resultUrl =
-      outputFormat === "spreadsheet"
-        ? "spreadsheet_url" in result
-          ? result.spreadsheet_url
-          : ""
-        : "result_url" in result
-          ? result.result_url
-          : "";
+    const result = await callAppsScript<{
+      ok: true;
+      result_url: string;
+      row_count: number;
+    }>(
+      "exportSupabaseReportFile",
+      {
+        ...payload,
+        job_id: job.job_id,
+        output_format: outputFormat,
+      },
+      90000,
+    );
+    const resultUrl = result.result_url;
     if (!resultUrl) {
       throw new Error("Apps Script không trả về liên kết báo cáo");
     }
@@ -209,62 +167,6 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
-}
-
-function buildDocumentPayload(
-  payload: ReportPayload,
-  jobId: string,
-  outputFormat: Exclude<OutputFormat, "spreadsheet">,
-): DocumentReportPayload {
-  if (payload.report_type !== "assets") {
-    throw new Error("Loại báo cáo tài liệu không được hỗ trợ");
-  }
-
-  const countBy = (key: "status_label" | "department") => {
-    const counts = new Map<string, number>();
-    payload.rows.forEach((row) => {
-      const label = String(row[key] || "Chưa xác định").trim() || "Chưa xác định";
-      counts.set(label, (counts.get(label) ?? 0) + 1);
-    });
-    return [...counts.entries()]
-      .map(([label, count]) => ({ label, count }))
-      .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, "vi"));
-  };
-  const numberValue = (value: unknown) => {
-    const parsed = Number(value ?? 0);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-
-  return {
-    job_id: jobId,
-    report_type: "assets_summary",
-    output_format: outputFormat,
-    title: payload.title.replace("Danh sách", "Tổng hợp"),
-    requested_by: payload.requested_by,
-    created_at: new Date().toISOString(),
-    summary: {
-      asset_count: payload.rows.length,
-      total_quantity: payload.rows.reduce(
-        (total, row) => total + numberValue(row.quantity),
-        0,
-      ),
-      total_value: payload.rows.reduce(
-        (total, row) => total + numberValue(row.total_price),
-        0,
-      ),
-      status_groups: countBy("status_label"),
-      department_groups: countBy("department"),
-    },
-    assets: payload.rows.slice(0, 200).map((row) => ({
-      asset_code: String(row.asset_code || ""),
-      asset_name: String(row.asset_name || ""),
-      status: String(row.status_label || ""),
-      department: String(row.department || ""),
-      location: String(row.location || ""),
-      total_price: numberValue(row.total_price),
-    })),
-    truncated: payload.rows.length > 200,
-  };
 }
 
 async function buildReportPayload(

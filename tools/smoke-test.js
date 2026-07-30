@@ -101,6 +101,9 @@ async function run() {
   const documentReportMigration = read(
     "supabase/migrations/202607300009_document_report_jobs.sql",
   );
+  const xlsxPdfReportMigration = read(
+    "supabase/migrations/202607300010_xlsx_pdf_report_exports.sql",
+  );
   const app = read("app/app.js");
   const index = read("app/index.html");
   const styles = read("app/styles.css");
@@ -190,11 +193,13 @@ async function run() {
   assert.ok(appsScript.includes("function requireLegacyActionAllowed_(action)"));
   assert.ok(appsScript.includes('"read-write", "read-only", "disabled"'));
   assert.ok(appsScript.includes('"exportSupabaseReport"'));
-  assert.ok(appsScript.includes('"exportSupabaseDocumentReport"'));
-  assert.ok(appsScript.includes("function exportSupabaseDocumentReport_(payload)"));
-  assert.ok(appsScript.includes("DocumentApp.create(title)"));
-  assert.ok(appsScript.includes("getAs(MimeType.PDF)"));
-  assert.ok(appsScript.includes("TDW_DOCUMENT_REPORT_LEDGER"));
+  assert.ok(appsScript.includes('"exportSupabaseReportFile"'));
+  assert.ok(appsScript.includes("function exportSupabaseReportFile_(payload)"));
+  assert.ok(appsScript.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+  assert.ok(appsScript.includes(": MimeType.PDF"));
+  assert.ok(appsScript.includes("TDW_REPORT_FILE_LEDGER"));
+  assert.ok(appsScript.includes("spreadsheetFile.setTrashed(true)"));
+  assert.ok(!appsScript.includes("DocumentApp.create"));
   assert.ok(appsScript.includes('"sendSupabaseMaintenanceReminders"'));
   assert.ok(appsScript.includes("function sendSupabaseMaintenanceReminders_(payload)"));
   assert.ok(recordScopeMigration.includes("create table public.data_access_scopes"));
@@ -203,7 +208,8 @@ async function run() {
   assert.ok(recordScopeMigration.includes("public.can_manage_storage_object(name)"));
   assert.ok(documentReportMigration.includes("create or replace function public.claim_export_job"));
   assert.ok(documentReportMigration.includes("export_jobs_user_idempotency_idx"));
-  assert.ok(documentReportMigration.includes("target_output_format in ('google_doc', 'pdf')"));
+  assert.ok(xlsxPdfReportMigration.includes("target_output_format not in ('xlsx', 'pdf')"));
+  assert.ok(xlsxPdfReportMigration.includes("alter column output_format set default 'xlsx'"));
   assert.ok(!recordScopeMigration.includes(
     "public.has_permission('assets.view')\n      or public.has_permission('maintenance.view')",
   ));

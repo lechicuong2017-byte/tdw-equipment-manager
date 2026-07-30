@@ -50,7 +50,7 @@ export default async function ReportsPage() {
       <PageHeader
         eyebrow="BÁO CÁO"
         title="Báo cáo và xuất dữ liệu"
-        description="Dữ liệu được đọc từ Supabase; Apps Script chỉ đảm nhiệm tạo tài liệu Google."
+        description="Dữ liệu được đọc từ Supabase; Apps Script chỉ đảm nhiệm tạo tệp XLSX và PDF trên Google Drive."
       />
       <section className="report-grid">
         {reports.map((report) => (
@@ -64,20 +64,11 @@ export default async function ReportsPage() {
             {can(access, report.permission) ? (
               <div className="report-actions">
                 <ExportReportButton reportType={report.type} />
-                {report.type === "assets" ? (
-                  <>
-                    <ExportReportButton
-                      buttonLabel="Tạo Google Docs"
-                      outputFormat="google_doc"
-                      reportType="assets"
-                    />
-                    <ExportReportButton
-                      buttonLabel="Tạo PDF"
-                      outputFormat="pdf"
-                      reportType="assets"
-                    />
-                  </>
-                ) : null}
+                <ExportReportButton
+                  buttonLabel="Xuất PDF"
+                  outputFormat="pdf"
+                  reportType={report.type}
+                />
               </div>
             ) : (
               <small>Bạn không có quyền xuất báo cáo này.</small>

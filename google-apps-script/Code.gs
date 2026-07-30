@@ -515,9 +515,9 @@ function doPost(event) {
       const payload = requireSignedIntegrationRequest_(body);
       return jsonResponse_(exportSupabaseReport_(payload));
     }
-    if (action === "exportSupabaseDocumentReport") {
+    if (action === "exportSupabaseReportFile") {
       const payload = requireSignedIntegrationRequest_(body);
-      return jsonResponse_(exportSupabaseDocumentReport_(payload));
+      return jsonResponse_(exportSupabaseReportFile_(payload));
     }
     if (action === "sendSupabaseMaintenanceReminders") {
       const payload = requireSignedIntegrationRequest_(body);
@@ -816,30 +816,36 @@ function exportSupabaseReport_(payload) {
   };
 }
 
-function exportSupabaseDocumentReport_(payload) {
+function exportSupabaseReportFile_(payload) {
   const jobId = String(payload.job_id || "").trim();
   const reportType = String(payload.report_type || "").trim();
   const outputFormat = String(payload.output_format || "").trim();
-  const title = safeDocumentText_(payload.title || "TDW - Tổng hợp thiết bị", 120);
+  const title = safeDocumentText_(payload.title || "TDW Export", 120);
   const requestedBy = safeDocumentText_(payload.requested_by || "", 200);
-  const createdAt = String(payload.created_at || "").trim();
-  const summary = payload.summary && typeof payload.summary === "object"
-    ? payload.summary
-    : {};
-  const assets = Array.isArray(payload.assets) ? payload.assets : [];
+  const columns = Array.isArray(payload.columns) ? payload.columns : [];
+  const rows = Array.isArray(payload.rows) ? payload.rows : [];
 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId)) {
-    throw new Error("Mã tác vụ tài liệu không hợp lệ");
+    throw new Error("Mã tác vụ xuất file không hợp lệ");
   }
-  if (reportType !== "assets_summary") {
-    throw new Error("Loại báo cáo tài liệu không được hỗ trợ");
+  if (["assets", "maintenance", "software", "movement"].indexOf(reportType) === -1) {
+    throw new Error("Loại báo cáo không được hỗ trợ");
   }
-  if (["google_doc", "pdf"].indexOf(outputFormat) === -1) {
-    throw new Error("Định dạng tài liệu không hợp lệ");
+  if (["xlsx", "pdf"].indexOf(outputFormat) === -1) {
+    throw new Error("Định dạng file không hợp lệ");
   }
-  if (assets.length > 200) throw new Error("Báo cáo tài liệu vượt quá 200 thiết bị");
+  if (!columns.length || columns.length > 50) throw new Error("Cấu trúc cột không hợp lệ");
+  if (rows.length > 5000) throw new Error("Báo cáo vượt quá 5.000 dòng");
 
-  const previous = getDocumentReportLedgerEntry_(jobId);
+  const normalizedColumns = columns.map((column) => ({
+    key: String(column.key || "").trim(),
+    label: safeDocumentText_(column.label || column.key || "", 120),
+  }));
+  if (normalizedColumns.some((column) => !/^[a-zA-Z0-9_]+$/.test(column.key))) {
+    throw new Error("Khóa cột không hợp lệ");
+  }
+
+  const previous = getReportFileLedgerEntry_(jobId);
   if (previous) {
     if (previous.output_format !== outputFormat) {
       throw new Error("Mã tác vụ đã được dùng cho định dạng khác");
@@ -847,171 +853,60 @@ function exportSupabaseDocumentReport_(payload) {
     return Object.assign({ ok: true, reused: true }, previous);
   }
 
-  const document = DocumentApp.create(title);
-  const body = document.getBody();
-  body
-    .setPageWidth(841.89)
-    .setPageHeight(595.28)
-    .setMarginTop(36)
-    .setMarginBottom(36)
-    .setMarginLeft(36)
-    .setMarginRight(36);
-
-  const titleParagraph = body.appendParagraph(title);
-  titleParagraph.setSpacingAfter(4);
-  titleParagraph.editAsText()
-    .setFontFamily("Arial")
-    .setFontSize(22)
-    .setBold(true)
-    .setForegroundColor("#111827");
-
-  const createdDate = createdAt
-    ? Utilities.formatDate(new Date(createdAt), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm")
-    : Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
-  const metadataParagraph = body.appendParagraph(
-    `Ngày tạo: ${createdDate} | Người yêu cầu: ${requestedBy || "Không xác định"}`,
+  const spreadsheet = SpreadsheetApp.create(
+    title || "TDW Export",
+    Math.max(rows.length + 1, 2),
+    normalizedColumns.length,
   );
-  metadataParagraph.setSpacingAfter(12);
-  metadataParagraph.editAsText()
-    .setFontFamily("Arial")
-    .setFontSize(9)
-    .setForegroundColor("#4b5563");
-
-  appendDocumentHeading_(body, "Tổng quan");
-  const overviewTable = body.appendTable([
-    ["Chỉ số", "Giá trị"],
-    ["Tổng thiết bị", formatDocumentNumber_(summary.asset_count)],
-    ["Tổng số lượng", formatDocumentNumber_(summary.total_quantity)],
-    ["Tổng giá trị", `${formatDocumentNumber_(summary.total_value)} ₫`],
-  ]);
-  styleDocumentTable_(overviewTable, [220, 220]);
-
-  appendDocumentHeading_(body, "Phân bổ theo trạng thái");
-  const statusRows = normalizeDocumentGroups_(summary.status_groups, 20);
-  const statusTable = body.appendTable([
-    ["Trạng thái", "Số thiết bị"],
-    ...statusRows.map((item) => [item.label, formatDocumentNumber_(item.count)]),
-  ]);
-  styleDocumentTable_(statusTable, [280, 160]);
-
-  appendDocumentHeading_(body, "Phân bổ theo phòng ban");
-  const departmentRows = normalizeDocumentGroups_(summary.department_groups, 30);
-  const departmentTable = body.appendTable([
-    ["Phòng ban", "Số thiết bị"],
-    ...departmentRows.map((item) => [item.label, formatDocumentNumber_(item.count)]),
-  ]);
-  styleDocumentTable_(departmentTable, [280, 160]);
-
-  appendDocumentHeading_(body, "Danh sách thiết bị");
-  const assetRows = assets.map((asset) => [
-    safeDocumentText_(asset.asset_code, 80),
-    safeDocumentText_(asset.asset_name, 220),
-    safeDocumentText_(asset.status, 100),
-    safeDocumentText_(asset.department, 120),
-    safeDocumentText_(asset.location, 140),
-    `${formatDocumentNumber_(asset.total_price)} ₫`,
-  ]);
-  const assetTable = body.appendTable([
-    ["Mã", "Tên thiết bị", "Trạng thái", "Phòng ban", "Vị trí", "Giá trị"],
-    ...assetRows,
-  ]);
-  styleDocumentTable_(assetTable, [65, 220, 95, 115, 130, 95], 8);
-
-  if (payload.truncated) {
-    const note = body.appendParagraph(
-      "Ghi chú: tài liệu chỉ hiển thị 200 thiết bị đầu tiên. Google Sheet chứa dữ liệu chi tiết đầy đủ.",
-    );
-    note.setSpacingBefore(8);
-    note.editAsText()
-      .setFontFamily("Arial")
-      .setFontSize(9)
-      .setItalic(true)
-      .setForegroundColor("#92400e");
-  }
-
-  const footer = body.appendParagraph("Nguồn dữ liệu: Supabase PostgreSQL | TDW Equipment Manager");
-  footer.setSpacingBefore(12);
-  footer.editAsText()
-    .setFontFamily("Arial")
-    .setFontSize(8)
-    .setForegroundColor("#6b7280");
-
-  document.saveAndClose();
-
-  const documentFile = DriveApp.getFileById(document.getId());
-  const folderId = propertiesSafeGet_("TDW_EXPORT_FOLDER_ID");
-  const folder = folderId ? DriveApp.getFolderById(folderId) : null;
-  if (folder) documentFile.moveTo(folder);
-  shareExportFileWithRequester_(documentFile, requestedBy);
-
-  const documentUrl = document.getUrl();
-  let resultUrl = documentUrl;
-  let pdfUrl = "";
-  if (outputFormat === "pdf") {
-    const pdfBlob = documentFile
-      .getAs(MimeType.PDF)
-      .setName(`${safeDriveFileName_(title)}.pdf`);
-    const pdfFile = folder ? folder.createFile(pdfBlob) : DriveApp.createFile(pdfBlob);
-    shareExportFileWithRequester_(pdfFile, requestedBy);
-    pdfUrl = pdfFile.getUrl();
-    resultUrl = pdfUrl;
-  }
-
-  const result = {
-    ok: true,
-    job_id: jobId,
-    report_type: reportType,
-    output_format: outputFormat,
-    row_count: assets.length,
-    document_url: documentUrl,
-    pdf_url: pdfUrl,
-    result_url: resultUrl,
-    created_at: new Date().toISOString(),
-  };
-  saveDocumentReportLedgerEntry_(result);
-  return result;
-}
-
-function appendDocumentHeading_(body, text) {
-  const paragraph = body.appendParagraph(text);
-  paragraph.setSpacingBefore(14).setSpacingAfter(5);
-  paragraph.editAsText()
-    .setFontFamily("Arial")
-    .setFontSize(14)
-    .setBold(true)
-    .setForegroundColor("#0e6e8e");
-  return paragraph;
-}
-
-function styleDocumentTable_(table, columnWidths, fontSize) {
-  const size = Number(fontSize || 9);
-  for (let rowIndex = 0; rowIndex < table.getNumRows(); rowIndex += 1) {
-    const row = table.getRow(rowIndex);
-    for (let cellIndex = 0; cellIndex < row.getNumCells(); cellIndex += 1) {
-      const cell = row.getCell(cellIndex);
-      if (columnWidths[cellIndex]) cell.setWidth(columnWidths[cellIndex]);
-      cell.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
-      const text = cell.editAsText()
-        .setFontFamily("Arial")
-        .setFontSize(size)
-        .setForegroundColor(rowIndex === 0 ? "#ffffff" : "#111827");
-      if (rowIndex === 0) {
-        cell.setBackgroundColor("#0e6e8e");
-        text.setBold(true);
-      } else if (rowIndex % 2 === 0) {
-        cell.setBackgroundColor("#f3f4f6");
-      }
+  const spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
+  try {
+    const sheet = spreadsheet.getSheets()[0];
+    sheet.setName(reportType.slice(0, 80));
+    const values = [
+      normalizedColumns.map((column) => column.label),
+      ...rows.map((row) => normalizedColumns.map((column) => safeSpreadsheetValue_(row[column.key]))),
+    ];
+    const dataRange = sheet.getRange(1, 1, values.length, normalizedColumns.length);
+    dataRange.setValues(values).setFontFamily("Arial").setFontSize(outputFormat === "pdf" ? 8 : 10);
+    sheet.getRange(1, 1, 1, normalizedColumns.length)
+      .setBackground("#0e6e8e")
+      .setFontColor("#ffffff")
+      .setFontWeight("bold");
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, normalizedColumns.length);
+    for (let columnIndex = 1; columnIndex <= normalizedColumns.length; columnIndex += 1) {
+      const currentWidth = sheet.getColumnWidth(columnIndex);
+      sheet.setColumnWidth(columnIndex, Math.min(Math.max(currentWidth, 80), 220));
     }
-  }
-  return table;
-}
+    SpreadsheetApp.flush();
+    Utilities.sleep(500);
 
-function normalizeDocumentGroups_(groups, limit) {
-  if (!Array.isArray(groups)) return [];
-  return groups.slice(0, limit).map((item) => ({
-    label: safeDocumentText_(item && item.label, 160) || "Chưa xác định",
-    count: Number(item && item.count || 0),
-  }));
+    const mimeType = outputFormat === "xlsx"
+      ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      : MimeType.PDF;
+    const blob = spreadsheetFile
+      .getAs(mimeType)
+      .setName(`${safeDriveFileName_(title)}.${outputFormat}`);
+    const folderId = propertiesSafeGet_("TDW_EXPORT_FOLDER_ID");
+    const folder = folderId ? DriveApp.getFolderById(folderId) : null;
+    const outputFile = folder ? folder.createFile(blob) : DriveApp.createFile(blob);
+    shareExportFileWithRequester_(outputFile, requestedBy);
+
+    const result = {
+      ok: true,
+      job_id: jobId,
+      report_type: reportType,
+      output_format: outputFormat,
+      row_count: rows.length,
+      result_url: outputFile.getUrl(),
+      file_id: outputFile.getId(),
+      created_at: new Date().toISOString(),
+    };
+    saveReportFileLedgerEntry_(result);
+    return result;
+  } finally {
+    spreadsheetFile.setTrashed(true);
+  }
 }
 
 function safeDocumentText_(value, maxLength) {
@@ -1033,23 +928,16 @@ function shareExportFileWithRequester_(file, requestedBy) {
   if (email && email !== ownerEmail) file.addViewer(email);
 }
 
-function formatDocumentNumber_(value) {
-  const number = Number(value || 0);
-  return (Number.isFinite(number) ? number : 0).toLocaleString("vi-VN", {
-    maximumFractionDigits: 0,
-  });
-}
-
-function getDocumentReportLedgerEntry_(jobId) {
-  const entries = readDocumentReportLedger_();
+function getReportFileLedgerEntry_(jobId) {
+  const entries = readReportFileLedger_();
   return entries.find((entry) => entry.job_id === jobId) || null;
 }
 
-function saveDocumentReportLedgerEntry_(result) {
+function saveReportFileLedgerEntry_(result) {
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) throw new Error("Không thể lưu kết quả tác vụ tài liệu");
+  if (!lock.tryLock(5000)) throw new Error("Không thể lưu kết quả tác vụ xuất file");
   try {
-    const entries = readDocumentReportLedger_()
+    const entries = readReportFileLedger_()
       .filter((entry) => entry.job_id !== result.job_id)
       .slice(-19);
     entries.push({
@@ -1057,13 +945,12 @@ function saveDocumentReportLedgerEntry_(result) {
       report_type: result.report_type,
       output_format: result.output_format,
       row_count: result.row_count,
-      document_url: result.document_url,
-      pdf_url: result.pdf_url,
       result_url: result.result_url,
+      file_id: result.file_id,
       created_at: result.created_at,
     });
     PropertiesService.getScriptProperties().setProperty(
-      "TDW_DOCUMENT_REPORT_LEDGER",
+      "TDW_REPORT_FILE_LEDGER",
       JSON.stringify(entries),
     );
   } finally {
@@ -1071,10 +958,10 @@ function saveDocumentReportLedgerEntry_(result) {
   }
 }
 
-function readDocumentReportLedger_() {
+function readReportFileLedger_() {
   try {
     const value = PropertiesService.getScriptProperties().getProperty(
-      "TDW_DOCUMENT_REPORT_LEDGER",
+      "TDW_REPORT_FILE_LEDGER",
     );
     const entries = JSON.parse(value || "[]");
     return Array.isArray(entries) ? entries : [];

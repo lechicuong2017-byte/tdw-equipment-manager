@@ -2,18 +2,17 @@
 
 import { useRef, useState } from "react";
 
-type OutputFormat = "spreadsheet" | "google_doc" | "pdf";
+type OutputFormat = "xlsx" | "pdf";
 
 const loadingLabel: Record<OutputFormat, string> = {
-  spreadsheet: "Đang tạo Google Sheet…",
-  google_doc: "Đang tạo Google Docs…",
+  xlsx: "Đang tạo XLSX…",
   pdf: "Đang tạo PDF…",
 };
 
 export function ExportReportButton({
   reportType,
-  outputFormat = "spreadsheet",
-  buttonLabel = "Xuất Google Sheet",
+  outputFormat = "xlsx",
+  buttonLabel = "Xuất XLSX",
 }: {
   reportType: "assets" | "maintenance" | "movement" | "software";
   outputFormat?: OutputFormat;
@@ -56,11 +55,9 @@ export function ExportReportButton({
       setState({
         status: "success",
         message:
-          outputFormat === "spreadsheet"
-            ? `Đã xuất ${result.row_count ?? 0} dòng.`
-            : outputFormat === "google_doc"
-              ? "Đã tạo Google Docs."
-              : "Đã tạo tệp PDF.",
+          outputFormat === "xlsx"
+            ? `Đã tạo tệp XLSX với ${result.row_count ?? 0} dòng.`
+            : `Đã tạo tệp PDF với ${result.row_count ?? 0} dòng.`,
         url: result.url,
       });
       if (reportWindow) reportWindow.location.replace(result.url);
