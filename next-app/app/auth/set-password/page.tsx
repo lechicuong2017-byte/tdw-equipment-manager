@@ -66,9 +66,9 @@ export default function AuthSetPasswordPage() {
       return;
     }
 
-    const { url, publishableKey } = getSupabaseEnv();
     let response: Response;
     try {
+      const { url, publishableKey } = getSupabaseEnv();
       response = await fetch(`${url}/auth/v1/user`, {
         method: "PUT",
         headers: {

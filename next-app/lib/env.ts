@@ -1,10 +1,9 @@
-const publicEnvKeys = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-] as const;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabasePublishableKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 export function hasSupabaseEnv() {
-  return publicEnvKeys.every((key) => Boolean(process.env[key]?.trim()));
+  return Boolean(supabaseUrl?.trim() && supabasePublishableKey?.trim());
 }
 
 export function getSupabaseEnv() {
@@ -15,7 +14,7 @@ export function getSupabaseEnv() {
   }
 
   return {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    publishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    url: supabaseUrl!,
+    publishableKey: supabasePublishableKey!,
   };
 }
