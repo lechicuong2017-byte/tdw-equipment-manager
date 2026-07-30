@@ -515,6 +515,10 @@ function doPost(event) {
       const payload = requireSignedIntegrationRequest_(body);
       return jsonResponse_(exportSupabaseReport_(payload));
     }
+    if (action === "exportSupabaseDocumentReport") {
+      const payload = requireSignedIntegrationRequest_(body);
+      return jsonResponse_(exportSupabaseDocumentReport_(payload));
+    }
     if (action === "sendSupabaseMaintenanceReminders") {
       const payload = requireSignedIntegrationRequest_(body);
       return jsonResponse_(sendSupabaseMaintenanceReminders_(payload));
@@ -796,8 +800,10 @@ function exportSupabaseReport_(payload) {
   sheet.setFrozenRows(1);
   sheet.autoResizeColumns(1, normalizedColumns.length);
 
+  const spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
   const folderId = propertiesSafeGet_("TDW_EXPORT_FOLDER_ID");
-  if (folderId) DriveApp.getFileById(spreadsheet.getId()).moveTo(DriveApp.getFolderById(folderId));
+  if (folderId) spreadsheetFile.moveTo(DriveApp.getFolderById(folderId));
+  shareExportFileWithRequester_(spreadsheetFile, requestedBy);
 
   return {
     ok: true,
@@ -808,6 +814,273 @@ function exportSupabaseReport_(payload) {
     requested_by: requestedBy,
     created_at: new Date().toISOString(),
   };
+}
+
+function exportSupabaseDocumentReport_(payload) {
+  const jobId = String(payload.job_id || "").trim();
+  const reportType = String(payload.report_type || "").trim();
+  const outputFormat = String(payload.output_format || "").trim();
+  const title = safeDocumentText_(payload.title || "TDW - Tổng hợp thiết bị", 120);
+  const requestedBy = safeDocumentText_(payload.requested_by || "", 200);
+  const createdAt = String(payload.created_at || "").trim();
+  const summary = payload.summary && typeof payload.summary === "object"
+    ? payload.summary
+    : {};
+  const assets = Array.isArray(payload.assets) ? payload.assets : [];
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId)) {
+    throw new Error("Mã tác vụ tài liệu không hợp lệ");
+  }
+  if (reportType !== "assets_summary") {
+    throw new Error("Loại báo cáo tài liệu không được hỗ trợ");
+  }
+  if (["google_doc", "pdf"].indexOf(outputFormat) === -1) {
+    throw new Error("Định dạng tài liệu không hợp lệ");
+  }
+  if (assets.length > 200) throw new Error("Báo cáo tài liệu vượt quá 200 thiết bị");
+
+  const previous = getDocumentReportLedgerEntry_(jobId);
+  if (previous) {
+    if (previous.output_format !== outputFormat) {
+      throw new Error("Mã tác vụ đã được dùng cho định dạng khác");
+    }
+    return Object.assign({ ok: true, reused: true }, previous);
+  }
+
+  const document = DocumentApp.create(title);
+  const body = document.getBody();
+  body
+    .setPageWidth(841.89)
+    .setPageHeight(595.28)
+    .setMarginTop(36)
+    .setMarginBottom(36)
+    .setMarginLeft(36)
+    .setMarginRight(36);
+
+  const titleParagraph = body.appendParagraph(title);
+  titleParagraph.setSpacingAfter(4);
+  titleParagraph.editAsText()
+    .setFontFamily("Arial")
+    .setFontSize(22)
+    .setBold(true)
+    .setForegroundColor("#111827");
+
+  const createdDate = createdAt
+    ? Utilities.formatDate(new Date(createdAt), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm")
+    : Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+  const metadataParagraph = body.appendParagraph(
+    `Ngày tạo: ${createdDate} | Người yêu cầu: ${requestedBy || "Không xác định"}`,
+  );
+  metadataParagraph.setSpacingAfter(12);
+  metadataParagraph.editAsText()
+    .setFontFamily("Arial")
+    .setFontSize(9)
+    .setForegroundColor("#4b5563");
+
+  appendDocumentHeading_(body, "Tổng quan");
+  const overviewTable = body.appendTable([
+    ["Chỉ số", "Giá trị"],
+    ["Tổng thiết bị", formatDocumentNumber_(summary.asset_count)],
+    ["Tổng số lượng", formatDocumentNumber_(summary.total_quantity)],
+    ["Tổng giá trị", `${formatDocumentNumber_(summary.total_value)} ₫`],
+  ]);
+  styleDocumentTable_(overviewTable, [220, 220]);
+
+  appendDocumentHeading_(body, "Phân bổ theo trạng thái");
+  const statusRows = normalizeDocumentGroups_(summary.status_groups, 20);
+  const statusTable = body.appendTable([
+    ["Trạng thái", "Số thiết bị"],
+    ...statusRows.map((item) => [item.label, formatDocumentNumber_(item.count)]),
+  ]);
+  styleDocumentTable_(statusTable, [280, 160]);
+
+  appendDocumentHeading_(body, "Phân bổ theo phòng ban");
+  const departmentRows = normalizeDocumentGroups_(summary.department_groups, 30);
+  const departmentTable = body.appendTable([
+    ["Phòng ban", "Số thiết bị"],
+    ...departmentRows.map((item) => [item.label, formatDocumentNumber_(item.count)]),
+  ]);
+  styleDocumentTable_(departmentTable, [280, 160]);
+
+  appendDocumentHeading_(body, "Danh sách thiết bị");
+  const assetRows = assets.map((asset) => [
+    safeDocumentText_(asset.asset_code, 80),
+    safeDocumentText_(asset.asset_name, 220),
+    safeDocumentText_(asset.status, 100),
+    safeDocumentText_(asset.department, 120),
+    safeDocumentText_(asset.location, 140),
+    `${formatDocumentNumber_(asset.total_price)} ₫`,
+  ]);
+  const assetTable = body.appendTable([
+    ["Mã", "Tên thiết bị", "Trạng thái", "Phòng ban", "Vị trí", "Giá trị"],
+    ...assetRows,
+  ]);
+  styleDocumentTable_(assetTable, [65, 220, 95, 115, 130, 95], 8);
+
+  if (payload.truncated) {
+    const note = body.appendParagraph(
+      "Ghi chú: tài liệu chỉ hiển thị 200 thiết bị đầu tiên. Google Sheet chứa dữ liệu chi tiết đầy đủ.",
+    );
+    note.setSpacingBefore(8);
+    note.editAsText()
+      .setFontFamily("Arial")
+      .setFontSize(9)
+      .setItalic(true)
+      .setForegroundColor("#92400e");
+  }
+
+  const footer = body.appendParagraph("Nguồn dữ liệu: Supabase PostgreSQL | TDW Equipment Manager");
+  footer.setSpacingBefore(12);
+  footer.editAsText()
+    .setFontFamily("Arial")
+    .setFontSize(8)
+    .setForegroundColor("#6b7280");
+
+  document.saveAndClose();
+
+  const documentFile = DriveApp.getFileById(document.getId());
+  const folderId = propertiesSafeGet_("TDW_EXPORT_FOLDER_ID");
+  const folder = folderId ? DriveApp.getFolderById(folderId) : null;
+  if (folder) documentFile.moveTo(folder);
+  shareExportFileWithRequester_(documentFile, requestedBy);
+
+  const documentUrl = document.getUrl();
+  let resultUrl = documentUrl;
+  let pdfUrl = "";
+  if (outputFormat === "pdf") {
+    const pdfBlob = documentFile
+      .getAs(MimeType.PDF)
+      .setName(`${safeDriveFileName_(title)}.pdf`);
+    const pdfFile = folder ? folder.createFile(pdfBlob) : DriveApp.createFile(pdfBlob);
+    shareExportFileWithRequester_(pdfFile, requestedBy);
+    pdfUrl = pdfFile.getUrl();
+    resultUrl = pdfUrl;
+  }
+
+  const result = {
+    ok: true,
+    job_id: jobId,
+    report_type: reportType,
+    output_format: outputFormat,
+    row_count: assets.length,
+    document_url: documentUrl,
+    pdf_url: pdfUrl,
+    result_url: resultUrl,
+    created_at: new Date().toISOString(),
+  };
+  saveDocumentReportLedgerEntry_(result);
+  return result;
+}
+
+function appendDocumentHeading_(body, text) {
+  const paragraph = body.appendParagraph(text);
+  paragraph.setSpacingBefore(14).setSpacingAfter(5);
+  paragraph.editAsText()
+    .setFontFamily("Arial")
+    .setFontSize(14)
+    .setBold(true)
+    .setForegroundColor("#0e6e8e");
+  return paragraph;
+}
+
+function styleDocumentTable_(table, columnWidths, fontSize) {
+  const size = Number(fontSize || 9);
+  for (let rowIndex = 0; rowIndex < table.getNumRows(); rowIndex += 1) {
+    const row = table.getRow(rowIndex);
+    for (let cellIndex = 0; cellIndex < row.getNumCells(); cellIndex += 1) {
+      const cell = row.getCell(cellIndex);
+      if (columnWidths[cellIndex]) cell.setWidth(columnWidths[cellIndex]);
+      cell.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
+      const text = cell.editAsText()
+        .setFontFamily("Arial")
+        .setFontSize(size)
+        .setForegroundColor(rowIndex === 0 ? "#ffffff" : "#111827");
+      if (rowIndex === 0) {
+        cell.setBackgroundColor("#0e6e8e");
+        text.setBold(true);
+      } else if (rowIndex % 2 === 0) {
+        cell.setBackgroundColor("#f3f4f6");
+      }
+    }
+  }
+  return table;
+}
+
+function normalizeDocumentGroups_(groups, limit) {
+  if (!Array.isArray(groups)) return [];
+  return groups.slice(0, limit).map((item) => ({
+    label: safeDocumentText_(item && item.label, 160) || "Chưa xác định",
+    count: Number(item && item.count || 0),
+  }));
+}
+
+function safeDocumentText_(value, maxLength) {
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function safeDriveFileName_(value) {
+  return safeDocumentText_(value, 120).replace(/[\\/:*?"<>|]/g, "-") || "TDW Report";
+}
+
+function shareExportFileWithRequester_(file, requestedBy) {
+  const email = normalizeEmail_(requestedBy || "");
+  const ownerEmail = String(Session.getEffectiveUser().getEmail() || "")
+    .trim()
+    .toLowerCase();
+  if (email && email !== ownerEmail) file.addViewer(email);
+}
+
+function formatDocumentNumber_(value) {
+  const number = Number(value || 0);
+  return (Number.isFinite(number) ? number : 0).toLocaleString("vi-VN", {
+    maximumFractionDigits: 0,
+  });
+}
+
+function getDocumentReportLedgerEntry_(jobId) {
+  const entries = readDocumentReportLedger_();
+  return entries.find((entry) => entry.job_id === jobId) || null;
+}
+
+function saveDocumentReportLedgerEntry_(result) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error("Không thể lưu kết quả tác vụ tài liệu");
+  try {
+    const entries = readDocumentReportLedger_()
+      .filter((entry) => entry.job_id !== result.job_id)
+      .slice(-19);
+    entries.push({
+      job_id: result.job_id,
+      report_type: result.report_type,
+      output_format: result.output_format,
+      row_count: result.row_count,
+      document_url: result.document_url,
+      pdf_url: result.pdf_url,
+      result_url: result.result_url,
+      created_at: result.created_at,
+    });
+    PropertiesService.getScriptProperties().setProperty(
+      "TDW_DOCUMENT_REPORT_LEDGER",
+      JSON.stringify(entries),
+    );
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function readDocumentReportLedger_() {
+  try {
+    const value = PropertiesService.getScriptProperties().getProperty(
+      "TDW_DOCUMENT_REPORT_LEDGER",
+    );
+    const entries = JSON.parse(value || "[]");
+    return Array.isArray(entries) ? entries : [];
+  } catch (_error) {
+    return [];
+  }
 }
 
 function safeSpreadsheetValue_(value) {

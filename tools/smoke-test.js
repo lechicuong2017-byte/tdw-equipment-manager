@@ -98,6 +98,9 @@ async function run() {
   const recordScopeMigration = read(
     "supabase/migrations/202607290002_record_scopes_and_storage_rls.sql",
   );
+  const documentReportMigration = read(
+    "supabase/migrations/202607300009_document_report_jobs.sql",
+  );
   const app = read("app/app.js");
   const index = read("app/index.html");
   const styles = read("app/styles.css");
@@ -187,12 +190,20 @@ async function run() {
   assert.ok(appsScript.includes("function requireLegacyActionAllowed_(action)"));
   assert.ok(appsScript.includes('"read-write", "read-only", "disabled"'));
   assert.ok(appsScript.includes('"exportSupabaseReport"'));
+  assert.ok(appsScript.includes('"exportSupabaseDocumentReport"'));
+  assert.ok(appsScript.includes("function exportSupabaseDocumentReport_(payload)"));
+  assert.ok(appsScript.includes("DocumentApp.create(title)"));
+  assert.ok(appsScript.includes("getAs(MimeType.PDF)"));
+  assert.ok(appsScript.includes("TDW_DOCUMENT_REPORT_LEDGER"));
   assert.ok(appsScript.includes('"sendSupabaseMaintenanceReminders"'));
   assert.ok(appsScript.includes("function sendSupabaseMaintenanceReminders_(payload)"));
   assert.ok(recordScopeMigration.includes("create table public.data_access_scopes"));
   assert.ok(recordScopeMigration.includes("create or replace function public.can_access_asset"));
   assert.ok(recordScopeMigration.includes("public.can_read_storage_object(name)"));
   assert.ok(recordScopeMigration.includes("public.can_manage_storage_object(name)"));
+  assert.ok(documentReportMigration.includes("create or replace function public.claim_export_job"));
+  assert.ok(documentReportMigration.includes("export_jobs_user_idempotency_idx"));
+  assert.ok(documentReportMigration.includes("target_output_format in ('google_doc', 'pdf')"));
   assert.ok(!recordScopeMigration.includes(
     "public.has_permission('assets.view')\n      or public.has_permission('maintenance.view')",
   ));
@@ -212,6 +223,14 @@ async function run() {
 
   const permissions = vm.createContext();
   vm.runInContext(appsScript, permissions, { filename: "google-apps-script/Code.gs" });
+  assert.equal(
+    vm.runInContext('safeDocumentText_("  Báo cáo\\u0000 TDW  ", 20)', permissions),
+    "Báo cáo TDW",
+  );
+  assert.equal(
+    vm.runInContext('safeDriveFileName_("TDW: Báo cáo/2026")', permissions),
+    "TDW- Báo cáo-2026",
+  );
   assert.equal(vm.runInContext('settingValueFromDisplayName_("Đã thanh lý")', permissions), "DA_THANH_LY");
   assert.equal(vm.runInContext('settingValueFromDisplayName_(" Phòng  HCNS ")', permissions), "PHONG_HCNS");
   vm.runInContext(`

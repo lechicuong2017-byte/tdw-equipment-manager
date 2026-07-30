@@ -1,14 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+
+type OutputFormat = "spreadsheet" | "google_doc" | "pdf";
+
+const loadingLabel: Record<OutputFormat, string> = {
+  spreadsheet: "Đang tạo Google Sheet…",
+  google_doc: "Đang tạo Google Docs…",
+  pdf: "Đang tạo PDF…",
+};
 
 export function ExportReportButton({
   reportType,
+  outputFormat = "spreadsheet",
   buttonLabel = "Xuất Google Sheet",
 }: {
   reportType: "assets" | "maintenance" | "movement" | "software";
+  outputFormat?: OutputFormat;
   buttonLabel?: string;
 }) {
+  const idempotencyToken = useRef<string | null>(null);
   const [state, setState] = useState<
     {
       status: "idle" | "loading" | "error" | "success";
@@ -19,6 +30,8 @@ export function ExportReportButton({
 
   async function exportReport() {
     setState({ status: "loading" });
+    const requestToken = idempotencyToken.current || crypto.randomUUID();
+    idempotencyToken.current = requestToken;
     const reportWindow = window.open("about:blank", "_blank");
     if (reportWindow) {
       reportWindow.opener = null;
@@ -28,15 +41,26 @@ export function ExportReportButton({
       const response = await fetch("/api/integrations/google-export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ report_type: reportType }),
+        body: JSON.stringify({
+          report_type: reportType,
+          output_format: outputFormat,
+          idempotency_token: requestToken,
+        }),
       });
       const result = await response.json();
       if (!response.ok || !result.url) {
+        idempotencyToken.current = null;
         throw new Error(result.error || "Không thể xuất báo cáo");
       }
+      idempotencyToken.current = null;
       setState({
         status: "success",
-        message: `Đã xuất ${result.row_count ?? 0} dòng.`,
+        message:
+          outputFormat === "spreadsheet"
+            ? `Đã xuất ${result.row_count ?? 0} dòng.`
+            : outputFormat === "google_doc"
+              ? "Đã tạo Google Docs."
+              : "Đã tạo tệp PDF.",
         url: result.url,
       });
       if (reportWindow) reportWindow.location.replace(result.url);
@@ -57,7 +81,7 @@ export function ExportReportButton({
         onClick={exportReport}
         type="button"
       >
-        {state.status === "loading" ? "Đang tạo Google Sheet…" : buttonLabel}
+        {state.status === "loading" ? loadingLabel[outputFormat] : buttonLabel}
       </button>
       {state.message ? (
         <small data-status={state.status} role="status">{state.message}</small>

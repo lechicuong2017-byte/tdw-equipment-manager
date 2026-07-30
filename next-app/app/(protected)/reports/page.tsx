@@ -62,7 +62,23 @@ export default async function ReportsPage() {
               <p>{report.description}</p>
             </div>
             {can(access, report.permission) ? (
-              <ExportReportButton reportType={report.type} />
+              <div className="report-actions">
+                <ExportReportButton reportType={report.type} />
+                {report.type === "assets" ? (
+                  <>
+                    <ExportReportButton
+                      buttonLabel="Tạo Google Docs"
+                      outputFormat="google_doc"
+                      reportType="assets"
+                    />
+                    <ExportReportButton
+                      buttonLabel="Tạo PDF"
+                      outputFormat="pdf"
+                      reportType="assets"
+                    />
+                  </>
+                ) : null}
+              </div>
             ) : (
               <small>Bạn không có quyền xuất báo cáo này.</small>
             )}
