@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { AccessProfile } from "@/lib/types";
 import { can } from "@/lib/auth";
 import { logout } from "@/app/(protected)/actions";
@@ -23,11 +24,15 @@ export function Sidebar({ access }: { access: AccessProfile }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <span className="brand-symbol">T</span>
-        <div>
-          <strong>TDW</strong>
-          <small>Equipment Manager</small>
-        </div>
+        <Image
+          alt="TDW — Better Service For Life"
+          className="sidebar-logo"
+          height={46}
+          priority
+          src="/tdw-logo.webp"
+          width={126}
+        />
+        <small>Equipment Manager</small>
       </div>
 
       <nav aria-label="Điều hướng chính">

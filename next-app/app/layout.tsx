@@ -9,6 +9,10 @@ export const metadata: Metadata = {
     template: "%s · TDW Equipment Manager",
   },
   description: "Quản lý thiết bị, bảo trì và tài sản nội bộ TDW.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/tdw-icon-192.png",
+  },
   robots: {
     index: false,
     follow: false,

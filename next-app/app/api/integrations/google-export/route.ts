@@ -32,6 +32,7 @@ type ReportRow = Record<string, string | number | boolean | null>;
 type ReportPayload = {
   report_type: ReportType;
   title: string;
+  report_name: string;
   requested_by: string;
   columns: ReportColumn[];
   rows: ReportRow[];
@@ -206,6 +207,7 @@ async function buildReportPayload(
     return {
       report_type: reportType,
       title: `TDW - Danh sách thiết bị - ${dateLabel}`,
+      report_name: "BÁO CÁO DANH SÁCH THIẾT BỊ",
       requested_by: requestedBy,
       columns: [
         { key: "asset_code", label: "Mã thiết bị" },
@@ -297,6 +299,7 @@ async function buildReportPayload(
     return {
       report_type: reportType,
       title: `TDW - Báo cáo bảo trì - ${dateLabel}`,
+      report_name: "BÁO CÁO KẾ HOẠCH VÀ LỊCH SỬ BẢO TRÌ",
       requested_by: requestedBy,
       columns: [
         { key: "record_type", label: "Loại bản ghi" },
@@ -329,6 +332,7 @@ async function buildReportPayload(
     return {
       report_type: reportType,
       title: `TDW - Báo cáo luân chuyển - ${dateLabel}`,
+      report_name: "BÁO CÁO LỊCH SỬ BÀN GIAO",
       requested_by: requestedBy,
       columns: [
         { key: "movement_date", label: "Ngày luân chuyển" },
@@ -366,6 +370,7 @@ async function buildReportPayload(
   return {
     report_type: reportType,
     title: `TDW - Báo cáo phần mềm - ${dateLabel}`,
+    report_name: "BÁO CÁO BẢN QUYỀN PHẦN MỀM",
     requested_by: requestedBy,
     columns: [
       { key: "software_name", label: "Phần mềm" },

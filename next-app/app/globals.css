@@ -347,37 +347,26 @@ textarea:focus {
 
 .sidebar-brand {
   align-items: center;
-  display: flex;
-  gap: 0.75rem;
+  display: grid;
+  gap: 0.45rem;
+  justify-items: start;
   padding: 0 0.5rem 1.9rem;
 }
 
-.brand-symbol {
-  align-items: center;
-  background: linear-gradient(145deg, #26a5b6, #0e6e8e);
-  border-radius: 11px;
-  color: white;
-  display: flex;
-  font-size: 1.1rem;
-  font-weight: 900;
-  height: 40px;
-  justify-content: center;
-  width: 40px;
-}
-
-.sidebar-brand div {
-  display: grid;
-}
-
-.sidebar-brand strong {
-  color: white;
-  font-size: 1rem;
-  letter-spacing: 0.08em;
+.sidebar-logo {
+  background: #fff;
+  border-radius: 10px;
+  height: auto;
+  object-fit: contain;
+  padding: 0.35rem 0.5rem;
+  width: 126px;
 }
 
 .sidebar-brand small {
   color: #8da3b2;
-  font-size: 0.66rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .sidebar nav {

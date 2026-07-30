@@ -95,6 +95,9 @@ async function run() {
   assertSyntax("api/google-script.js");
 
   const appsScript = read("google-apps-script/Code.gs");
+  const googleExportRoute = read(
+    "next-app/app/api/integrations/google-export/route.ts",
+  );
   const recordScopeMigration = read(
     "supabase/migrations/202607290002_record_scopes_and_storage_rls.sql",
   );
@@ -105,6 +108,8 @@ async function run() {
     "supabase/migrations/202607300010_xlsx_pdf_report_exports.sql",
   );
   const app = read("app/app.js");
+  const nextLayout = read("next-app/app/layout.tsx");
+  const nextSidebar = read("next-app/components/sidebar.tsx");
   const index = read("app/index.html");
   const styles = read("app/styles.css");
   const icons = read("app/assets/tdw-icons.svg");
@@ -195,6 +200,25 @@ async function run() {
   assert.ok(appsScript.includes('"exportSupabaseReport"'));
   assert.ok(appsScript.includes('"exportSupabaseReportFile"'));
   assert.ok(appsScript.includes("function exportSupabaseReportFile_(payload)"));
+  assert.ok(appsScript.includes("const TDW_REPORT_LOGO_JPEG_BASE64"));
+  assert.ok(appsScript.includes("function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat)"));
+  assert.ok(appsScript.includes("function insertTdwReportLogo_(sheet)"));
+  assert.ok(appsScript.includes("CÔNG TY CỔ PHẦN NƯỚC THỦ ĐỨC — TDW"));
+  assert.ok(appsScript.includes('setBackground("#176da5")'));
+  assert.ok(appsScript.includes('setBackground("#0d4f7c")'));
+  assert.ok(appsScript.includes('setValue(`TỔNG CỘNG · ${rows.length} dòng'));
+  assert.ok(appsScript.includes('sheet.insertImage(logoBlob, 1, 1).setWidth(112).setHeight(41)'));
+  assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO DANH SÁCH THIẾT BỊ"'));
+  assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO KẾ HOẠCH VÀ LỊCH SỬ BẢO TRÌ"'));
+  assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO LỊCH SỬ BÀN GIAO"'));
+  assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO BẢN QUYỀN PHẦN MỀM"'));
+  assert.ok(nextSidebar.includes('src="/tdw-logo.webp"'));
+  assert.ok(nextSidebar.includes('alt="TDW — Better Service For Life"'));
+  assert.ok(nextLayout.includes('icon: "/favicon.ico"'));
+  assert.ok(nextLayout.includes('apple: "/tdw-icon-192.png"'));
+  assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-logo.webp")));
+  assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-icon-192.png")));
+  assert.ok(fs.existsSync(path.join(root, "next-app/app/favicon.ico")));
   assert.ok(appsScript.includes("function spreadsheetExportUrl_(spreadsheetId, sheetId, outputFormat)"));
   assert.ok(appsScript.includes('if (outputFormat === "xlsx") return `${baseUrl}?format=xlsx`'));
   assert.ok(appsScript.includes('"portrait=false"'));
