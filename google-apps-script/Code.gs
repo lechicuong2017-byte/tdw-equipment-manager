@@ -714,7 +714,7 @@ function requireSignedIntegrationRequest_(body) {
 
   const canonical = `${timestamp}.${nonce}.${payloadJson}`;
   const expected = Utilities.base64EncodeWebSafe(
-    Utilities.computeHmacSha256Signature(canonical, secret),
+    Utilities.computeHmacSha256Signature(canonical, secret, Utilities.Charset.UTF_8),
   ).replace(/=+$/g, "");
   if (!constantTimeEqual_(signature, expected)) throw new Error("Chữ ký tích hợp không hợp lệ");
 

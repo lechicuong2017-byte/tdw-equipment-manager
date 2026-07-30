@@ -318,7 +318,8 @@ async function run() {
     };
     Utilities = {
       computeHmacSha256Signature: (canonical, secret) => computeHmacForTest(canonical, secret),
-      base64EncodeWebSafe: (bytes) => base64WebSafeForTest(bytes)
+      base64EncodeWebSafe: (bytes) => base64WebSafeForTest(bytes),
+      Charset: { UTF_8: "UTF-8" }
     };
     LockService = {
       getScriptLock: () => ({

@@ -4,11 +4,20 @@ import { useState } from "react";
 
 export function ExportAssetsButton() {
   const [state, setState] = useState<
-    { status: "idle" | "loading" | "error" | "success"; message?: string }
+    {
+      status: "idle" | "loading" | "error" | "success";
+      message?: string;
+      url?: string;
+    }
   >({ status: "idle" });
 
   async function exportAssets() {
     setState({ status: "loading" });
+    const reportWindow = window.open("about:blank", "_blank");
+    if (reportWindow) {
+      reportWindow.opener = null;
+      reportWindow.document.title = "Đang tạo báo cáo…";
+    }
     try {
       const response = await fetch("/api/integrations/google-export", {
         method: "POST",
@@ -22,9 +31,11 @@ export function ExportAssetsButton() {
       setState({
         status: "success",
         message: `Đã xuất ${result.row_count ?? 0} dòng.`,
+        url: result.url,
       });
-      window.open(result.url, "_blank", "noopener,noreferrer");
+      if (reportWindow) reportWindow.location.replace(result.url);
     } catch (error) {
+      reportWindow?.close();
       setState({
         status: "error",
         message: error instanceof Error ? error.message : "Không thể xuất báo cáo",
@@ -44,6 +55,11 @@ export function ExportAssetsButton() {
       </button>
       {state.message ? (
         <small data-status={state.status} role="status">{state.message}</small>
+      ) : null}
+      {state.url ? (
+        <a href={state.url} rel="noreferrer" target="_blank">
+          Mở báo cáo
+        </a>
       ) : null}
     </div>
   );
