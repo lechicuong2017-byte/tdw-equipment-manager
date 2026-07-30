@@ -123,7 +123,8 @@ export async function POST(request: Request) {
     const payload = await buildReportPayload(supabase, reportType, access.email);
     const result = await callAppsScript<{
       ok: true;
-      result_url: string;
+      result_url?: string;
+      file_id?: string;
       row_count: number;
     }>(
       "exportSupabaseReportFile",
@@ -134,9 +135,12 @@ export async function POST(request: Request) {
       },
       90000,
     );
-    const resultUrl = result.result_url;
+    const resultUrl =
+      result.result_url || buildGoogleReportDownloadUrl(result.file_id, outputFormat);
     if (!resultUrl) {
-      throw new Error("Apps Script không trả về liên kết báo cáo");
+      throw new Error(
+        `Apps Script không trả về mã file; fields=${Object.keys(result).sort().join(",")}`,
+      );
     }
 
     await supabase.rpc("finish_export_job", {
@@ -167,6 +171,16 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
+}
+
+function buildGoogleReportDownloadUrl(
+  fileId: string | undefined,
+  outputFormat: OutputFormat,
+) {
+  if (!fileId || !/^[a-zA-Z0-9_-]{10,200}$/.test(fileId)) return "";
+  const baseUrl = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(fileId)}/export`;
+  if (outputFormat === "xlsx") return `${baseUrl}?format=xlsx`;
+  return `${baseUrl}?format=pdf&size=A4&portrait=false&fitw=true&sheetnames=false&printtitle=false&pagenumbers=true&gridlines=false&fzr=true`;
 }
 
 async function buildReportPayload(
