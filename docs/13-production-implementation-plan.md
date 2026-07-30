@@ -15,6 +15,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Supabase Storage private | Đã bổ sung | Quyền object gắn với metadata và asset tương ứng |
 | Quản trị user | Đã bổ sung nền | Invite Auth, role, active, MFA và data scope |
 | Thiết bị và dashboard | Đã có luồng chính | Query/phân trang server, CRUD, soft delete, media |
+| Linh kiện bên trong thiết bị | Đã triển khai | Migration `011`, lịch sử gắn/tháo/thay, RLS, UI hồ sơ và báo cáo phân cấp |
 | Cache | Đã có mức an toàn ban đầu | Auth/access được memoize trong cùng request; không cache chéo user |
 | Apps Script export | Đã có | Báo cáo thiết bị, bảo trì, luân chuyển và phần mềm; request HMAC, timestamp, nonce, chống formula injection |
 | Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
@@ -113,6 +114,16 @@ Nguyên tắc:
 5. [x] Cập nhật logo dashboard và favicon; Vercel production commit `b60dffb` đạt Ready.
 6. [x] Kiểm tra production: XLSX và PDF thiết bị đều tạo thành công với 72 dòng; Google Sheets nguồn hiển thị đúng logo và tiêu đề.
 
+### Cổng 7 — Linh kiện và cấu hình phần cứng
+
+1. [x] Thêm `asset_kind` để phân biệt thiết bị hoàn chỉnh và linh kiện.
+2. [x] Áp migration `011` lên Supabase production; 72 thiết bị cũ giữ nguyên loại thiết bị hoàn chỉnh.
+3. [x] Bật RLS cho lịch sử lắp đặt; chỉ cho ghi qua RPC kiểm tra quyền và ràng buộc nghiệp vụ.
+4. [x] Bổ sung gắn, tháo và thay linh kiện; một linh kiện không thể đồng thời thuộc hai máy.
+5. [x] Bổ sung cấu hình hiện tại và lịch sử thay thế trong hồ sơ thiết bị/linh kiện.
+6. [x] Đưa linh kiện vào báo cáo thiết bị ngay sau thiết bị chính, kèm ngày lắp và vị trí/khe.
+7. [x] Vercel production commit `a0be283` đạt Success; Chrome xác nhận UI và tạo XLSX 72 dòng thành công.
+
 ## 4. Backlog theo thứ tự ưu tiên
 
 ### P0 — Chặn cutover
@@ -129,6 +140,7 @@ Nguyên tắc:
 - ~~Thêm XLSX/PDF report qua cùng cơ chế job + HMAC + idempotency.~~ Hoàn tất ngày 2026-07-30.
 - ~~Bổ sung báo cáo maintenance/software/movement.~~ Hoàn tất ngày 2026-07-30.
 - ~~Thêm audit UI và health check Next.js/Supabase/Apps Script.~~ Hoàn tất ngày 2026-07-30.
+- ~~Quản lý linh kiện bên trong và lịch sử thay thế, đồng thời nhóm linh kiện theo thiết bị trong báo cáo.~~ Hoàn tất ngày 2026-07-30.
 - Tạo thumbnail khi upload; hiện tại danh sách chưa hiển thị ảnh nên chưa phát sinh tải ảnh gốc.
 
 ### P2 — Vận hành

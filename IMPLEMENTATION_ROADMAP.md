@@ -169,3 +169,15 @@ Trạng thái: Hoàn tất.
 - Tach quyen xuat theo thiet bi, bao tri, phan mem va luan chuyen.
 - Tat ca bao cao deu xuat Excel/PDF theo cung format TDW.
 - License key trong bao cao phan mem luon duoc che.
+
+## Phase 7 - Linh kiện bên trong thiết bị
+
+Trạng thái: Hoàn tất ngày 2026-07-30.
+
+- Phân loại tài sản thành thiết bị hoàn chỉnh hoặc linh kiện; linh kiện phải có mã riêng và số lượng 1 khi gắn vào máy.
+- Lưu lịch sử gắn, tháo và thay linh kiện bằng quan hệ riêng trong PostgreSQL.
+- Một linh kiện chỉ được gắn vào một thiết bị tại cùng thời điểm; không cho tự gắn và không cho lưu trữ tài sản còn liên kết hoạt động.
+- Giao diện hồ sơ thiết bị hiển thị cấu hình phần cứng, thao tác gắn/tháo/thay và lịch sử thay thế.
+- Hồ sơ linh kiện hiển thị thiết bị đang lắp cùng toàn bộ lịch sử lắp đặt.
+- Báo cáo thiết bị XLSX/PDF xếp linh kiện ngay sau thiết bị chính, kèm ngày lắp và vị trí/khe.
+- RLS tiếp tục áp dụng theo phạm vi bản ghi; thao tác ghi chỉ thực hiện qua RPC có kiểm tra quyền cho cả thiết bị chính và linh kiện.
