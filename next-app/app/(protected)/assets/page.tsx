@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AutoSubmitSelect } from "@/components/auto-submit-select";
+import {
+  AutoSubmitSelect,
+  InstantFilterForm,
+} from "@/components/auto-submit-select";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
 import { formatMoney, labelStatus } from "@/lib/format";
@@ -135,7 +138,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       />
 
       <section className="panel">
-        <form className="filter-bar">
+        <InstantFilterForm className="filter-bar">
           <label className="search-field">
             <span aria-hidden="true">⌕</span>
             <input defaultValue={search} name="q" placeholder="Tìm mã, tên hoặc serial…" />
@@ -163,7 +166,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             ))}
           </AutoSubmitSelect>
           <button className="visually-hidden" type="submit">Tìm kiếm</button>
-        </form>
+        </InstantFilterForm>
 
         <div className="table-summary">
           <span>

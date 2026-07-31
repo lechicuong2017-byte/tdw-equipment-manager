@@ -319,6 +319,10 @@ async function run() {
   assert.ok(assetCategoryFilterMigration.includes("get_asset_filter_options"));
   assert.ok(assetCategoryFilterMigration.includes("grant execute on function public.get_asset_filter_options() to authenticated"));
   assert.ok(autoSubmitSelect.includes("event.currentTarget.form?.requestSubmit()"));
+  assert.ok(autoSubmitSelect.includes("event.preventDefault()"));
+  assert.ok(autoSubmitSelect.includes("router.replace"));
+  assert.ok(autoSubmitSelect.includes("scroll: false"));
+  assert.ok(nextAssetsPage.includes("<InstantFilterForm"));
   assert.ok(nextAssetsPage.includes('name="category"'));
   assert.ok(nextAssetsPage.includes('query.eq("asset_type", category)'));
   assert.ok(nextAssetsPage.includes('supabase.rpc("get_asset_filter_options")'));
