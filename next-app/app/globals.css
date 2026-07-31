@@ -793,6 +793,35 @@ tbody tr:hover td {
   padding: 0.25rem 0.75rem 0.7rem;
 }
 
+.asset-table-identity {
+  align-items: center;
+  display: flex;
+  gap: 0.7rem;
+  min-width: 260px;
+}
+
+.asset-list-thumbnail,
+.asset-list-thumbnail-placeholder {
+  border-radius: 9px;
+  flex: 0 0 56px;
+  height: 42px;
+  width: 56px;
+}
+
+.asset-list-thumbnail {
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+
+.asset-list-thumbnail-placeholder {
+  align-items: center;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  display: flex;
+  justify-content: center;
+}
+
 .pagination {
   border-top: 1px solid var(--line);
   margin-top: 0.5rem;

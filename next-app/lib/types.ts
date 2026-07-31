@@ -98,10 +98,12 @@ export type AssetResponsible = {
 export type MediaFile = {
   id: string;
   object_path: string;
+  thumbnail_path: string | null;
   file_name: string;
   mime_type: string;
   byte_size: number;
   sort_order: number;
   created_at: string;
   signed_url?: string;
+  thumbnail_signed_url?: string;
 };

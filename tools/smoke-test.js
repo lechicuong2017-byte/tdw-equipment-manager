@@ -113,8 +113,12 @@ async function run() {
   const componentDashboardMigration = read(
     "supabase/migrations/202607300012_component_dashboard_stats.sql",
   );
+  const mediaThumbnailMigration = read(
+    "supabase/migrations/202607300013_private_media_thumbnails.sql",
+  );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
+  const nextConfig = read("next-app/next.config.ts");
   const nextSidebar = read("next-app/components/sidebar.tsx");
   const nextHealthPage = read("next-app/app/(protected)/admin/health/page.tsx");
   const nextAuditPage = read("next-app/app/(protected)/admin/audit/page.tsx");
@@ -123,6 +127,7 @@ async function run() {
   const nextNewAssetPage = read("next-app/app/(protected)/assets/new/page.tsx");
   const nextDashboardPage = read("next-app/app/(protected)/dashboard/page.tsx");
   const nextAssetForm = read("next-app/components/asset-form.tsx");
+  const nextAssetActions = read("next-app/app/(protected)/assets/actions.ts");
   const nextReportsPage = read("next-app/app/(protected)/reports/page.tsx");
   const assetQrCard = read("next-app/components/asset-qr-card.tsx");
   const assetQrLabels = read("next-app/components/asset-qr-labels.tsx");
@@ -288,6 +293,21 @@ async function run() {
   assert.ok(nextDashboardPage.includes("Linh kiện đang lắp"));
   assert.ok(nextDashboardPage.includes("Linh kiện đang rời"));
   assert.ok(nextDashboardPage.includes('/assets/new?kind=component'));
+  assert.ok(mediaThumbnailMigration.includes("thumbnail_path"));
+  assert.ok(mediaThumbnailMigration.includes("mf.thumbnail_path = target_name"));
+  assert.ok(mediaThumbnailMigration.includes("security definer"));
+  assert.ok(nextAssetActions.includes("limitInputPixels: 40_000_000"));
+  assert.ok(nextAssetActions.includes("detectedMime !== parsed.data.file.type"));
+  assert.ok(nextAssetActions.includes("(metadata.pages ?? 1) > 1"));
+  assert.ok(nextAssetActions.includes(".webp({ effort: 4, quality: 78 })"));
+  assert.ok(nextAssetActions.includes("thumbnail_path: thumbnailPath"));
+  assert.ok(nextAssetActions.indexOf('id: mediaId') < nextAssetActions.indexOf('.upload(objectPath, bytes'));
+  assert.ok(nextAssetActions.includes("data.thumbnail_path ? [data.thumbnail_path] : []"));
+  assert.ok(nextAssetsPage.includes("createSignedUrls(previewPaths, 300)"));
+  assert.ok(nextAssetsPage.includes("item.thumbnail_path || item.object_path"));
+  assert.ok(nextAssetsPage.includes("className=\"asset-list-thumbnail\""));
+  assert.ok(nextAssetDetailPage.includes("unoptimized"));
+  assert.ok(nextConfig.includes('bodySizeLimit: "6mb"'));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-logo.webp")));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-icon-192.png")));
   assert.ok(fs.existsSync(path.join(root, "next-app/app/favicon.ico")));

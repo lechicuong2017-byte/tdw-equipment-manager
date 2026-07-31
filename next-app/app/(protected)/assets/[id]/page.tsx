@@ -45,7 +45,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       .single(),
     supabase
       .from("media_files")
-      .select("id, object_path, file_name, mime_type, byte_size, sort_order, created_at")
+      .select("id, object_path, thumbnail_path, file_name, mime_type, byte_size, sort_order, created_at")
       .eq("asset_id", id)
       .eq("owner_type", "ASSET")
       .order("sort_order")
@@ -195,6 +195,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
                     height={360}
                     loading="lazy"
                     src={item.signed_url}
+                    unoptimized
                     width={480}
                   />
                 ) : (

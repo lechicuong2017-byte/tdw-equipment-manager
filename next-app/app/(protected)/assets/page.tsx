@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
@@ -61,6 +62,36 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   if (kind) query = query.eq("asset_kind", kind);
 
   const { data, count } = await query;
+  const assetRows = data ?? [];
+  const assetIds = assetRows.map((asset) => asset.id);
+  const { data: previewMedia } = assetIds.length
+    ? await supabase
+        .from("media_files")
+        .select("asset_id, object_path, thumbnail_path, sort_order, created_at")
+        .in("asset_id", assetIds)
+        .eq("owner_type", "ASSET")
+        .order("sort_order")
+        .order("created_at")
+        .limit(2000)
+    : { data: [] };
+  const firstMediaByAsset = new Map<
+    string,
+    { object_path: string; thumbnail_path: string | null }
+  >();
+  for (const item of previewMedia ?? []) {
+    if (!firstMediaByAsset.has(item.asset_id)) {
+      firstMediaByAsset.set(item.asset_id, item);
+    }
+  }
+  const previewPaths = Array.from(firstMediaByAsset.values()).map(
+    (item) => item.thumbnail_path || item.object_path,
+  );
+  const { data: signedPreviews } = previewPaths.length
+    ? await supabase.storage.from("asset-media").createSignedUrls(previewPaths, 300)
+    : { data: [] };
+  const signedPreviewByPath = new Map(
+    (signedPreviews ?? []).map((item) => [item.path, item.signedUrl]),
+  );
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize));
 
   const pageHref = (targetPage: number) => {
@@ -131,20 +162,41 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
               </tr>
             </thead>
             <tbody>
-              {(data ?? []).map((asset) => {
+              {assetRows.map((asset) => {
                 const department = Array.isArray(asset.departments)
                   ? asset.departments[0]?.name
                   : (asset.departments as { name?: string } | null)?.name;
+                const previewMediaItem = firstMediaByAsset.get(asset.id);
+                const previewPath = previewMediaItem
+                  ? previewMediaItem.thumbnail_path || previewMediaItem.object_path
+                  : "";
+                const previewUrl = previewPath
+                  ? signedPreviewByPath.get(previewPath)
+                  : undefined;
                 return (
                   <tr key={asset.id}>
                     <td>
-                      <Link className="asset-name" href={`/assets/${asset.id}`}>
-                        <strong>{asset.asset_name}</strong>
-                        <small>
-                          {asset.asset_code} · {asset.brand} {asset.model}
-                          {asset.asset_kind === "COMPONENT" ? " · Linh kiện" : ""}
-                        </small>
-                      </Link>
+                      <div className="asset-table-identity">
+                        {previewUrl ? (
+                          <Image
+                            alt=""
+                            className="asset-list-thumbnail"
+                            height={48}
+                            src={previewUrl}
+                            unoptimized
+                            width={64}
+                          />
+                        ) : (
+                          <span className="asset-list-thumbnail-placeholder" aria-hidden="true">▤</span>
+                        )}
+                        <Link className="asset-name" href={`/assets/${asset.id}`}>
+                          <strong>{asset.asset_name}</strong>
+                          <small>
+                            {asset.asset_code} · {asset.brand} {asset.model}
+                            {asset.asset_kind === "COMPONENT" ? " · Linh kiện" : ""}
+                          </small>
+                        </Link>
+                      </div>
                     </td>
                     <td>{asset.asset_type || "—"}</td>
                     <td>

@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
     typedEnv: true,
   },
   async headers() {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
 
 const emptyToNull = (value: unknown) =>
@@ -305,8 +306,63 @@ export async function uploadAssetMedia(
       : parsed.data.file.type === "image/webp"
         ? "webp"
         : "jpg";
-  const objectPath = `${access.user_id}/${asset.id}/${crypto.randomUUID()}.${extension}`;
+  const mediaId = crypto.randomUUID();
+  const objectPath = `${access.user_id}/${asset.id}/${mediaId}.${extension}`;
+  const thumbnailPath = `${access.user_id}/${asset.id}/${mediaId}.thumb.webp`;
   const bytes = await parsed.data.file.arrayBuffer();
+  let thumbnailBytes: Buffer;
+  let imageWidth: number | null = null;
+  let imageHeight: number | null = null;
+  try {
+    const image = sharp(bytes, {
+      failOn: "error",
+      limitInputPixels: 40_000_000,
+    }).rotate();
+    const metadata = await image.metadata();
+    const detectedMime = metadata.format === "jpeg"
+      ? "image/jpeg"
+      : metadata.format === "png"
+        ? "image/png"
+        : metadata.format === "webp"
+          ? "image/webp"
+          : null;
+    if (
+      detectedMime !== parsed.data.file.type
+      || !metadata.width
+      || !metadata.height
+      || (metadata.pages ?? 1) > 1
+    ) {
+      throw new Error("Unsupported image content");
+    }
+    imageWidth = metadata.width ?? null;
+    imageHeight = metadata.height ?? null;
+    thumbnailBytes = await image
+      .clone()
+      .resize(480, 360, { fit: "inside", withoutEnlargement: true })
+      .webp({ effort: 4, quality: 78 })
+      .toBuffer();
+  } catch {
+    return { error: "Tệp ảnh không hợp lệ hoặc có kích thước xử lý quá lớn." };
+  }
+  const { error: metadataError } = await supabase.from("media_files").insert({
+    id: mediaId,
+    owner_type: "ASSET",
+    owner_id: asset.id,
+    asset_id: asset.id,
+    object_path: objectPath,
+    thumbnail_path: thumbnailPath,
+    file_name: parsed.data.file.name.slice(0, 200),
+    mime_type: parsed.data.file.type,
+    byte_size: parsed.data.file.size,
+    width: imageWidth,
+    height: imageHeight,
+    created_by: access.user_id,
+  });
+
+  if (metadataError) {
+    return { error: "Không thể chuẩn bị metadata cho hình ảnh." };
+  }
+
   const { error: uploadError } = await supabase.storage
     .from("asset-media")
     .upload(objectPath, bytes, {
@@ -314,27 +370,29 @@ export async function uploadAssetMedia(
       cacheControl: "31536000",
       upsert: false,
     });
-
   if (uploadError) {
+    await supabase.from("media_files").delete().eq("id", mediaId);
     return { error: "Không thể tải ảnh lên Storage." };
   }
 
-  const { error: metadataError } = await supabase.from("media_files").insert({
-    owner_type: "ASSET",
-    owner_id: asset.id,
-    asset_id: asset.id,
-    object_path: objectPath,
-    file_name: parsed.data.file.name.slice(0, 200),
-    mime_type: parsed.data.file.type,
-    byte_size: parsed.data.file.size,
-    created_by: access.user_id,
-  });
-
-  if (metadataError) {
-    await supabase.storage.from("asset-media").remove([objectPath]);
-    return { error: "Ảnh đã được hoàn tác vì không thể lưu metadata." };
+  const { error: thumbnailUploadError } = await supabase.storage
+    .from("asset-media")
+    .upload(thumbnailPath, thumbnailBytes, {
+      contentType: "image/webp",
+      cacheControl: "31536000",
+      upsert: false,
+    });
+  if (thumbnailUploadError) {
+    const { error: cleanupError } = await supabase.storage
+      .from("asset-media")
+      .remove([objectPath]);
+    if (!cleanupError) {
+      await supabase.from("media_files").delete().eq("id", mediaId);
+    }
+    return { error: "Không thể tạo ảnh xem nhanh; ảnh tải lên đã được hoàn tác." };
   }
 
+  revalidatePath("/assets");
   revalidatePath(`/assets/${asset.id}`);
   return { success: "Đã tải ảnh lên." };
 }
@@ -349,7 +407,7 @@ export async function deleteAssetMedia(formData: FormData) {
   const { supabase } = await requireAccess();
   const { data } = await supabase
     .from("media_files")
-    .select("object_path")
+    .select("object_path, thumbnail_path")
     .eq("id", parsed.data.id)
     .eq("asset_id", parsed.data.asset_id)
     .single();
@@ -357,9 +415,13 @@ export async function deleteAssetMedia(formData: FormData) {
 
   const { error: storageError } = await supabase.storage
     .from("asset-media")
-    .remove([data.object_path]);
+    .remove([
+      data.object_path,
+      ...(data.thumbnail_path ? [data.thumbnail_path] : []),
+    ]);
   if (storageError) return;
 
   await supabase.from("media_files").delete().eq("id", parsed.data.id);
+  revalidatePath("/assets");
   revalidatePath(`/assets/${parsed.data.asset_id}`);
 }
