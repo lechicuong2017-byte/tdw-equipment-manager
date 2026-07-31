@@ -276,6 +276,8 @@ async function run() {
   assert.ok(assetComponentManager.includes("Gắn linh kiện"));
   assert.ok(assetComponentManager.includes("Thay linh kiện"));
   assert.ok(assetComponentManager.includes("Tháo linh kiện"));
+  assert.ok(assetComponentManager.includes("tạo linh kiện mới"));
+  assert.ok(!assetComponentManager.includes("tạo thiết bị mới"));
   assert.ok(googleExportRoute.includes('relation: "↳ Linh kiện đang lắp"'));
   assert.ok(googleExportRoute.includes('{ key: "parent_asset", label: "Thuộc thiết bị" }'));
   assert.ok(!assetComponentManager.includes("service_role"));

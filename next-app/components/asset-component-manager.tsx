@@ -329,7 +329,7 @@ export function AssetComponentManager({
             </form>
           ) : (
             <p className="form-help">
-              Chưa có linh kiện rời phù hợp. Hãy <Link href="/assets/new?kind=component">tạo thiết bị mới</Link>,
+              Chưa có linh kiện rời phù hợp. Hãy <Link href="/assets/new?kind=component">tạo linh kiện mới</Link>,
               chọn phân loại “Linh kiện bên trong” và đặt số lượng bằng 1.
             </p>
           )}
