@@ -8,7 +8,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Hạng mục | Trạng thái | Ghi chú |
 |---|---|---|
 | Next.js App Router, SSR, Zod | Đã có nền | Build và typecheck đạt |
-| Supabase PostgreSQL | Đã áp production | Migration `001` đến `012` đã chạy trên project production |
+| Supabase PostgreSQL | Đã áp production | Migration `001` đến `013` đã chạy trên project production |
 | Supabase Auth SSR | Đã có | Login, callback, MFA và bảo vệ route |
 | RLS theo permission | Đã có | Migration `001` |
 | RLS theo từng bản ghi | Đã bổ sung | Migration `002`: all/department/assigned/owned |
@@ -23,7 +23,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Gmail theo kiến trúc mới | Đã có | Job Next.js đọc Supabase, claim idempotency rồi gửi payload ký số sang Apps Script |
 | XLSX/PDF theo kiến trúc mới | Đã có | Cả bốn báo cáo dùng job HMAC + idempotency; logo, tên báo cáo và định dạng TDW được tạo trên Google Sheets rồi tải trực tiếp |
 | Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings và 72 assets đã đối soát; nguồn maintenance/movement/software đang rỗng, chưa có plans/responsibles/media |
-| Migration ảnh Drive | Chưa có | Cần job riêng, checksum và đối soát object |
+| Migration ảnh Drive | Chưa có dữ liệu nguồn | Thumbnail riêng tư đã sẵn sàng; khi có ảnh Drive cần job riêng, checksum và đối soát object |
 | Test RLS live | Đã đạt | JWT thật cho admin AAL1, manager, user, viewer và anonymous; xem `docs/15-supabase-production-security-evidence.md` |
 | Deployment | Đã chuyển sang Next.js | Frontend production hiện chạy Next.js trên Vercel |
 
@@ -133,6 +133,17 @@ Nguyên tắc:
 5. [x] Áp migration `012` lên Supabase production; xác minh 72 thiết bị, 0 linh kiện, 0 đang lắp và 0 đang rời tại thời điểm kiểm tra.
 6. [x] Biểu mẫu mở từ `Thêm linh kiện` chọn sẵn đúng phân loại, tiêu đề và nút tạo đều dùng từ `linh kiện`.
 7. [x] Vercel production commit `fcc01d1` đạt Success; Chrome xác nhận Dashboard, bộ lọc và biểu mẫu trên trang thật.
+
+### Cổng 9 — Thumbnail ảnh thiết bị riêng tư
+
+1. [x] Bổ sung `thumbnail_path` và chỉ mục duy nhất cho metadata ảnh.
+2. [x] Cập nhật hàm kiểm tra Storage để cả ảnh gốc và thumbnail tiếp tục dùng cùng quyền RLS theo bản ghi thiết bị.
+3. [x] Kiểm tra nội dung ảnh thực tế, giới hạn 40 triệu pixel, từ chối ảnh động và định dạng không khớp MIME khai báo.
+4. [x] Sinh WebP tối đa 480 × 360 bằng Sharp; ghi metadata trước để rollback file tuân thủ RLS khi upload lỗi.
+5. [x] Hiển thị ảnh xem nhanh tại danh sách; ảnh cũ chưa có thumbnail tự động dùng ảnh gốc.
+6. [x] Không dùng Next Image Optimizer cho URL riêng tư có thời hạn, tránh tạo cache công khai ngoài kiểm soát RLS.
+7. [x] Áp migration `013` lên Supabase production; bucket vẫn riêng tư và hiện có 0 media/object nên không tạo dữ liệu mẫu.
+8. [x] Vercel production commit `47e9156` đạt Success; Chrome xác nhận danh sách, trạng thái rỗng và biểu mẫu upload trên trang thật.
 
 ## 4. Backlog theo thứ tự ưu tiên
 
