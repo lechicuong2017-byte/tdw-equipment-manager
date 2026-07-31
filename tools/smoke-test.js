@@ -116,6 +116,9 @@ async function run() {
   const mediaThumbnailMigration = read(
     "supabase/migrations/202607300013_private_media_thumbnails.sql",
   );
+  const assetCategoryFilterMigration = read(
+    "supabase/migrations/202607310014_asset_category_filters.sql",
+  );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextConfig = read("next-app/next.config.ts");
@@ -128,6 +131,7 @@ async function run() {
   const nextDashboardPage = read("next-app/app/(protected)/dashboard/page.tsx");
   const nextAssetForm = read("next-app/components/asset-form.tsx");
   const nextAssetActions = read("next-app/app/(protected)/assets/actions.ts");
+  const autoSubmitSelect = read("next-app/components/auto-submit-select.tsx");
   const nextReportsPage = read("next-app/app/(protected)/reports/page.tsx");
   const assetQrCard = read("next-app/components/asset-qr-card.tsx");
   const assetQrLabels = read("next-app/components/asset-qr-labels.tsx");
@@ -310,6 +314,16 @@ async function run() {
   assert.ok(nextAssetsPage.includes("className=\"asset-list-thumbnail\""));
   assert.ok(nextAssetDetailPage.includes("unoptimized"));
   assert.ok(nextConfig.includes('bodySizeLimit: "6mb"'));
+  assert.ok(assetCategoryFilterMigration.includes("assets_type_updated_active_idx"));
+  assert.ok(assetCategoryFilterMigration.includes("security invoker"));
+  assert.ok(assetCategoryFilterMigration.includes("get_asset_filter_options"));
+  assert.ok(assetCategoryFilterMigration.includes("grant execute on function public.get_asset_filter_options() to authenticated"));
+  assert.ok(autoSubmitSelect.includes("event.currentTarget.form?.requestSubmit()"));
+  assert.ok(nextAssetsPage.includes('name="category"'));
+  assert.ok(nextAssetsPage.includes('query.eq("asset_type", category)'));
+  assert.ok(nextAssetsPage.includes('supabase.rpc("get_asset_filter_options")'));
+  assert.ok(nextAssetsPage.includes('nextParams.set("category", category)'));
+  assert.ok(!nextAssetsPage.includes('type="submit">Lọc dữ liệu'));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-logo.webp")));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-icon-192.png")));
   assert.ok(fs.existsSync(path.join(root, "next-app/app/favicon.ico")));
