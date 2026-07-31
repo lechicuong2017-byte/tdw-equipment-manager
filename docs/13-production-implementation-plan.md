@@ -1,6 +1,6 @@
 # Kế hoạch triển khai kiến trúc Next.js + Supabase trên production
 
-Ngày cập nhật: 2026-07-30
+Ngày cập nhật: 2026-07-31
 Quyết định vận hành: triển khai trực tiếp trên bản chính; người dùng xác nhận đã có backup.
 
 ## 1. Trạng thái sau rà soát
@@ -8,7 +8,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Hạng mục | Trạng thái | Ghi chú |
 |---|---|---|
 | Next.js App Router, SSR, Zod | Đã có nền | Build và typecheck đạt |
-| Supabase PostgreSQL | Đã áp production | Migration `001` đến `013` đã chạy trên project production |
+| Supabase PostgreSQL | Đã áp production | Migration `001` đến `014` đã chạy trên project production |
 | Supabase Auth SSR | Đã có | Login, callback, MFA và bảo vệ route |
 | RLS theo permission | Đã có | Migration `001` |
 | RLS theo từng bản ghi | Đã bổ sung | Migration `002`: all/department/assigned/owned |
@@ -16,6 +16,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Quản trị user | Đã bổ sung nền | Invite Auth, role, active, MFA và data scope |
 | Thiết bị và dashboard | Đã có luồng chính | Query/phân trang server, CRUD, soft delete, media |
 | Linh kiện bên trong thiết bị | Đã triển khai | Migration `011`–`012`, lịch sử gắn/tháo/thay, RLS, UI hồ sơ, bộ lọc, Dashboard và báo cáo phân cấp |
+| Lọc theo danh mục | Đã triển khai | Chọn danh mục tự lọc, không có nút lọc hiển thị; query dùng chỉ mục PostgreSQL và tiếp tục tuân thủ RLS |
 | Cache | Đã có mức an toàn ban đầu | Auth/access được memoize trong cùng request; không cache chéo user |
 | Apps Script export | Đã có | Báo cáo thiết bị, bảo trì, luân chuyển và phần mềm; request HMAC, timestamp, nonce, chống formula injection |
 | Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
@@ -145,6 +146,16 @@ Nguyên tắc:
 7. [x] Áp migration `013` lên Supabase production; bucket vẫn riêng tư và hiện có 0 media/object nên không tạo dữ liệu mẫu.
 8. [x] Vercel production commit `47e9156` đạt Success; Chrome xác nhận danh sách, trạng thái rỗng và biểu mẫu upload trên trang thật.
 
+### Cổng 10 — Bộ lọc danh mục tức thời
+
+1. [x] Bổ sung danh sách danh mục và số lượng bằng RPC `security invoker`, tiếp tục chỉ trả dữ liệu người đăng nhập được phép xem theo RLS.
+2. [x] Bổ sung chỉ mục một phần theo `asset_type, updated_at` cho các tài sản chưa xóa.
+3. [x] Chọn trạng thái, phân loại hoặc danh mục sẽ tự lọc ngay; không còn nút lọc hiển thị và điều kiện vẫn được giữ khi chuyển trang.
+4. [x] Dùng điều hướng phía client của Next.js để tránh tải lại toàn bộ trang.
+5. [x] Áp migration `014` lên Supabase production; xác minh 10 danh mục, trong đó Laptop có 21 và Desktop PC có 8 tài sản.
+6. [x] `EXPLAIN ANALYZE` cho Laptop dùng `assets_type_updated_active_idx`, trả 20 dòng của trang đầu trong `0,194 ms`.
+7. [x] Vercel production commit `de443b8` đạt Success; Chrome xác nhận chọn Laptop và Desktop PC tự cập nhật URL, tổng số và danh sách.
+
 ## 4. Backlog theo thứ tự ưu tiên
 
 ### P0 — Chặn cutover
@@ -162,7 +173,7 @@ Nguyên tắc:
 - ~~Bổ sung báo cáo maintenance/software/movement.~~ Hoàn tất ngày 2026-07-30.
 - ~~Thêm audit UI và health check Next.js/Supabase/Apps Script.~~ Hoàn tất ngày 2026-07-30.
 - ~~Quản lý linh kiện bên trong và lịch sử thay thế, đồng thời nhóm linh kiện theo thiết bị trong báo cáo.~~ Hoàn tất ngày 2026-07-30.
-- Tạo thumbnail khi upload; hiện tại danh sách chưa hiển thị ảnh nên chưa phát sinh tải ảnh gốc.
+- ~~Tạo thumbnail khi upload và hiển thị ảnh xem nhanh riêng tư trong danh sách.~~ Hoàn tất ngày 2026-07-30.
 
 ### P2 — Vận hành
 
@@ -184,7 +195,7 @@ Nguyên tắc:
 ## 6. Giới hạn bằng chứng hiện tại
 
 - Build, TypeScript, smoke test và cú pháp các migration liên quan đã được kiểm tra local.
-- Migration `001` đến `010`, test JWT live và import nền đã được xác minh trên production; bằng chứng trong Git không chứa token hoặc mật khẩu.
+- Migration `001` đến `014`, test JWT live và import nền đã được xác minh trên production; bằng chứng trong Git không chứa token hoặc mật khẩu.
 - Security Advisor có 0 lỗi và 24 cảnh báo. Phần lớn liên quan các hàm `SECURITY DEFINER`; chưa được diễn giải thành “không có rủi ro” và vẫn cần rà soát quyền `EXECUTE`.
 - Socket snapshot của hệ điều hành không đủ để chứng minh không có upload/egress; cần proxy, firewall hoặc network log được tổ chức phê duyệt để đưa ra kết luận đó.
 - Việc “đã có backup” chưa đồng nghĩa backup đã restore thành công; trạng thái restore cần được xác nhận riêng trước thao tác không thể đảo ngược.
