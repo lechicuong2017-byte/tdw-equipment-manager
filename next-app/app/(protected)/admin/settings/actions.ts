@@ -52,9 +52,11 @@ export async function saveSetting(
     z.uuid().nullable(),
   ).safeParse(formData.get("id"));
   const displayName = settingNameSchema.safeParse(formData.get("display_name"));
-  if (!id.success || !displayName.success) {
+  const settingType = settingTypeSchema.safeParse(formData.get("setting_type"));
+  if (!id.success || !displayName.success || !settingType.success) {
     return {
-      error: displayName.error?.issues[0]?.message ?? "Cấu hình không hợp lệ.",
+      error: displayName.error?.issues[0]?.message
+        ?? (settingType.success ? "Cấu hình không hợp lệ." : "Loại cấu hình không hợp lệ."),
     };
   }
 
@@ -63,25 +65,40 @@ export async function saveSetting(
   if (id.data) {
     const { data: existing } = await supabase
       .from("settings")
-      .select("id,setting_type,setting_value")
+      .select("id,setting_type,setting_value,display_name")
       .eq("id", id.data)
       .maybeSingle();
     if (!existing || !settingTypeSchema.safeParse(existing.setting_type).success) {
       return { error: "Không tìm thấy cấu hình cần sửa." };
     }
 
-    const { error } = await supabase.rpc("admin_update_setting_label", {
+    const settingValue = displayName.data === existing.display_name
+      ? existing.setting_value
+      : settingValueFromDisplayName(displayName.data);
+    if (!settingValue) return { error: "Tên hiển thị chưa tạo được mã nội bộ." };
+
+    const { data: updatedCount, error } = await supabase.rpc("admin_update_setting", {
       target_setting_id: id.data,
       target_display_name: displayName.data,
+      target_setting_type: settingType.data,
+      target_setting_value: settingValue,
     });
+    if (error?.message.includes("SETTING_TYPE_IN_USE")) {
+      return { error: "Cấu hình đã được sử dụng nên không thể đổi loại. Bạn vẫn có thể đổi tên để hệ thống cập nhật các liên kết." };
+    }
+    if (error?.message.includes("SETTING_VALUE_EXISTS") || error?.code === "23505") {
+      return { error: "Tên mới tạo ra mã nội bộ đã tồn tại trong loại cấu hình được chọn." };
+    }
     if (error) return { error: "Không thể cập nhật cấu hình." };
 
     revalidateSettingsConsumers();
-    return { success: "Đã cập nhật tên hiển thị; mã nội bộ được giữ nguyên." };
+    const migratedRecords = Number(updatedCount || 0);
+    return {
+      success: migratedRecords
+        ? `Đã cập nhật cấu hình và ${migratedRecords} dữ liệu liên kết.`
+        : "Đã cập nhật cấu hình.",
+    };
   }
-
-  const settingType = settingTypeSchema.safeParse(formData.get("setting_type"));
-  if (!settingType.success) return { error: "Loại cấu hình không hợp lệ." };
 
   const settingValue = settingValueFromDisplayName(displayName.data);
   if (!settingValue) return { error: "Tên hiển thị chưa tạo được mã nội bộ." };

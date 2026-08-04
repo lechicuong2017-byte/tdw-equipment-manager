@@ -18,7 +18,11 @@ const initialState: SettingsFormState = {};
 export function SettingEditor({ setting }: { setting?: Setting }) {
   const [state, formAction, pending] = useActionState(saveSetting, initialState);
   const [displayName, setDisplayName] = useState(setting?.display_name ?? "");
-  const generatedValue = setting?.setting_value || settingValueFromDisplayName(displayName);
+  const [settingType, setSettingType] = useState(setting?.setting_type ?? "asset_group");
+  const nameChanged = Boolean(setting) && displayName.trim() !== setting?.display_name;
+  const generatedValue = setting && !nameChanged
+    ? setting.setting_value
+    : settingValueFromDisplayName(displayName);
 
   return (
     <form action={formAction} className="panel data-form compact-form settings-editor">
@@ -32,7 +36,11 @@ export function SettingEditor({ setting }: { setting?: Setting }) {
       </div>
       <label>
         Loại cấu hình
-        <select defaultValue={setting?.setting_type ?? "asset_group"} disabled={Boolean(setting)} name="setting_type">
+        <select
+          name="setting_type"
+          onChange={(event) => setSettingType(event.target.value as typeof settingType)}
+          value={settingType}
+        >
           {settingTypes.map((type) => (
             <option key={type} value={type}>{settingTypeDefinitions[type].label}</option>
           ))}
@@ -53,7 +61,7 @@ export function SettingEditor({ setting }: { setting?: Setting }) {
         <input readOnly value={generatedValue} />
       </label>
       <p className="form-help">
-        Mã được tạo tự động khi thêm và giữ nguyên khi sửa để bảo toàn dữ liệu đã liên kết.
+        Khi đổi tên, mã nội bộ và dữ liệu đang liên kết được cập nhật cùng lúc. Chỉ đổi loại cấu hình khi mục này chưa được sử dụng.
       </p>
       {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
       {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
