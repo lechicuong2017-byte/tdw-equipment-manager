@@ -90,7 +90,7 @@ quyền `0600` đã được xóa sau đối soát.
   media.
 - `Users.csv` không được tự động biến thành Auth users; tài khoản vẫn phải đi
   qua luồng invite.
-- Ảnh Google Drive chưa chuyển sang Storage.
+- Ảnh Google Drive chưa chuyển sang Storage; ngày 2026-08-04 đã xác nhận thư mục media nguồn có 11 ảnh và ghi nhận job checksum cần phê duyệt cửa sổ chuyển.
 - Cần lấy delta cuối và đặt Sheets ở read-only trước cutover hoàn toàn.
 
 ## Giới hạn bằng chứng

@@ -35,6 +35,11 @@ License mới không lưu trong Google Sheet. Sheet chỉ giữ marker `SCRIPT_P
 4. Chạy `installDailyBackupTrigger()` sau khi kiểm tra thành công.
 5. Mỗi quý thực hiện diễn tập phục hồi sang Sheet staging và ghi thời gian/kết quả.
 
+Trong giai đoạn chuyển tiếp, backup Sheet/Drive ở trên đã được cấu hình production
+và chạy hằng ngày lúc 02:00 Asia/Ho_Chi_Minh. Đây không phải backup độc lập của
+Supabase PostgreSQL hoặc Supabase Storage; hai loại backup nguồn dữ liệu chính vẫn
+phải cấu hình bằng cơ chế native/đích staging của Supabase trước khi coi là hoàn tất.
+
 Backup media lớn có thể vượt quota/thời gian Apps Script. Khi số ảnh tăng đáng kể, chuyển backup sang Cloud Storage/Drive API job có retry và cảnh báo.
 
 ## Theo dõi và staging

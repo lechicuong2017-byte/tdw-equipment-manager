@@ -24,7 +24,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Gmail theo kiến trúc mới | Đã có | Job Next.js đọc Supabase, claim idempotency rồi gửi payload ký số sang Apps Script |
 | XLSX/PDF theo kiến trúc mới | Đã có | Cả bốn báo cáo dùng job HMAC + idempotency; logo, tên báo cáo và định dạng TDW được tạo trên Google Sheets rồi tải trực tiếp |
 | Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings và 72 assets đã đối soát; nguồn maintenance/movement/software đang rỗng, chưa có plans/responsibles/media |
-| Migration ảnh Drive | Chưa có dữ liệu nguồn | Thumbnail riêng tư đã sẵn sàng; khi có ảnh Drive cần job riêng, checksum và đối soát object |
+| Migration ảnh Drive | Có nguồn, chưa chuyển | Drive hiện có 11 ảnh trong thư mục media; cần job checksum và phê duyệt chạy chuyển sang Storage private |
 | Test RLS live | Đã đạt | JWT thật cho admin AAL1, manager, user, viewer và anonymous; xem `docs/15-supabase-production-security-evidence.md` |
 | Deployment | Đã chuyển sang Next.js | Vercel `Root Directory=next-app`; Production đang chạy commit `2a34788` |
 
@@ -156,12 +156,20 @@ Nguyên tắc:
 6. [x] `EXPLAIN ANALYZE` cho Laptop dùng `assets_type_updated_active_idx`, trả 20 dòng của trang đầu trong `0,194 ms`.
 7. [x] Vercel production commit `de443b8` đạt Success; Chrome xác nhận chọn Laptop và Desktop PC tự cập nhật URL, tổng số và danh sách.
 
+### Cổng 11 — Backup chuyển tiếp và lịch vận hành
+
+1. [x] Xác nhận thư mục `TDW Equipment Manager Backup` có 18 bản backup trước lần kiểm tra và bản mới nhất trước khi cấu hình là ngày 2026-08-04.
+2. [x] Cấu hình Script Properties cho thư mục backup và thư mục media production; không ghi ID thư mục vào Git.
+3. [x] Chạy `backupSystemData()` thành công; bản `TDW-backup-20260804-102601` có file dữ liệu `TDW-data-20260804-102601` và thư mục `media` chứa 11 ảnh.
+4. [x] Chạy `installDailyBackupTrigger()` thành công; Apps Script hiện có 1 trigger time-based cho `backupSystemData`, chạy hằng ngày lúc 02:00 Asia/Ho_Chi_Minh.
+5. [ ] Backup PostgreSQL và Storage độc lập, cùng diễn tập restore tách biệt, vẫn chờ cấu hình backup native/đích staging của Supabase.
+
 ## 4. Backlog theo thứ tự ưu tiên
 
 ### P0 — Chặn cutover
 
 - Hoàn tất import/reconcile cho maintenance, movement, software, plans, responsibles, notification logs và media khi nguồn có dữ liệu.
-- Viết job chuyển ảnh Drive sang Storage kèm checksum.
+- Viết job chuyển 11 ảnh Drive sang Storage private kèm checksum; chưa tự chạy vì đây là thao tác tải dữ liệu thật sang hệ thống mới và cần phê duyệt cửa sổ chuyển.
 - ~~Chạy test RLS/Auth/Storage bằng JWT thật.~~ Hoàn tất ngày 2026-07-30.
 - ~~Hoàn tất UI bảo trì, luân chuyển và phần mềm nếu các module này phải dùng ngay ngày cutover.~~ Hoàn tất luồng chính ngày 2026-07-30.
 - ~~Thay deployment root từ frontend cũ sang Next.js.~~ Hoàn tất ngày 2026-08-04; Vercel xác nhận `Root Directory=next-app`.
@@ -178,7 +186,7 @@ Nguyên tắc:
 ### P2 — Vận hành
 
 - Theo dõi lỗi Auth, RLS denial, Storage, query chậm và Apps Script.
-- Backup PostgreSQL và Storage độc lập.
+- ~~Backup chuyển tiếp Sheet/Drive và lịch hằng ngày.~~ Hoàn tất ngày 2026-08-04; backup PostgreSQL/Storage độc lập vẫn chờ cấu hình native/staging.
 - Diễn tập restore định kỳ.
 - Thêm E2E cho admin, manager, user, viewer và anonymous.
 
