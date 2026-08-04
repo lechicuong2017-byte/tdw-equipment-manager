@@ -101,6 +101,7 @@ h2 {
   justify-content: center;
   min-height: 42px;
   padding: 0 1.1rem;
+  white-space: nowrap;
   transition:
     background 150ms ease,
     box-shadow 150ms ease,
@@ -477,10 +478,20 @@ textarea:focus {
   margin-bottom: 2rem;
 }
 
+.page-header-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.page-header-content h1 {
+  overflow-wrap: anywhere;
+}
+
 .header-actions {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   gap: 0.65rem;
 }
 
@@ -2071,6 +2082,11 @@ tbody tr:hover td {
     align-items: flex-start;
     flex-direction: column;
     margin-bottom: 1.35rem;
+  }
+
+  .header-actions {
+    align-self: stretch;
+    flex-wrap: wrap;
   }
 
   .metric-grid {
