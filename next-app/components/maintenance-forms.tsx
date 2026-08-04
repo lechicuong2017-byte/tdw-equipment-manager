@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   createMaintenanceLog,
   createMaintenancePlan,
@@ -11,12 +11,20 @@ type AssetOption = {
   id: string;
   asset_code: string;
   asset_name: string;
+  asset_group: string;
+  asset_group_label: string;
+  asset_type: string;
 };
 
 type PlanOption = {
   id: string;
   asset_id: string;
   title: string;
+};
+
+type SettingOption = {
+  value: string;
+  label: string;
 };
 
 const initialState: MaintenanceFormState = {};
@@ -26,11 +34,15 @@ export function MaintenanceForms({
   plans,
   today,
   actionTypes = [],
+  assetGroups = [],
+  assetTypes = [],
 }: {
   assets: AssetOption[];
   plans: PlanOption[];
   today: string;
-  actionTypes?: Array<{ value: string; label: string }>;
+  actionTypes?: SettingOption[];
+  assetGroups?: SettingOption[];
+  assetTypes?: SettingOption[];
 }) {
   const [planState, planAction, planPending] = useActionState(
     createMaintenancePlan,
@@ -40,6 +52,27 @@ export function MaintenanceForms({
     createMaintenanceLog,
     initialState,
   );
+  const [scopeType, setScopeType] = useState<"ASSET" | "GROUP" | "TYPE">("ASSET");
+  const [selectedAsset, setSelectedAsset] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [selectedType, setSelectedType] = useState("");
+  const [logAsset, setLogAsset] = useState("");
+
+  const targetCount = useMemo(() => {
+    if (scopeType === "ASSET") return selectedAsset ? 1 : 0;
+    if (scopeType === "GROUP") {
+      return selectedGroup
+        ? assets.filter((asset) => asset.asset_group === selectedGroup).length
+        : 0;
+    }
+    return selectedType
+      ? assets.filter((asset) => asset.asset_type === selectedType).length
+      : 0;
+  }, [assets, scopeType, selectedAsset, selectedGroup, selectedType]);
+
+  const availablePlans = logAsset
+    ? plans.filter((plan) => plan.asset_id === logAsset)
+    : [];
 
   return (
     <div className="module-form-grid">
@@ -51,16 +84,72 @@ export function MaintenanceForms({
           </div>
         </div>
         <label>
-          Thiết bị *
-          <select name="asset_id" required>
-            <option value="">Chọn thiết bị</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.asset_code} — {asset.asset_name}
-              </option>
-            ))}
+          Áp dụng cho *
+          <select
+            name="scope_type"
+            onChange={(event) => setScopeType(event.target.value as "ASSET" | "GROUP" | "TYPE")}
+            value={scopeType}
+          >
+            <option value="ASSET">Một thiết bị</option>
+            <option value="GROUP">Nhóm thiết bị</option>
+            <option value="TYPE">Loại thiết bị</option>
           </select>
         </label>
+        {scopeType === "ASSET" ? (
+          <label>
+            Thiết bị *
+            <select
+              name="asset_id"
+              onChange={(event) => setSelectedAsset(event.target.value)}
+              required
+              value={selectedAsset}
+            >
+              <option value="">Chọn thiết bị</option>
+              {assets.map((asset) => (
+                <option key={asset.id} value={asset.id}>
+                  {asset.asset_code} — {asset.asset_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {scopeType === "GROUP" ? (
+          <label>
+            Nhóm thiết bị *
+            <select
+              name="asset_group"
+              onChange={(event) => setSelectedGroup(event.target.value)}
+              required
+              value={selectedGroup}
+            >
+              <option value="">Chọn nhóm thiết bị</option>
+              {assetGroups.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {scopeType === "TYPE" ? (
+          <label>
+            Loại thiết bị *
+            <select
+              name="asset_type"
+              onChange={(event) => setSelectedType(event.target.value)}
+              required
+              value={selectedType}
+            >
+              <option value="">Chọn loại thiết bị</option>
+              {assetTypes.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <p className={`maintenance-target-count ${targetCount ? "is-ready" : ""}`}>
+          {targetCount
+            ? `Kế hoạch sẽ được tạo cho ${targetCount} thiết bị hiện có.`
+            : "Chọn phạm vi để xem số thiết bị sẽ áp dụng."}
+        </p>
         <label>
           Tên kế hoạch *
           <input maxLength={200} name="title" placeholder="Ví dụ: Bảo dưỡng định kỳ" required />
@@ -83,8 +172,29 @@ export function MaintenanceForms({
           Ghi chú
           <textarea maxLength={3000} name="note" rows={3} />
         </label>
+        <div className="maintenance-plan-options">
+          <label>
+            Trạng thái
+            <select defaultValue="true" name="active">
+              <option value="true">Đang áp dụng</option>
+              <option value="false">Tạm dừng</option>
+            </select>
+          </label>
+          <label className="maintenance-repeat-toggle">
+            <input name="repeat_enabled" type="hidden" value="false" />
+            <input defaultChecked name="repeat_enabled" type="checkbox" value="true" />
+            <span>
+              <strong>Lặp lại định kỳ</strong>
+              <small>Tự chuyển sang kỳ tiếp theo khi ghi nhận hoàn thành.</small>
+            </span>
+          </label>
+        </div>
         <ActionMessage state={planState} />
-        <button className="primary-button" disabled={planPending || !assets.length} type="submit">
+        <button
+          className="primary-button"
+          disabled={planPending || !targetCount}
+          type="submit"
+        >
           {planPending ? "Đang lưu…" : "Tạo kế hoạch"}
         </button>
       </form>
@@ -98,7 +208,12 @@ export function MaintenanceForms({
         </div>
         <label>
           Thiết bị *
-          <select name="asset_id" required>
+          <select
+            name="asset_id"
+            onChange={(event) => setLogAsset(event.target.value)}
+            required
+            value={logAsset}
+          >
             <option value="">Chọn thiết bị</option>
             {assets.map((asset) => (
               <option key={asset.id} value={asset.id}>
@@ -111,7 +226,7 @@ export function MaintenanceForms({
           Kế hoạch liên quan
           <select name="plan_id">
             <option value="">Không gắn kế hoạch</option>
-            {plans.map((plan) => (
+            {availablePlans.map((plan) => (
               <option key={plan.id} value={plan.id}>{plan.title}</option>
             ))}
           </select>

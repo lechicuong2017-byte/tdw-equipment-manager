@@ -20,7 +20,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Cache | Đã có mức an toàn ban đầu | Auth/access được memoize trong cùng request; không cache chéo user |
 | Apps Script export | Đã có | Báo cáo thiết bị, bảo trì, luân chuyển và phần mềm; request HMAC, timestamp, nonce, chống formula injection |
 | Apps Script legacy | Đã cutover production | `TDW_LEGACY_MODE=disabled`; endpoint HMAC xuất báo cáo vẫn hoạt động độc lập |
-| Bảo trì, luân chuyển, phần mềm | Đã có luồng chính | CRUD có kiểm tra đầu vào, RLS; luân chuyển dùng RPC giao dịch bất biến |
+| Bảo trì, luân chuyển, phần mềm | Đã có luồng chính | CRUD có kiểm tra đầu vào, RLS; kế hoạch bảo trì hỗ trợ một thiết bị, nhóm hoặc loại thiết bị và tự tạo lịch riêng theo từng thiết bị; luân chuyển dùng RPC giao dịch bất biến |
 | Gmail theo kiến trúc mới | Đã có | Job Next.js đọc Supabase, claim idempotency rồi gửi payload ký số sang Apps Script |
 | XLSX/PDF theo kiến trúc mới | Đã có | Cả bốn báo cáo dùng job HMAC + idempotency; logo, tên báo cáo và định dạng TDW được tạo trên Google Sheets rồi tải trực tiếp |
 | Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings, 72 assets, 7 maintenance plans, 11 maintenance logs và 5 software licenses đã đối soát; movement/responsibles/notification logs chưa có dữ liệu nguồn |
@@ -166,6 +166,16 @@ Nguyên tắc:
 6. [ ] Backup PostgreSQL và Storage độc lập, cùng diễn tập restore tách biệt, vẫn chờ cấu hình backup native/đích staging của Supabase.
 7. [x] Kiểm tra Dashboard ngày 2026-08-04: project đang ở Free Plan, không có project backup; không tự nâng cấp vì sẽ phát sinh chi phí.
 
+### Cổng 12 — Kế hoạch bảo trì theo nhóm
+
+1. [x] Bổ sung phạm vi kế hoạch theo một thiết bị, nhóm thiết bị hoặc loại thiết bị.
+2. [x] Khi chọn nhóm/loại, hiển thị ngay số thiết bị sẽ áp dụng và tạo một kế hoạch riêng cho từng thiết bị trong cùng một đợt.
+3. [x] Giới hạn tối đa 200 thiết bị mỗi đợt; chỉ chọn các thiết bị đang hoạt động và người dùng hiện tại được phép truy cập theo RLS.
+4. [x] Bổ sung chế độ lặp định kỳ và tự dịch hạn tiếp theo sau khi ghi nhận bảo trì; kế hoạch một lần tự ngừng sau khi hoàn tất.
+5. [x] Bổ sung sửa một kế hoạch hoặc toàn bộ đợt, đồng thời giữ liên kết kế hoạch theo đúng thiết bị khi ghi nhật ký.
+6. [x] Áp migration `202608040004_maintenance_plan_scopes.sql` trên production và xác minh 7/7 kế hoạch cũ được backfill, không có phạm vi sai hoặc thiếu `batch_id`.
+7. [x] Typecheck, build production, smoke test và kiểm tra giao diện production bằng Chrome.
+
 ## 4. Backlog theo thứ tự ưu tiên
 
 ### P0 — Chặn cutover
@@ -187,6 +197,7 @@ Nguyên tắc:
 - ~~Bổ sung màn hình sửa bản quyền phần mềm và điều hướng trực tiếp từ tên phần mềm.~~ Hoàn tất ngày 2026-08-04.
 - ~~Mã hóa key bản quyền bằng AES-256-GCM, tách ciphertext khỏi bảng nghiệp vụ, chỉ Admin + MFA được lưu/xem và ghi audit mỗi lần truy cập.~~ Hoàn tất production ngày 2026-08-04: migration `202608040002` có 4 policy RLS và 2 RPC admin; khóa mã hóa đã được cấu hình dạng Sensitive trên Vercel.
 - ~~Hoàn thiện trang Cấu hình và nối danh mục vào các biểu mẫu nghiệp vụ.~~ Hoàn tất ngày 2026-08-04: quản lý 5 loại danh mục và 20 phòng ban; migration `202608040003` bổ sung RPC Admin đổi thứ tự và sửa nhãn an toàn.
+- ~~Gán kế hoạch bảo trì định kỳ cho một nhóm/loại thiết bị, sửa theo đợt và tự tính hạn tiếp theo.~~ Hoàn tất production ngày 2026-08-04; xem `docs/34-maintenance-plan-scopes-production-evidence.md`.
 
 ### P2 — Vận hành
 

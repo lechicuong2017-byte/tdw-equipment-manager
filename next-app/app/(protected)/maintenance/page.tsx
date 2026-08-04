@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MaintenanceForms } from "@/components/maintenance-forms";
+import { MaintenancePlanEditor } from "@/components/maintenance-plan-editor";
 import { MaintenanceReminderButton } from "@/components/maintenance-reminder-button";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
@@ -28,19 +29,19 @@ function getRelatedAsset(value: RelatedAsset) {
 
 export default async function MaintenancePage() {
   const { supabase, access } = await requireAccess();
-  const [{ data: assets }, { data: plans }, { data: logs }, { data: maintenanceTypes }] = await Promise.all([
+  const [{ data: assets }, { data: plans }, { data: logs }, { data: settings }] = await Promise.all([
     supabase
       .from("assets")
-      .select("id, asset_code, asset_name")
+      .select("id, asset_code, asset_name, asset_group, asset_group_label, asset_type")
       .is("deleted_at", null)
       .order("asset_code")
       .limit(500),
     supabase
       .from("maintenance_plans")
-      .select("id, asset_id, title, frequency, next_due_date, note, active, assets(id, asset_code, asset_name)")
+      .select("id, batch_id, scope_type, scope_value, asset_id, title, frequency, next_due_date, note, active, repeat_enabled, assets(id, asset_code, asset_name)")
       .order("active", { ascending: false })
       .order("next_due_date")
-      .limit(100),
+      .limit(500),
     supabase
       .from("maintenance_logs")
       .select("id, asset_id, maintenance_date, action_type, description, cost, vendor, performed_by, assets(id, asset_code, asset_name)")
@@ -49,9 +50,10 @@ export default async function MaintenancePage() {
       .limit(100),
     supabase
       .from("settings")
-      .select("setting_value,display_name")
-      .eq("setting_type", "maintenance_type")
+      .select("setting_type,setting_value,display_name")
+      .in("setting_type", ["asset_group", "asset_type", "maintenance_type"])
       .eq("active", true)
+      .order("setting_type")
       .order("sort_order"),
   ]);
 
@@ -61,6 +63,15 @@ export default async function MaintenancePage() {
   const canManage = can(access, "maintenance.manage");
   const canDelete = can(access, "maintenance.delete");
   const assetOptions = assets ?? [];
+  const settingRows = settings ?? [];
+  const assetGroups = settingRows
+    .filter((item) => item.setting_type === "asset_group")
+    .map((item) => ({ value: item.setting_value, label: item.display_name }));
+  const assetTypes = settingRows
+    .filter((item) => item.setting_type === "asset_type")
+    .map((item) => ({ value: item.setting_value, label: item.display_name }));
+  const maintenanceTypes = settingRows
+    .filter((item) => item.setting_type === "maintenance_type");
   const planOptions = (plans ?? [])
     .filter((plan) => plan.active)
     .map((plan) => ({
@@ -69,8 +80,14 @@ export default async function MaintenancePage() {
       title: `${getRelatedAsset(plan.assets)?.asset_code ?? ""} — ${plan.title}`,
     }));
   const maintenanceTypeLabels = new Map(
-    (maintenanceTypes ?? []).map((item) => [item.setting_value, item.display_name]),
+    maintenanceTypes.map((item) => [item.setting_value, item.display_name]),
   );
+  const groupLabels = new Map(assetGroups.map((item) => [item.value, item.label]));
+  const typeLabels = new Map(assetTypes.map((item) => [item.value, item.label]));
+  const batchSizes = new Map<string, number>();
+  (plans ?? []).forEach((plan) => {
+    batchSizes.set(plan.batch_id, (batchSizes.get(plan.batch_id) ?? 0) + 1);
+  });
 
   return (
     <>
@@ -89,7 +106,9 @@ export default async function MaintenancePage() {
             value: item.setting_value,
             label: item.display_name,
           }))}
+          assetGroups={assetGroups}
           assets={assetOptions}
+          assetTypes={assetTypes}
           plans={planOptions}
           today={today}
         />
@@ -109,7 +128,7 @@ export default async function MaintenancePage() {
               <thead>
                 <tr>
                   <th>Thiết bị / kế hoạch</th>
-                  <th>Chu kỳ</th>
+                  <th>Chu kỳ / phạm vi</th>
                   <th>Hạn tiếp theo</th>
                   <th>Trạng thái</th>
                   {(canManage || canDelete) ? <th aria-label="Thao tác" /> : null}
@@ -119,15 +138,27 @@ export default async function MaintenancePage() {
                 {(plans ?? []).map((plan) => {
                   const asset = getRelatedAsset(plan.assets);
                   const isOverdue = plan.active && plan.next_due_date < today;
+                  const batchSize = batchSizes.get(plan.batch_id) ?? 1;
+                  const scopeLabel = plan.scope_type === "GROUP"
+                    ? `Nhóm: ${groupLabels.get(plan.scope_value) ?? plan.scope_value}`
+                    : plan.scope_type === "TYPE"
+                      ? `Loại: ${typeLabels.get(plan.scope_value) ?? plan.scope_value}`
+                      : "Một thiết bị";
                   return (
                     <tr key={plan.id}>
                       <td>
                         <Link className="asset-name" href={`/assets/${plan.asset_id}`}>
                           <strong>{plan.title}</strong>
                           <small>{asset?.asset_code} · {asset?.asset_name}</small>
+                          <small>{scopeLabel}{batchSize > 1 ? ` · ${batchSize} thiết bị` : ""}</small>
                         </Link>
                       </td>
-                      <td>{frequencyLabels[plan.frequency] ?? plan.frequency}</td>
+                      <td>
+                        {frequencyLabels[plan.frequency] ?? plan.frequency}
+                        <small className="table-note">
+                          {plan.repeat_enabled ? "Lặp lại" : "Một lần"}
+                        </small>
+                      </td>
                       <td className={isOverdue ? "text-danger" : ""}>{formatDate(plan.next_due_date)}</td>
                       <td>
                         <span className={`status-pill ${plan.active ? "" : "status-muted"}`}>
@@ -137,6 +168,21 @@ export default async function MaintenancePage() {
                       {(canManage || canDelete) ? (
                         <td>
                           <div className="row-actions">
+                            {canManage ? (
+                              <MaintenancePlanEditor
+                                batchSize={batchSize}
+                                plan={{
+                                  id: plan.id,
+                                  title: plan.title,
+                                  frequency: plan.frequency,
+                                  next_due_date: plan.next_due_date,
+                                  note: plan.note,
+                                  active: plan.active,
+                                  repeat_enabled: plan.repeat_enabled,
+                                }}
+                                scopeLabel={scopeLabel}
+                              />
+                            ) : null}
                             {canManage ? (
                               <form action={toggleMaintenancePlan}>
                                 <input name="id" type="hidden" value={plan.id} />

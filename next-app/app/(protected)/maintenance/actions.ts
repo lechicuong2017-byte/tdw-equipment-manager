@@ -8,12 +8,33 @@ import { runMaintenanceReminders } from "@/lib/maintenance-reminders";
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
 
+const formBoolean = z.preprocess(
+  (value) => value === true || value === "true" || value === "on",
+  z.boolean(),
+);
+
 const planSchema = z.object({
-  asset_id: z.uuid("Thiết bị không hợp lệ"),
+  scope_type: z.enum(["ASSET", "GROUP", "TYPE"]),
+  asset_id: z.string().trim().max(160).default(""),
+  asset_group: z.string().trim().max(160).default(""),
+  asset_type: z.string().trim().max(160).default(""),
   title: z.string().trim().min(1, "Tên kế hoạch là bắt buộc").max(200),
   frequency: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]),
   next_due_date: z.iso.date("Ngày đến hạn không hợp lệ"),
   note: z.string().trim().max(3000),
+  active: formBoolean,
+  repeat_enabled: formBoolean,
+});
+
+const planUpdateSchema = z.object({
+  id: z.uuid("Kế hoạch không hợp lệ"),
+  title: z.string().trim().min(1, "Tên kế hoạch là bắt buộc").max(200),
+  frequency: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]),
+  next_due_date: z.iso.date("Ngày đến hạn không hợp lệ"),
+  note: z.string().trim().max(3000),
+  active: formBoolean,
+  repeat_enabled: formBoolean,
+  apply_to_batch: formBoolean,
 });
 
 const logSchema = z.object({
@@ -39,6 +60,25 @@ export type ReminderFormState = {
   success?: string;
 };
 
+function selectedScopeValue(data: z.infer<typeof planSchema>) {
+  if (data.scope_type === "GROUP") return data.asset_group;
+  if (data.scope_type === "TYPE") return data.asset_type;
+  return z.uuid().safeParse(data.asset_id).success ? data.asset_id : "";
+}
+
+function maintenanceRpcError(message: string) {
+  if (message.includes("at most 200")) {
+    return "Phạm vi có hơn 200 thiết bị. Hãy chọn nhóm hoặc loại nhỏ hơn.";
+  }
+  if (message.includes("No assets match")) {
+    return "Không có thiết bị nào phù hợp với phạm vi đã chọn.";
+  }
+  if (message.includes("access denied") || message.includes("Access denied")) {
+    return "Bạn không có quyền quản lý một hoặc nhiều thiết bị trong phạm vi này.";
+  }
+  return "Không thể lưu kế hoạch. Hãy kiểm tra quyền và dữ liệu.";
+}
+
 export async function createMaintenancePlan(
   _previousState: MaintenanceFormState,
   formData: FormData,
@@ -53,13 +93,67 @@ export async function createMaintenancePlan(
     return { error: "Bạn không có quyền tạo kế hoạch bảo trì." };
   }
 
-  const { error } = await supabase.from("maintenance_plans").insert(parsed.data);
+  const scopeValue = selectedScopeValue(parsed.data);
+  if (!scopeValue) {
+    return { error: "Hãy chọn phạm vi áp dụng cho kế hoạch." };
+  }
+
+  const { data: createdCount, error } = await supabase.rpc(
+    "create_maintenance_plan_batch",
+    {
+      target_scope_type: parsed.data.scope_type,
+      target_scope_value: scopeValue,
+      target_title: parsed.data.title,
+      target_frequency: parsed.data.frequency,
+      target_next_due_date: parsed.data.next_due_date,
+      target_note: parsed.data.note,
+      target_active: parsed.data.active,
+      target_repeat_enabled: parsed.data.repeat_enabled,
+    },
+  );
   if (error) {
-    return { error: "Không thể tạo kế hoạch. Hãy kiểm tra quyền và thiết bị." };
+    return { error: maintenanceRpcError(error.message) };
   }
 
   revalidatePath("/maintenance");
-  return { success: "Đã tạo kế hoạch bảo trì." };
+  const count = typeof createdCount === "number" ? createdCount : 0;
+  return { success: `Đã tạo kế hoạch cho ${count} thiết bị.` };
+}
+
+export async function updateMaintenancePlan(
+  _previousState: MaintenanceFormState,
+  formData: FormData,
+): Promise<MaintenanceFormState> {
+  const parsed = planUpdateSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "maintenance.manage")) {
+    return { error: "Bạn không có quyền sửa kế hoạch bảo trì." };
+  }
+
+  const { data: updatedCount, error } = await supabase.rpc(
+    "update_maintenance_plan_schedule",
+    {
+      target_plan_id: parsed.data.id,
+      target_title: parsed.data.title,
+      target_frequency: parsed.data.frequency,
+      target_next_due_date: parsed.data.next_due_date,
+      target_note: parsed.data.note,
+      target_active: parsed.data.active,
+      target_repeat_enabled: parsed.data.repeat_enabled,
+      target_apply_to_batch: parsed.data.apply_to_batch,
+    },
+  );
+  if (error) {
+    return { error: maintenanceRpcError(error.message) };
+  }
+
+  revalidatePath("/maintenance");
+  const count = typeof updatedCount === "number" ? updatedCount : 0;
+  return { success: `Đã cập nhật ${count} kế hoạch.` };
 }
 
 export async function createMaintenanceLog(
@@ -82,6 +176,7 @@ export async function createMaintenanceLog(
       .select("id")
       .eq("id", parsed.data.plan_id)
       .eq("asset_id", parsed.data.asset_id)
+      .eq("active", true)
       .maybeSingle();
     if (!matchingPlan) {
       return { error: "Kế hoạch đã chọn không thuộc thiết bị này." };
