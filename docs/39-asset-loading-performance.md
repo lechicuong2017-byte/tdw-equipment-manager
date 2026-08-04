@@ -13,6 +13,8 @@
 - API ảnh giới hạn tối đa 20 thiết bị, lấy ảnh đại diện và ký URL theo một lô.
 - Trang chi tiết ký toàn bộ ảnh theo một lô, song song với truy vấn linh kiện.
 - Bổ sung chỉ mục tìm kiếm mã, tên, serial; chỉ mục trạng thái, phân loại và ảnh đại diện.
+- PostgreSQL tự đồng bộ tên nhóm thiết bị trong cùng giao dịch lưu, bỏ một lượt tra cứu riêng.
+- Chỉ gọi cập nhật người phụ trách khi lựa chọn thực sự thay đổi.
 
 ## An toàn
 

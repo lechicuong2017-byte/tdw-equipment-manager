@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   saveAsset,
   type AssetFormState,
@@ -32,6 +32,7 @@ export function AssetForm({
   settings?: Setting[];
 }) {
   const [state, formAction, pending] = useActionState(saveAsset, initialState);
+  const [responsiblesChanged, setResponsiblesChanged] = useState(false);
   const primaryUserId = responsibles.find(
     (item) => item.responsibility_role === "primary",
   )?.user_id;
@@ -212,11 +213,19 @@ export function AssetForm({
             </div>
             <span>Chỉ quản trị viên thay đổi danh sách này</span>
           </div>
-          <input name="manage_responsibles" type="hidden" value="1" />
+          <input
+            name="manage_responsibles"
+            type="hidden"
+            value={responsiblesChanged ? "1" : "0"}
+          />
           <div className="form-grid">
             <label className="span-2">
               Người phụ trách chính
-              <select defaultValue={primaryUserId ?? ""} name="primary_responsible_id">
+              <select
+                defaultValue={primaryUserId ?? ""}
+                name="primary_responsible_id"
+                onChange={() => setResponsiblesChanged(true)}
+              >
                 <option value="">Chưa gán</option>
                 {responsibleUsers.map((user) => (
                   <option key={user.id} value={user.id}>
@@ -231,6 +240,7 @@ export function AssetForm({
                 defaultValue={[...secondaryUserIds]}
                 multiple
                 name="secondary_responsible_ids"
+                onChange={() => setResponsiblesChanged(true)}
                 size={Math.min(5, Math.max(3, responsibleUsers.length))}
               >
                 {responsibleUsers.map((user) => (

@@ -65,21 +65,9 @@ export async function saveAsset(
 
   const { supabase, access } = await requireAccess();
   const { id, ...payload } = parsed.data;
-  const { data: groupSetting } = payload.asset_group
-    ? await supabase
-        .from("settings")
-        .select("display_name")
-        .eq("setting_type", "asset_group")
-        .eq("setting_value", payload.asset_group)
-        .maybeSingle()
-    : { data: null };
-  const assetPayload = {
-    ...payload,
-    asset_group_label: groupSetting?.display_name ?? payload.asset_group,
-  };
   const query = id
-    ? supabase.from("assets").update(assetPayload).eq("id", id).select("id").single()
-    : supabase.from("assets").insert(assetPayload).select("id").single();
+    ? supabase.from("assets").update(payload).eq("id", id).select("id").single()
+    : supabase.from("assets").insert(payload).select("id").single();
 
   const { data, error } = await query;
   if (error) {

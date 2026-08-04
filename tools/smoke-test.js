@@ -124,7 +124,10 @@ async function run() {
     "supabase/migrations/202608040001_media_checksums.sql",
   );
   const assetQueryPerformanceMigration = read(
-    "supabase/migrations/202608040005_asset_query_performance.sql",
+    "supabase/migrations/202608040006_asset_query_performance.sql",
+  );
+  const assetSavePerformanceMigration = read(
+    "supabase/migrations/202608040007_asset_save_performance.sql",
   );
   const softwareSecretMigration = read(
     "supabase/migrations/202608040002_software_license_secrets.sql",
@@ -399,6 +402,11 @@ async function run() {
   assert.ok(assetQueryPerformanceMigration.includes("pg_trgm"));
   assert.ok(assetQueryPerformanceMigration.includes("assets_name_search_active_idx"));
   assert.ok(assetQueryPerformanceMigration.includes("assets_status_updated_active_idx"));
+  assert.ok(assetSavePerformanceMigration.includes("sync_asset_group_label"));
+  assert.ok(assetSavePerformanceMigration.includes("before insert or update of asset_group"));
+  assert.ok(!nextAssetActions.includes('select("display_name")'));
+  assert.ok(nextAssetForm.includes("responsiblesChanged"));
+  assert.ok(nextAssetForm.includes('value={responsiblesChanged ? "1" : "0"}'));
   assert.ok(nextAssetActions.includes("checksum"));
   assert.ok(assetCategoryFilterMigration.includes("assets_type_updated_active_idx"));
   assert.ok(assetCategoryFilterMigration.includes("security invoker"));
