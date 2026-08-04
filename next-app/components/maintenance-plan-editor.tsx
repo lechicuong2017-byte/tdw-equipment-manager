@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   updateMaintenancePlan,
   type MaintenanceFormState,
 } from "@/app/(protected)/maintenance/actions";
+import { ActionStateToast } from "@/components/action-toast";
 import { AppModal } from "@/components/app-modal";
 
 type EditablePlan = {
@@ -34,8 +35,13 @@ export function MaintenancePlanEditor({
   );
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    if (state.success) setOpen(false);
+  }, [state]);
+
   return (
     <>
+      <ActionStateToast state={state} />
       <button className="text-button" onClick={() => setOpen(true)} type="button">Sửa</button>
       <AppModal
         description={scopeLabel}
@@ -100,7 +106,6 @@ export function MaintenancePlanEditor({
               </label>
             ) : null}
             {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
-            {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
             <div className="modal-actions">
               <button className="secondary-button" onClick={() => setOpen(false)} type="button">Hủy</button>
               <button className="primary-button" disabled={pending} type="submit">

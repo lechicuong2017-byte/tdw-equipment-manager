@@ -6,6 +6,7 @@ import {
   saveSoftwareLicenseSecret,
   type SoftwareSecretFormState,
 } from "@/app/(protected)/software/actions";
+import { ActionStateToast } from "@/components/action-toast";
 
 const initialState: SoftwareSecretFormState = {};
 
@@ -64,6 +65,7 @@ export function SoftwareLicenseSecretPanel({
       </div>
 
       <form action={formAction} className="data-form">
+        <ActionStateToast state={state} />
         <input name="id" type="hidden" value={licenseId} />
         <div className="form-grid">
           <label className="span-3">
@@ -86,9 +88,6 @@ export function SoftwareLicenseSecretPanel({
         </p>
         {state.error ? (
           <p className="form-error" role="alert">{state.error}</p>
-        ) : null}
-        {state.success ? (
-          <p className="form-success" role="status">{state.success}</p>
         ) : null}
         <div className="form-actions software-secret-actions">
           <span className="masked-key">

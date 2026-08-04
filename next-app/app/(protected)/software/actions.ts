@@ -192,11 +192,13 @@ export async function revealSoftwareLicenseSecret(licenseId: string): Promise<{
 
 export async function deleteSoftwareLicense(formData: FormData) {
   const id = z.uuid().safeParse(formData.get("id"));
-  if (!id.success) return;
+  if (!id.success) return { error: "Mã bản quyền không hợp lệ." };
 
   const { supabase, access } = await requireAccess();
-  if (!can(access, "software.delete")) return;
+  if (!can(access, "software.delete")) return { error: "Bạn không có quyền xóa bản quyền." };
 
-  await supabase.from("software_licenses").delete().eq("id", id.data);
+  const { error } = await supabase.from("software_licenses").delete().eq("id", id.data);
+  if (error) return { error: "Không thể xóa bản quyền phần mềm." };
   revalidatePath("/software");
+  return { success: "Đã xóa bản quyền phần mềm." };
 }

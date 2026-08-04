@@ -5,6 +5,7 @@ import {
   recordMovement,
   type MovementFormState,
 } from "@/app/(protected)/movements/actions";
+import { ActionStateToast } from "@/components/action-toast";
 
 type AssetOption = {
   id: string;
@@ -27,6 +28,7 @@ export function MovementForm({
 
   return (
     <form action={formAction} className="panel data-form module-single-form">
+      <ActionStateToast state={state} />
       <div className="panel-heading">
         <div>
           <p className="eyebrow">PHIẾU LUÂN CHUYỂN</p>
@@ -73,7 +75,6 @@ export function MovementForm({
         </label>
       </div>
       {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
-      {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
       <div className="form-actions">
         <button className="primary-button" disabled={pending || !assets.length} type="submit">
           {pending ? "Đang ghi nhận…" : "Xác nhận luân chuyển"}

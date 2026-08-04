@@ -21,9 +21,6 @@ const componentStatusOptions = Object.entries(statusLabels).filter(
 );
 
 const statusMessages: Record<string, string> = {
-  installed: "Đã gắn linh kiện vào thiết bị.",
-  removed: "Đã tháo linh kiện và lưu lịch sử.",
-  replaced: "Đã thay linh kiện và lưu cả linh kiện cũ lẫn mới.",
   error: "Không thể cập nhật linh kiện. Hãy kiểm tra quyền, ngày thực hiện và trạng thái gắn hiện tại.",
 };
 

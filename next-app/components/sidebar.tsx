@@ -3,15 +3,22 @@ import Image from "next/image";
 import type { AccessProfile } from "@/lib/types";
 import { can } from "@/lib/auth";
 import { logout } from "@/app/(protected)/actions";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 
-const navItems = [
-  { href: "/dashboard", label: "Tổng quan", icon: "⌂", permission: "overview.view" },
-  { href: "/assets", label: "Thiết bị", icon: "▤", permission: "assets.view" },
-  { href: "/maintenance", label: "Bảo trì", icon: "◇", permission: "maintenance.view" },
-  { href: "/movements", label: "Luân chuyển", icon: "⇄", permission: "movement.view" },
-  { href: "/software", label: "Phần mềm", icon: "◫", permission: "software.view" },
-  { href: "/reports", label: "Báo cáo", icon: "▥", permission: "reports.view" },
-] as const;
+const navItems: ReadonlyArray<{
+  href: string;
+  icon: AppIconName;
+  label: string;
+  permission: string;
+  tone: string;
+}> = [
+  { href: "/dashboard", label: "Tổng quan", icon: "dashboard", permission: "overview.view", tone: "cyan" },
+  { href: "/assets", label: "Thiết bị", icon: "assets", permission: "assets.view", tone: "blue" },
+  { href: "/maintenance", label: "Bảo trì", icon: "maintenance", permission: "maintenance.view", tone: "amber" },
+  { href: "/movements", label: "Luân chuyển", icon: "movement", permission: "movement.view", tone: "violet" },
+  { href: "/software", label: "Phần mềm", icon: "software", permission: "software.view", tone: "green" },
+  { href: "/reports", label: "Báo cáo", icon: "reports", permission: "reports.view", tone: "rose" },
+];
 
 export function Sidebar({ access }: { access: AccessProfile }) {
   const initials = (access.full_name || access.email)
@@ -41,7 +48,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           .filter((item) => can(access, item.permission))
           .map((item) => (
             <Link href={item.href} key={item.href}>
-              <span aria-hidden="true">{item.icon}</span>
+              <span className={`nav-icon nav-icon-${item.tone}`}><AppIcon name={item.icon} /></span>
               {item.label}
             </Link>
           ))}
@@ -49,10 +56,10 @@ export function Sidebar({ access }: { access: AccessProfile }) {
         {access.roles.includes("admin") ? (
           <>
             <p className="nav-label nav-label-spaced">HỆ THỐNG</p>
-            <Link href="/admin/users"><span aria-hidden="true">♙</span>Người dùng</Link>
-            <Link href="/admin/settings"><span aria-hidden="true">⚙</span>Cấu hình</Link>
-            <Link href="/admin/audit"><span aria-hidden="true">◷</span>Nhật ký</Link>
-            <Link href="/admin/health"><span aria-hidden="true">●</span>Trạng thái</Link>
+            <Link href="/admin/users"><span className="nav-icon nav-icon-cyan"><AppIcon name="users" /></span>Người dùng</Link>
+            <Link href="/admin/settings"><span className="nav-icon nav-icon-amber"><AppIcon name="settings" /></span>Cấu hình</Link>
+            <Link href="/admin/audit"><span className="nav-icon nav-icon-violet"><AppIcon name="timeline" /></span>Nhật ký</Link>
+            <Link href="/admin/health"><span className="nav-icon nav-icon-green"><AppIcon name="health" /></span>Trạng thái</Link>
           </>
         ) : null}
       </nav>
@@ -64,7 +71,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           <small>{access.roles.join(", ") || "viewer"}</small>
         </div>
         <form action={logout}>
-          <button aria-label="Đăng xuất" title="Đăng xuất" type="submit">↗</button>
+          <button aria-label="Đăng xuất" title="Đăng xuất" type="submit"><AppIcon name="logout" size={18} /></button>
         </form>
       </div>
     </aside>

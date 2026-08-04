@@ -5,6 +5,7 @@ import {
   updateSoftwareLicense,
   type SoftwareFormState,
 } from "@/app/(protected)/software/actions";
+import { ActionStateToast } from "@/components/action-toast";
 
 type AssetOption = {
   id: string;
@@ -41,6 +42,7 @@ export function SoftwareEditForm({
 
   return (
     <form action={formAction} className="panel data-form form-panel">
+      <ActionStateToast state={state} />
       <input name="id" type="hidden" value={license.id} />
       <div className="panel-heading">
         <div>
@@ -108,7 +110,6 @@ export function SoftwareEditForm({
       </div>
 
       {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
-      {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
       <div className="form-actions">
         <button className="primary-button" disabled={pending} type="submit">
           {pending ? "Đang cập nhật…" : "Lưu thay đổi"}

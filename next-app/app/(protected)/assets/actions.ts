@@ -120,23 +120,24 @@ export async function saveAsset(
 
   revalidatePath("/dashboard");
   revalidatePath("/assets");
-  redirect(`/assets/${data.id}`);
+  const successMessage = id ? "Đã cập nhật thiết bị." : "Đã thêm thiết bị.";
+  redirect(`/assets/${data.id}?ok=${encodeURIComponent(successMessage)}`);
 }
 
 export async function archiveAsset(formData: FormData) {
   const id = z.uuid().safeParse(formData.get("id"));
-  if (!id.success) return;
+  if (!id.success) return { error: "Mã thiết bị không hợp lệ." };
 
   const { supabase } = await requireAccess();
   const { error } = await supabase.rpc("archive_asset", {
     target_asset_id: id.data,
   });
 
-  if (!error) {
-    revalidatePath("/dashboard");
-    revalidatePath("/assets");
-    redirect("/assets");
-  }
+  if (error) return { error: "Không thể đưa thiết bị vào lưu trữ." };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/assets");
+  redirect(`/assets?ok=${encodeURIComponent("Đã đưa thiết bị vào lưu trữ.")}`);
 }
 
 const componentStatus = z.enum([
@@ -160,7 +161,15 @@ function componentRedirect(
   assetId: string,
   state: "installed" | "removed" | "replaced" | "error",
 ) {
-  redirect(`/assets/${assetId}?component_status=${state}`);
+  if (state === "error") {
+    redirect(`/assets/${assetId}?component_status=error`);
+  }
+  const messages = {
+    installed: "Đã gắn linh kiện vào thiết bị.",
+    removed: "Đã tháo linh kiện và lưu lịch sử.",
+    replaced: "Đã thay linh kiện và lưu lịch sử cũ/mới.",
+  } as const;
+  redirect(`/assets/${assetId}?ok=${encodeURIComponent(messages[state])}`);
 }
 
 export async function installAssetComponent(formData: FormData) {
@@ -412,7 +421,7 @@ export async function deleteAssetMedia(formData: FormData) {
     id: z.uuid(),
     asset_id: z.uuid(),
   }).safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return;
+  if (!parsed.success) return { error: "Thông tin ảnh không hợp lệ." };
 
   const { supabase } = await requireAccess();
   const { data } = await supabase
@@ -421,7 +430,7 @@ export async function deleteAssetMedia(formData: FormData) {
     .eq("id", parsed.data.id)
     .eq("asset_id", parsed.data.asset_id)
     .single();
-  if (!data) return;
+  if (!data) return { error: "Không tìm thấy ảnh cần xóa." };
 
   const { error: storageError } = await supabase.storage
     .from("asset-media")
@@ -429,9 +438,14 @@ export async function deleteAssetMedia(formData: FormData) {
       data.object_path,
       ...(data.thumbnail_path ? [data.thumbnail_path] : []),
     ]);
-  if (storageError) return;
+  if (storageError) return { error: "Không thể xóa tệp ảnh trong kho lưu trữ." };
 
-  await supabase.from("media_files").delete().eq("id", parsed.data.id);
+  const { error: databaseError } = await supabase
+    .from("media_files")
+    .delete()
+    .eq("id", parsed.data.id);
+  if (databaseError) return { error: "Không thể xóa thông tin ảnh." };
   revalidatePath("/assets");
   revalidatePath(`/assets/${parsed.data.asset_id}`);
+  return { success: "Đã xóa ảnh thiết bị." };
 }

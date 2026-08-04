@@ -6,6 +6,7 @@ import {
   createMaintenancePlan,
   type MaintenanceFormState,
 } from "@/app/(protected)/maintenance/actions";
+import { ActionStateToast } from "@/components/action-toast";
 import { ModalTrigger } from "@/components/app-modal";
 
 type AssetOption = {
@@ -77,6 +78,8 @@ export function MaintenanceForms({
 
   return (
     <div className="module-action-bar">
+      <ActionStateToast state={planState} />
+      <ActionStateToast state={logState} />
       <ModalTrigger
         description="Tạo lịch cho một thiết bị, nhóm thiết bị hoặc toàn bộ loại thiết bị."
         eyebrow="KẾ HOẠCH"
@@ -307,6 +310,5 @@ export function MaintenanceForms({
 
 function ActionMessage({ state }: { state: MaintenanceFormState }) {
   if (state.error) return <p className="form-error" role="alert">{state.error}</p>;
-  if (state.success) return <p className="form-success" role="status">{state.success}</p>;
   return null;
 }

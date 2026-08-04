@@ -1,3 +1,8 @@
+import { Suspense } from "react";
+import {
+  ActionToastProvider,
+  ActionUrlToast,
+} from "@/components/action-toast";
 import { Sidebar } from "@/components/sidebar";
 import { requireAccess } from "@/lib/auth";
 
@@ -11,9 +16,14 @@ export default async function ProtectedLayout({
   const { access } = await requireAccess();
 
   return (
-    <div className="app-shell">
-      <Sidebar access={access} />
-      <main className="app-main">{children}</main>
-    </div>
+    <ActionToastProvider>
+      <Suspense fallback={null}>
+        <ActionUrlToast />
+      </Suspense>
+      <div className="app-shell">
+        <Sidebar access={access} />
+        <main className="app-main">{children}</main>
+      </div>
+    </ActionToastProvider>
   );
 }

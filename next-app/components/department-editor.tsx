@@ -5,6 +5,7 @@ import {
   saveDepartment,
   type SettingsFormState,
 } from "@/app/(protected)/admin/settings/actions";
+import { ActionStateToast } from "@/components/action-toast";
 import type { Department } from "@/lib/types";
 
 const initialState: SettingsFormState = {};
@@ -13,6 +14,7 @@ export function DepartmentEditor({ department }: { department?: Department }) {
   const [state, formAction, pending] = useActionState(saveDepartment, initialState);
   return (
     <form action={formAction} className="panel data-form compact-form settings-editor">
+      <ActionStateToast state={state} />
       <input name="id" type="hidden" value={department?.id ?? ""} />
       <div className="panel-heading">
         <div>
@@ -38,7 +40,6 @@ export function DepartmentEditor({ department }: { department?: Department }) {
       </label>
       <p className="form-help">Phòng ban đã dùng không bị xóa để giữ nguyên phân bổ thiết bị và phạm vi người dùng.</p>
       {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
-      {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
       <button className="primary-button" disabled={pending} type="submit">
         {pending ? "Đang lưu…" : department ? "Lưu phòng ban" : "Thêm phòng ban"}
       </button>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppIcon } from "@/components/app-icon";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
 import {
@@ -61,25 +62,25 @@ export default async function DashboardPage() {
 
       <section className="metric-grid" aria-label="Chỉ số thiết bị">
         <article className="metric-card metric-primary">
-          <span className="metric-icon" aria-hidden="true">▤</span>
+          <span className="metric-icon"><AppIcon name="assets" /></span>
           <p>Tổng tài sản</p>
           <strong>{formatNumber(stats.total_assets)}</strong>
           <small>Đang quản lý trong hệ thống</small>
         </article>
-        <article className="metric-card">
-          <span className="metric-icon metric-icon-green" aria-hidden="true">✓</span>
+        <article className="metric-card metric-tone-green">
+          <span className="metric-icon"><AppIcon name="checkCircle" /></span>
           <p>Đang sử dụng</p>
           <strong>{formatNumber(stats.active_assets)}</strong>
           <small>Thiết bị hoạt động</small>
         </article>
-        <article className="metric-card">
-          <span className="metric-icon metric-icon-amber" aria-hidden="true">!</span>
+        <article className="metric-card metric-tone-amber">
+          <span className="metric-icon"><AppIcon name="alertCircle" /></span>
           <p>Cần chú ý</p>
           <strong>{formatNumber(stats.needs_attention)}</strong>
           <small>Cần kiểm tra hoặc xuống cấp</small>
         </article>
-        <article className="metric-card">
-          <span className="metric-icon metric-icon-slate" aria-hidden="true">◇</span>
+        <article className="metric-card metric-tone-violet">
+          <span className="metric-icon"><AppIcon name="value" /></span>
           <p>Tổng giá trị</p>
           <strong className="metric-money">{formatMoney(stats.total_value)}</strong>
           <small>Theo dữ liệu đã nhập</small>
@@ -87,26 +88,26 @@ export default async function DashboardPage() {
       </section>
 
       <section className="metric-grid metric-grid-components" aria-label="Chỉ số linh kiện">
-        <article className="metric-card">
-          <span className="metric-icon metric-icon-slate" aria-hidden="true">▣</span>
+        <article className="metric-card metric-tone-blue">
+          <span className="metric-icon"><AppIcon name="device" /></span>
           <p>Thiết bị hoàn chỉnh</p>
           <strong>{formatNumber(stats.device_assets)}</strong>
           <small>Máy tính, laptop và thiết bị chính</small>
         </article>
-        <article className="metric-card">
-          <span className="metric-icon" aria-hidden="true">◆</span>
+        <article className="metric-card metric-tone-rose">
+          <span className="metric-icon"><AppIcon name="component" /></span>
           <p>Tổng linh kiện</p>
           <strong>{formatNumber(stats.component_assets)}</strong>
           <small>RAM, ổ cứng và linh kiện theo dõi riêng</small>
         </article>
-        <article className="metric-card">
-          <span className="metric-icon metric-icon-green" aria-hidden="true">↳</span>
+        <article className="metric-card metric-tone-cyan">
+          <span className="metric-icon"><AppIcon name="installed" /></span>
           <p>Linh kiện đang lắp</p>
           <strong>{formatNumber(stats.installed_components)}</strong>
           <small>Đang gắn với một thiết bị hoàn chỉnh</small>
         </article>
-        <article className="metric-card">
-          <span className="metric-icon metric-icon-amber" aria-hidden="true">◇</span>
+        <article className="metric-card metric-tone-orange">
+          <span className="metric-icon"><AppIcon name="archive" /></span>
           <p>Linh kiện đang rời</p>
           <strong>{formatNumber(stats.available_components)}</strong>
           <small>Sẵn sàng để gắn hoặc đang lưu kho</small>
@@ -125,8 +126,8 @@ export default async function DashboardPage() {
             {Object.entries(stats.by_status).length ? (
               Object.entries(stats.by_status)
                 .sort(([, a], [, b]) => b - a)
-                .map(([status, count]) => (
-                  <div className="status-row" key={status}>
+                .map(([status, count], index) => (
+                  <div className={`status-row status-tone-${index % 6}`} key={status}>
                     <div>
                       <span className={`status-dot status-${status.toLowerCase()}`} />
                       <span>{labelStatus(status)}</span>

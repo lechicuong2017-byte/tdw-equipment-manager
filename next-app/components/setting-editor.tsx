@@ -5,6 +5,7 @@ import {
   saveSetting,
   type SettingsFormState,
 } from "@/app/(protected)/admin/settings/actions";
+import { ActionStateToast } from "@/components/action-toast";
 import {
   settingTypeDefinitions,
   settingTypes,
@@ -25,6 +26,7 @@ export function SettingEditor({ setting }: { setting?: Setting }) {
 
   return (
     <form action={formAction} className="panel data-form compact-form settings-editor">
+      <ActionStateToast state={state} />
       <input name="id" type="hidden" value={setting?.id ?? ""} />
       <div className="panel-heading">
         <div>
@@ -62,7 +64,6 @@ export function SettingEditor({ setting }: { setting?: Setting }) {
         Khi đổi tên, mã nội bộ và dữ liệu đang liên kết được cập nhật cùng lúc. Chỉ đổi loại cấu hình khi mục này chưa được sử dụng.
       </p>
       {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
-      {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
       <button className="primary-button" disabled={pending} type="submit">
         {pending ? "Đang lưu…" : setting ? "Lưu thay đổi" : "Thêm cấu hình"}
       </button>

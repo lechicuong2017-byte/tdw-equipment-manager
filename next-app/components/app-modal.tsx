@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import {
+  ActionStateToast,
+  ActionSuccessBoundary,
+} from "@/components/action-toast";
+import { AppIcon } from "@/components/app-icon";
 
 type ModalSize = "small" | "medium" | "large" | "wide";
 
@@ -110,7 +115,9 @@ export function ModalTrigger({
         size={size}
         title={title}
       >
-        {children}
+        <ActionSuccessBoundary onSuccess={() => setOpen(false)}>
+          {children}
+        </ActionSuccessBoundary>
       </AppModal>
     </>
   );
@@ -140,7 +147,9 @@ export function ModalPage({
 }
 
 type ConfirmActionProps = {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (
+    formData: FormData,
+  ) => void | ConfirmActionState | Promise<void | ConfirmActionState>;
   confirmLabel?: string;
   description: string;
   fields: Record<string, string | number | boolean | null | undefined>;
@@ -149,6 +158,13 @@ type ConfirmActionProps = {
   triggerClassName?: string;
   triggerLabel?: string;
 };
+
+type ConfirmActionState = {
+  error?: string;
+  success?: string;
+};
+
+const initialConfirmActionState: ConfirmActionState = {};
 
 export function ConfirmAction({
   action,
@@ -161,8 +177,21 @@ export function ConfirmAction({
   triggerLabel = "Xóa",
 }: ConfirmActionProps) {
   const [open, setOpen] = useState(false);
+  const [state, formAction, pending] = useActionState(
+    async (_previousState: ConfirmActionState, formData: FormData) => {
+      const result = await action(formData);
+      return result ?? { success: "Đã xóa dữ liệu thành công." };
+    },
+    initialConfirmActionState,
+  );
+
+  useEffect(() => {
+    if (state.success) setOpen(false);
+  }, [state]);
+
   return (
     <>
+      <ActionStateToast state={state} />
       <button
         aria-label={triggerAriaLabel}
         className={triggerClassName}
@@ -179,21 +208,24 @@ export function ConfirmAction({
         size="small"
         title={title}
       >
-        <form action={action} className="confirm-action-form">
+        <form action={formAction} className="confirm-action-form">
           {Object.entries(fields).map(([name, value]) => (
             value === null || value === undefined ? null : (
               <input key={name} name={name} type="hidden" value={String(value)} />
             )
           ))}
           <div className="confirm-action-copy">
-            <span aria-hidden="true">!</span>
+            <span aria-hidden="true"><AppIcon name="warningTriangle" size={15} /></span>
             <p>{description}</p>
           </div>
+          {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
           <div className="modal-actions">
             <button className="secondary-button" onClick={() => setOpen(false)} type="button">
               Hủy
             </button>
-            <button className="danger-button" type="submit">{confirmLabel}</button>
+            <button className="danger-button" disabled={pending} type="submit">
+              {pending ? "Đang xử lý…" : confirmLabel}
+            </button>
           </div>
         </form>
       </AppModal>

@@ -80,7 +80,6 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
         )}
       />
 
-      {params.ok ? <p className="form-success" role="status">{params.ok}</p> : null}
       {params.error ? <p className="form-error" role="alert">{params.error}</p> : null}
 
       <section className="user-access-grid">

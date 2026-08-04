@@ -215,15 +215,21 @@ export async function deleteMaintenanceRecord(formData: FormData) {
     id: z.uuid(),
     kind: z.enum(["plan", "log"]),
   }).safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return;
+  if (!parsed.success) return { error: "Thông tin cần xóa không hợp lệ." };
 
   const { supabase, access } = await requireAccess();
-  if (!can(access, "maintenance.delete")) return;
+  if (!can(access, "maintenance.delete")) return { error: "Bạn không có quyền xóa dữ liệu bảo trì." };
 
   const table =
     parsed.data.kind === "plan" ? "maintenance_plans" : "maintenance_logs";
-  await supabase.from(table).delete().eq("id", parsed.data.id);
+  const { error } = await supabase.from(table).delete().eq("id", parsed.data.id);
+  if (error) return { error: "Không thể xóa dữ liệu bảo trì." };
   revalidatePath("/maintenance");
+  return {
+    success: parsed.data.kind === "plan"
+      ? "Đã xóa kế hoạch bảo trì."
+      : "Đã xóa nhật ký bảo trì.",
+  };
 }
 
 export async function sendMaintenanceReminders(
