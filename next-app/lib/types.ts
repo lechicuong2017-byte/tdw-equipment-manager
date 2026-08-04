@@ -102,6 +102,7 @@ export type MediaFile = {
   file_name: string;
   mime_type: string;
   byte_size: number;
+  checksum?: string | null;
   sort_order: number;
   created_at: string;
   signed_url?: string;

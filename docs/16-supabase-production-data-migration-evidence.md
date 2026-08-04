@@ -82,15 +82,17 @@ quyền `0600` đã được xóa sau đối soát.
 - Form tạo thiết bị có 20 phòng ban cộng một lựa chọn mặc định.
 - Phiên admin AAL2 hiện tại vẫn hoạt động sau khi thu hồi signing key legacy.
 
-## Phần chưa có dữ liệu nguồn
+## Dữ liệu đã nhập và phần chưa có dữ liệu nguồn
 
-- Maintenance logs, inventory movements và software licenses đang có file chỉ
-  gồm header.
-- Chưa có file maintenance plans, asset responsibles, notification logs hoặc
-  media.
+- Đã nhập 7 maintenance plans và 11 maintenance logs từ snapshot production.
+- Đã chuyển đủ 11 ảnh media vào bucket Storage private; đối soát đạt 11/11
+  object Storage, 11/11 dòng `media_files`, 11/11 checksum SHA-256 và 11/11
+  liên kết metadata với object path. Phân bổ gồm 2 ảnh thiết bị và 9 ảnh bảo
+  trì.
+- Inventory movements, software licenses, asset responsibles và notification
+  logs vẫn chưa có dữ liệu nguồn ngoài phần header nên chưa phát sinh bản ghi.
 - `Users.csv` không được tự động biến thành Auth users; tài khoản vẫn phải đi
   qua luồng invite.
-- Ảnh Google Drive chưa chuyển sang Storage; ngày 2026-08-04 đã xác nhận thư mục media nguồn có 11 ảnh và ghi nhận job checksum cần phê duyệt cửa sổ chuyển.
 - Cần lấy delta cuối và đặt Sheets ở read-only trước cutover hoàn toàn.
 
 ## Giới hạn bằng chứng

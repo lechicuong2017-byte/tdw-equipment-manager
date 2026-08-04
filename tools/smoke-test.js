@@ -119,6 +119,9 @@ async function run() {
   const assetCategoryFilterMigration = read(
     "supabase/migrations/202607310014_asset_category_filters.sql",
   );
+  const mediaChecksumMigration = read(
+    "supabase/migrations/202608040001_media_checksums.sql",
+  );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextConfig = read("next-app/next.config.ts");
@@ -314,6 +317,9 @@ async function run() {
   assert.ok(nextAssetsPage.includes("className=\"asset-list-thumbnail\""));
   assert.ok(nextAssetDetailPage.includes("unoptimized"));
   assert.ok(nextConfig.includes('bodySizeLimit: "6mb"'));
+  assert.ok(mediaChecksumMigration.includes("checksum"));
+  assert.ok(mediaChecksumMigration.includes("media_files_checksum_sha256"));
+  assert.ok(nextAssetActions.includes("checksum"));
   assert.ok(assetCategoryFilterMigration.includes("assets_type_updated_active_idx"));
   assert.ok(assetCategoryFilterMigration.includes("security invoker"));
   assert.ok(assetCategoryFilterMigration.includes("get_asset_filter_options"));

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
@@ -310,6 +311,9 @@ export async function uploadAssetMedia(
   const objectPath = `${access.user_id}/${asset.id}/${mediaId}.${extension}`;
   const thumbnailPath = `${access.user_id}/${asset.id}/${mediaId}.thumb.webp`;
   const bytes = await parsed.data.file.arrayBuffer();
+  const checksum = createHash("sha256")
+    .update(Buffer.from(bytes))
+    .digest("hex");
   let thumbnailBytes: Buffer;
   let imageWidth: number | null = null;
   let imageHeight: number | null = null;
@@ -354,6 +358,7 @@ export async function uploadAssetMedia(
     file_name: parsed.data.file.name.slice(0, 200),
     mime_type: parsed.data.file.type,
     byte_size: parsed.data.file.size,
+    checksum,
     width: imageWidth,
     height: imageHeight,
     created_by: access.user_id,

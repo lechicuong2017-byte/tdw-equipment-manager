@@ -24,10 +24,16 @@ Phạm vi: Google Drive backup/media, Apps Script production và kế hoạch ba
 - Chạy `installDailyBackupTrigger()` thành công.
 - Trang Triggers hiển thị đúng 1 trigger time-based cho `backupSystemData`; hàm được cấu hình chạy mỗi ngày lúc 02:00 theo múi giờ Hồ Chí Minh.
 
+## Kết quả chuyển media sang Storage private
+
+- Ngày 2026-08-04, sau khi người dùng phê duyệt thao tác trên production, đã chuyển đủ 11 ảnh nguồn từ snapshot Drive vào bucket Storage private `asset-media`.
+- Đối soát production đạt 11/11 object Storage, 11/11 dòng `media_files`, 11/11 checksum SHA-256 và 11/11 liên kết metadata với object path.
+- Phân bổ dữ liệu đã xác nhận: 2 ảnh thuộc thiết bị và 9 ảnh thuộc lịch sử bảo trì. Dữ liệu cha gồm 7 kế hoạch bảo trì và 11 nhật ký bảo trì.
+
 ## Giới hạn và bước kế tiếp
 
 - Backup này bảo vệ Sheet/Drive trong giai đoạn chuyển tiếp, không thay thế backup độc lập của Supabase PostgreSQL và Supabase Storage.
 - Chưa diễn tập restore trên Production để tránh thay đổi dữ liệu thật.
-- Drive hiện có 11 ảnh nguồn chưa chuyển sang Supabase Storage private. Cần job checksum, đối soát `media_files` và phê duyệt cửa sổ chuyển dữ liệu trước khi chạy upload thật.
+- Backup PostgreSQL và Storage độc lập, cùng diễn tập restore tách biệt, vẫn cần cấu hình native/staging của Supabase.
 
-Môi trường hiện tại không có proxy, firewall hoặc network log được tổ chức phê duyệt. Vì vậy tài liệu này không khẳng định “không có upload/egress”; bằng chứng chỉ xác nhận cấu hình, kết quả backup, trigger và nội dung snapshot trong phiên Chrome được người dùng cho phép.
+Môi trường hiện tại không có proxy, firewall hoặc network log được tổ chức phê duyệt. Vì vậy tài liệu này không khẳng định “không có upload/egress”; bằng chứng chỉ xác nhận thao tác/UI và các truy vấn SQL đã quan sát trong phiên Chrome được người dùng cho phép.
