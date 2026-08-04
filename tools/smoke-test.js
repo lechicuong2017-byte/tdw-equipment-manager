@@ -123,6 +123,9 @@ async function run() {
   const mediaChecksumMigration = read(
     "supabase/migrations/202608040001_media_checksums.sql",
   );
+  const softwareSecretMigration = read(
+    "supabase/migrations/202608040002_software_license_secrets.sql",
+  );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextConfig = read("next-app/next.config.ts");
@@ -153,6 +156,12 @@ async function run() {
   const softwareEditForm = read(
     "next-app/components/software-edit-form.tsx",
   );
+  const softwareSecretPanel = read(
+    "next-app/components/software-license-secret-panel.tsx",
+  );
+  const softwareSecretCrypto = read(
+    "next-app/lib/software-license-secret.ts",
+  );
   const assetQrCard = read("next-app/components/asset-qr-card.tsx");
   const assetQrLabels = read("next-app/components/asset-qr-labels.tsx");
   const assetQr = read("next-app/lib/asset-qr.ts");
@@ -182,9 +191,26 @@ async function run() {
   assert.ok(nextSoftwareActions.includes('.eq("id", id.data)'));
   assert.ok(nextSoftwareEditPage.includes('can(access, "software.manage")'));
   assert.ok(nextSoftwareEditPage.includes("license_secret_ref"));
+  assert.ok(nextSoftwareEditPage.includes('access.roles.includes("admin")'));
   assert.ok(softwareEditForm.includes("Lưu thay đổi"));
-  assert.ok(softwareEditForm.includes("không nhập key đầy đủ"));
-  assert.ok(!softwareEditForm.includes('name="license_key"'));
+  assert.ok(!softwareEditForm.includes("license_key"));
+  assert.ok(softwareSecretPanel.includes('type="password"'));
+  assert.ok(softwareSecretPanel.includes('name="license_key_plaintext"'));
+  assert.ok(softwareSecretPanel.includes("revealSoftwareLicenseSecret"));
+  assert.ok(softwareSecretPanel.includes("Mỗi lần xem đều được ghi vào Nhật ký"));
+  assert.ok(nextSoftwareActions.includes('access.roles.includes("admin")'));
+  assert.ok(nextSoftwareActions.includes("encryptSoftwareLicenseKey"));
+  assert.ok(nextSoftwareActions.includes("admin_store_software_license_secret"));
+  assert.ok(nextSoftwareActions.includes("admin_get_software_license_secret"));
+  assert.ok(softwareSecretCrypto.includes('createCipheriv("aes-256-gcm"'));
+  assert.ok(softwareSecretCrypto.includes("cipher.setAAD"));
+  assert.ok(softwareSecretCrypto.includes("decipher.setAuthTag"));
+  assert.ok(softwareSecretCrypto.includes("SOFTWARE_LICENSE_ENCRYPTION_KEY"));
+  assert.ok(softwareSecretMigration.includes("create table public.software_license_secrets"));
+  assert.ok(softwareSecretMigration.includes("using (public.is_admin())"));
+  assert.ok(softwareSecretMigration.includes("'REVEAL_SECRET'"));
+  assert.ok(softwareSecretMigration.includes("'STORE_SECRET'"));
+  assert.ok(!softwareSecretMigration.includes("license_key_plaintext"));
   assert.ok(appsScript.includes('maintenanceLogs: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenanceLogs) : []'));
   assert.ok(appsScript.includes('maintenancePlans: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenancePlans) : []'));
   assert.ok(appsScript.includes("function normalizeMaintenancePlan_(plan, activeAssets)"));

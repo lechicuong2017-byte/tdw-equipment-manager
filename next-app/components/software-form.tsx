@@ -27,7 +27,7 @@ export function SoftwareForm({ assets }: { assets: AssetOption[] }) {
           <p className="eyebrow">BẢN QUYỀN MỚI</p>
           <h2>Thêm phần mềm</h2>
         </div>
-        <small>Không nhập khóa bản quyền thật vào biểu mẫu này</small>
+        <small>Admin thêm key mã hóa sau khi tạo bản quyền</small>
       </div>
       <div className="form-grid">
         <label className="span-2">
@@ -66,24 +66,6 @@ export function SoftwareForm({ assets }: { assets: AssetOption[] }) {
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          Khóa đã che
-          <input
-            autoComplete="off"
-            maxLength={200}
-            name="license_key_masked"
-            placeholder="Ví dụ: ****-****-AB12"
-          />
-        </label>
-        <label className="span-3">
-          Tham chiếu secret manager
-          <input
-            autoComplete="off"
-            maxLength={300}
-            name="license_secret_ref"
-            placeholder="Chỉ nhập tên/ID tham chiếu, không nhập giá trị bí mật"
-          />
         </label>
         <label className="span-3">
           Ghi chú

@@ -987,6 +987,47 @@ tbody tr:hover td {
   padding: 0.3rem 0.45rem;
 }
 
+.software-secret-panel {
+  margin-top: 1rem;
+}
+
+.software-secret-actions {
+  align-items: center;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.software-secret-reveal {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+}
+
+.software-secret-reveal > div:first-child {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.software-secret-reveal small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.software-secret-value {
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: block;
+  margin-top: 1rem;
+  overflow-wrap: anywhere;
+  padding: 0.9rem;
+  white-space: pre-wrap;
+}
+
 .profile-grid {
   display: grid;
   gap: 1rem;
@@ -1856,6 +1897,12 @@ tbody tr:hover td {
     align-items: flex-start;
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  .software-secret-actions,
+  .software-secret-reveal {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .media-grid {

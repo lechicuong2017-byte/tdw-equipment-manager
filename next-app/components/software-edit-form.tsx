@@ -16,8 +16,6 @@ type EditableSoftwareLicense = {
   id: string;
   software_name: string;
   version: string;
-  license_key_masked: string;
-  license_secret_ref: string;
   assigned_asset_id: string | null;
   assigned_user_name: string;
   expiry_date: string | null;
@@ -47,7 +45,7 @@ export function SoftwareEditForm({
           <p className="eyebrow">THÔNG TIN BẢN QUYỀN</p>
           <h2>{license.software_name}</h2>
         </div>
-        <small>Chỉ nhập key đã che hoặc tham chiếu secret, không nhập key đầy đủ</small>
+        <small>Thông tin phân bổ và thời hạn sử dụng</small>
       </div>
 
       <div className="form-grid">
@@ -96,26 +94,6 @@ export function SoftwareEditForm({
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          Key đã che
-          <input
-            autoComplete="off"
-            defaultValue={license.license_key_masked}
-            maxLength={200}
-            name="license_key_masked"
-            placeholder="Ví dụ: ****-****-AB12"
-          />
-        </label>
-        <label className="span-3">
-          Tham chiếu secret manager
-          <input
-            autoComplete="off"
-            defaultValue={license.license_secret_ref}
-            maxLength={300}
-            name="license_secret_ref"
-            placeholder="Chỉ nhập tên/ID tham chiếu, không nhập giá trị bí mật"
-          />
         </label>
         <label className="span-3">
           Ghi chú

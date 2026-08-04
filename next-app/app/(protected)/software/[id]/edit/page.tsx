@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { PageHeader } from "@/components/page-header";
 import { SoftwareEditForm } from "@/components/software-edit-form";
+import { SoftwareLicenseSecretPanel } from "@/components/software-license-secret-panel";
 import { can, requireAccess } from "@/lib/auth";
 
 export const metadata = { title: "Sửa bản quyền phần mềm" };
@@ -17,6 +18,7 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
 
   const { supabase, access } = await requireAccess();
   if (!can(access, "software.manage")) redirect("/software");
+  const isAdmin = access.roles.includes("admin");
 
   const [{ data: license }, { data: assets }] = await Promise.all([
     supabase
@@ -36,15 +38,33 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
 
   if (!license) notFound();
 
+  const editableLicense = {
+    id: license.id,
+    software_name: license.software_name,
+    version: license.version,
+    assigned_asset_id: license.assigned_asset_id,
+    assigned_user_name: license.assigned_user_name,
+    expiry_date: license.expiry_date,
+    status: license.status,
+    note: license.note,
+  };
+
   return (
     <>
       <PageHeader
         eyebrow="PHẦN MỀM"
         title="Sửa bản quyền"
-        description="Cập nhật thông tin phân bổ, thời hạn và tham chiếu key an toàn."
+        description="Cập nhật thông tin phân bổ, thời hạn và key bản quyền được mã hóa."
         actions={<Link className="secondary-button" href="/software">Hủy</Link>}
       />
-      <SoftwareEditForm assets={assets ?? []} license={license} />
+      <SoftwareEditForm assets={assets ?? []} license={editableLicense} />
+      {isAdmin ? (
+        <SoftwareLicenseSecretPanel
+          hasEncryptedSecret={license.license_secret_ref === "encrypted:v1"}
+          licenseId={license.id}
+          maskedKey={license.license_key_masked}
+        />
+      ) : null}
     </>
   );
 }

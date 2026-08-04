@@ -3,31 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
+import {
+  decryptSoftwareLicenseKey,
+  encryptSoftwareLicenseKey,
+  maskSoftwareLicenseKey,
+} from "@/lib/software-license-secret";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
 
-function isMaskedLicense(value: string) {
-  if (value === "") return true;
-  if (/^ref:[A-Za-z0-9._:/-]{1,180}$/i.test(value)) return true;
-
-  const maskCount = (value.match(/[*•#Xx]/g) ?? []).length;
-  const visibleCount = (value.match(/[A-Za-z0-9]/g) ?? []).length;
-  return maskCount >= 4 && visibleCount <= 8;
-}
-
 const softwareSchema = z.object({
   software_name: z.string().trim().min(1, "Tên phần mềm là bắt buộc").max(200),
   version: z.string().trim().max(120),
-  license_key_masked: z
-    .string()
-    .trim()
-    .max(200)
-    .refine(
-      isMaskedLicense,
-      "Chỉ nhập khóa đã che hoặc mã tham chiếu, không nhập khóa thật",
-    ),
-  license_secret_ref: z.string().trim().max(300),
   assigned_asset_id: z.preprocess(emptyToNull, z.uuid().nullable()),
   assigned_user_name: z.string().trim().max(200),
   expiry_date: z.preprocess(
@@ -41,6 +28,17 @@ const softwareSchema = z.object({
 export type SoftwareFormState = {
   error?: string;
   success?: string;
+};
+
+export type SoftwareSecretFormState = SoftwareFormState & {
+  clearSecretInput?: boolean;
+};
+
+type EncryptedSecretRow = {
+  ciphertext: string;
+  iv: string;
+  auth_tag: string;
+  encryption_version: number;
 };
 
 export async function createSoftwareLicense(
@@ -98,6 +96,98 @@ export async function updateSoftwareLicense(
   revalidatePath("/software");
   revalidatePath(`/software/${id.data}/edit`);
   return { success: "Đã cập nhật bản quyền phần mềm." };
+}
+
+export async function saveSoftwareLicenseSecret(
+  _previousState: SoftwareSecretFormState,
+  formData: FormData,
+): Promise<SoftwareSecretFormState> {
+  const id = z.uuid().safeParse(formData.get("id"));
+  const licenseKey = z
+    .string()
+    .trim()
+    .min(1, "Hãy nhập key bản quyền")
+    .max(4096, "Key bản quyền quá dài")
+    .safeParse(formData.get("license_key_plaintext"));
+  if (!id.success || !licenseKey.success) {
+    return {
+      error: id.success
+        ? licenseKey.error?.issues[0]?.message
+        : "Mã bản quyền không hợp lệ.",
+    };
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!access.roles.includes("admin")) {
+    return { error: "Chỉ quản trị viên mới được cập nhật key bản quyền." };
+  }
+
+  let encrypted;
+  try {
+    encrypted = encryptSoftwareLicenseKey(licenseKey.data, id.data);
+  } catch {
+    return { error: "Máy chủ chưa được cấu hình khóa mã hóa bản quyền." };
+  }
+
+  const { error } = await supabase.rpc(
+    "admin_store_software_license_secret",
+    {
+      target_license_id: id.data,
+      target_ciphertext: encrypted.ciphertext,
+      target_iv: encrypted.iv,
+      target_auth_tag: encrypted.authTag,
+      target_masked: maskSoftwareLicenseKey(licenseKey.data),
+      target_encryption_version: encrypted.encryptionVersion,
+    },
+  );
+  if (error) {
+    return { error: "Không thể lưu key đã mã hóa. Hãy kiểm tra lại cấu hình." };
+  }
+
+  revalidatePath("/software");
+  revalidatePath(`/software/${id.data}/edit`);
+  return {
+    success: "Đã mã hóa và lưu key bản quyền.",
+    clearSecretInput: true,
+  };
+}
+
+export async function revealSoftwareLicenseSecret(licenseId: string): Promise<{
+  error?: string;
+  key?: string;
+}> {
+  const id = z.uuid().safeParse(licenseId);
+  if (!id.success) return { error: "Mã bản quyền không hợp lệ." };
+
+  const { supabase, access } = await requireAccess();
+  if (!access.roles.includes("admin")) {
+    return { error: "Chỉ quản trị viên mới được xem key bản quyền." };
+  }
+
+  const { data, error } = await supabase.rpc(
+    "admin_get_software_license_secret",
+    { target_license_id: id.data },
+  );
+  const encrypted = (data?.[0] ?? null) as EncryptedSecretRow | null;
+  if (error || !encrypted) {
+    return { error: "Bản quyền này chưa có key được mã hóa." };
+  }
+
+  try {
+    return {
+      key: decryptSoftwareLicenseKey(
+        {
+          ciphertext: encrypted.ciphertext,
+          iv: encrypted.iv,
+          authTag: encrypted.auth_tag,
+          encryptionVersion: encrypted.encryption_version,
+        },
+        id.data,
+      ),
+    };
+  } catch {
+    return { error: "Không thể giải mã key bản quyền." };
+  }
 }
 
 export async function deleteSoftwareLicense(formData: FormData) {

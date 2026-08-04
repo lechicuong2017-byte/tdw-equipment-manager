@@ -23,18 +23,30 @@ Các request tích hợp mới phải có timestamp, nonce và HMAC.
 
 ## License key
 
-License mới không lưu trong Google Sheet. Sheet chỉ giữ marker `SCRIPT_PROPERTY_V1`, giá trị thật nằm trong Script Properties theo `license_id`. Dữ liệu `ENC:` cũ được chuyển khi admin đọc khóa hoặc chạy `migrateSchema()`.
+License mới không lưu trong Google Sheet. Luồng Next.js lưu ciphertext, IV và
+authentication tag trong bảng `software_license_secrets`; bảng
+`software_licenses` chỉ giữ phần key đã che và marker phiên bản mã hóa.
 
-Đây là tách bí mật khỏi Sheet, chưa phải AES-GCM bằng KMS. Muốn mã hóa xác thực đầy đủ cần Google Cloud KMS/Secret Manager hoặc backend có dịch vụ khóa; không tự triển khai AES trong Apps Script.
+Next.js mã hóa/giải mã bằng AES-256-GCM với AAD gắn theo `license_id`. Khóa mã
+hóa 32 byte nằm trong `SOFTWARE_LICENSE_ENCRYPTION_KEY` ở secret manager của
+Vercel, không nằm trong PostgreSQL, client bundle hoặc Git. Chỉ vai trò Admin đã
+hoàn tất MFA được gọi hàm RLS/RPC lưu hoặc xem key. Mỗi lần lưu và xem đều ghi
+audit nhưng không ghi plaintext hoặc ciphertext vào audit log. Key đã giải mã
+chỉ tồn tại tạm trong state của trang Admin và tự ẩn sau 60 giây.
+
+Đây là application-level envelope boundary, chưa phải KMS có rotation tự động.
+Mất `SOFTWARE_LICENSE_ENCRYPTION_KEY` sẽ làm dữ liệu không thể khôi phục; phải
+backup khóa ở secret manager được phê duyệt và triển khai quy trình rotation
+theo `encryption_version` trước khi đổi khóa production.
 
 Delta migration ngày 2026-08-04 chỉ nhập thông tin danh mục của 5 bản quyền
 phần mềm. Cột key nguồn không được chọn khi đọc Sheet, không được ghi vào file
 import và không được gửi tới Supabase; quản trị viên sẽ cập nhật key sau.
 
-Màn hình sửa bản quyền chỉ nhận key đã che và mã tham chiếu đến secret manager.
-Validator phía server từ chối key đầy đủ; bảng `software_licenses`, báo cáo và
-trình duyệt không phải nơi lưu giá trị bí mật. Muốn nhập và đọc key đầy đủ cần
-tích hợp một secret manager thực sự, có audit và quyền truy cập riêng cho Admin.
+Màn hình sửa thông tin chung không nhận trường key. Riêng panel Admin dùng input
+`password`, gửi key qua Server Action, mã hóa ngay trên server và chỉ trả
+plaintext khi Admin chủ động bấm xem. Danh sách và báo cáo tiếp tục chỉ dùng
+`license_key_masked`.
 
 ## Backup và phục hồi
 

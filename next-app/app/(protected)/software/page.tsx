@@ -89,10 +89,17 @@ export default async function SoftwarePage() {
                 return (
                   <tr key={license.id}>
                     <td>
-                      <span className="asset-name">
-                        <strong>{license.software_name}</strong>
-                        <small>{license.version || "Không ghi phiên bản"}</small>
-                      </span>
+                      {canManage ? (
+                        <Link className="asset-name" href={`/software/${license.id}/edit`}>
+                          <strong>{license.software_name}</strong>
+                          <small>{license.version || "Không ghi phiên bản"}</small>
+                        </Link>
+                      ) : (
+                        <span className="asset-name">
+                          <strong>{license.software_name}</strong>
+                          <small>{license.version || "Không ghi phiên bản"}</small>
+                        </span>
+                      )}
                     </td>
                     <td>
                       {license.assigned_asset_id ? (
