@@ -1,6 +1,6 @@
 # Gate 3 — Apps Script production integration evidence
 
-Date: 2026-07-30  
+Date: 2026-08-04
 Environment: production
 
 ## Configuration
@@ -9,7 +9,7 @@ Environment: production
 - Web App executes as the project owner and is accessible to `Anyone`; requests are authenticated by HMAC before any report is created.
 - Apps Script properties in use:
   - `TDW_NEXT_INTEGRATION_SECRET`
-  - `TDW_LEGACY_MODE=read-only`
+  - `TDW_LEGACY_MODE=disabled` (trước khi cutover, hệ thống đã chạy qua `read-only`)
 - Vercel production and preview environments contain:
   - `APPS_SCRIPT_EXPORT_URL`
   - `APPS_SCRIPT_INTEGRATION_SECRET`
@@ -26,7 +26,7 @@ The smoke test covers:
 - replay of a previously accepted nonce;
 - spreadsheet formula-injection neutralization.
 
-Replay protection uses a script lock plus a bounded nonce ledger in Script Properties. The legacy Google Sheets API is in read-only mode so it cannot accept business-data writes during cutover.
+Replay protection uses a script lock plus a bounded nonce ledger in Script Properties. The legacy Google Sheets API is now disabled, so it cannot accept business-data writes; the signed `exportSupabaseReport` path remains available independently.
 
 ## Verification results
 
@@ -36,6 +36,8 @@ Replay protection uses a script lock plus a bounded nonce ledger in Script Prope
 - Vercel production deployment: Ready.
 - Chrome production check at `/reports`: `Đã xuất 72 dòng`.
 - Apps Script execution log recorded the production `doPost` Web App request.
+- On 2026-08-04, the production Script Properties were verified in Chrome and `TDW_LEGACY_MODE` was changed to `disabled`.
+- The post-cutover `/admin/health` check remained operational for Next.js/Vercel, Supabase PostgreSQL/RLS and Apps Script HMAC.
 - The production path exercised was:
   - authenticated Next.js report request;
   - RLS-scoped asset read from Supabase;

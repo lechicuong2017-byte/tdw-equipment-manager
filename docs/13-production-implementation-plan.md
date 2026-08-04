@@ -1,6 +1,6 @@
 # Kế hoạch triển khai kiến trúc Next.js + Supabase trên production
 
-Ngày cập nhật: 2026-07-31
+Ngày cập nhật: 2026-08-04
 Quyết định vận hành: triển khai trực tiếp trên bản chính; người dùng xác nhận đã có backup.
 
 ## 1. Trạng thái sau rà soát
@@ -19,14 +19,14 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Lọc theo danh mục | Đã triển khai | Chọn danh mục tự lọc, không có nút lọc hiển thị; query dùng chỉ mục PostgreSQL và tiếp tục tuân thủ RLS |
 | Cache | Đã có mức an toàn ban đầu | Auth/access được memoize trong cùng request; không cache chéo user |
 | Apps Script export | Đã có | Báo cáo thiết bị, bảo trì, luân chuyển và phần mềm; request HMAC, timestamp, nonce, chống formula injection |
-| Apps Script legacy | Đã có công tắc cutover | `read-write`, `read-only`, `disabled` |
+| Apps Script legacy | Đã cutover production | `TDW_LEGACY_MODE=disabled`; endpoint HMAC xuất báo cáo vẫn hoạt động độc lập |
 | Bảo trì, luân chuyển, phần mềm | Đã có luồng chính | CRUD có kiểm tra đầu vào, RLS; luân chuyển dùng RPC giao dịch bất biến |
 | Gmail theo kiến trúc mới | Đã có | Job Next.js đọc Supabase, claim idempotency rồi gửi payload ký số sang Apps Script |
 | XLSX/PDF theo kiến trúc mới | Đã có | Cả bốn báo cáo dùng job HMAC + idempotency; logo, tên báo cáo và định dạng TDW được tạo trên Google Sheets rồi tải trực tiếp |
 | Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings và 72 assets đã đối soát; nguồn maintenance/movement/software đang rỗng, chưa có plans/responsibles/media |
 | Migration ảnh Drive | Chưa có dữ liệu nguồn | Thumbnail riêng tư đã sẵn sàng; khi có ảnh Drive cần job riêng, checksum và đối soát object |
 | Test RLS live | Đã đạt | JWT thật cho admin AAL1, manager, user, viewer và anonymous; xem `docs/15-supabase-production-security-evidence.md` |
-| Deployment | Đã chuyển sang Next.js | Frontend production hiện chạy Next.js trên Vercel |
+| Deployment | Đã chuyển sang Next.js | Vercel `Root Directory=next-app`; Production đang chạy commit `2a34788` |
 
 ## 2. Kiến trúc vận hành bắt buộc
 
@@ -85,17 +85,17 @@ Nguyên tắc:
 
 ### Cổng 3 — Apps Script
 
-1. Deploy `Code.gs` mới và đặt `TDW_NEXT_INTEGRATION_SECRET`.
-2. Kiểm tra export HMAC từ một tài khoản có quyền.
-3. Đặt `TDW_LEGACY_MODE=read-only` trước khi chuyển frontend.
-4. Sau khi Next.js ổn định và không còn request legacy, đặt `TDW_LEGACY_MODE=disabled`.
+1. [x] Deploy `Code.gs` mới và đặt `TDW_NEXT_INTEGRATION_SECRET`.
+2. [x] Kiểm tra export HMAC từ một tài khoản có quyền.
+3. [x] Đặt `TDW_LEGACY_MODE=read-only` trước khi chuyển frontend.
+4. [x] Sau khi Next.js ổn định và không còn request legacy, đặt `TDW_LEGACY_MODE=disabled` ngày 2026-08-04; health Production vẫn xác nhận HMAC export.
 
 ### Cổng 4 — Next.js
 
-1. Cấu hình Vercel Root Directory thành `next-app` hoặc chuyển Next.js thành app gốc.
-2. Build production.
-3. Kiểm tra login, MFA, dashboard, asset list/detail, CRUD, private media, export và admin user.
-4. Chỉ mở user nghiệp vụ sau khi RLS live test đạt.
+1. [x] Cấu hình Vercel Root Directory thành `next-app`.
+2. [x] Build production; Vercel đang chạy commit `2a34788`.
+3. [x] Kiểm tra login, MFA, dashboard, asset list/detail, CRUD, private media, export và admin user qua các bằng chứng production đã ghi nhận.
+4. [x] Chỉ mở user nghiệp vụ sau khi RLS live test đạt.
 
 ### Cổng 5 — Báo cáo và nhắc bảo trì
 
@@ -164,7 +164,7 @@ Nguyên tắc:
 - Viết job chuyển ảnh Drive sang Storage kèm checksum.
 - ~~Chạy test RLS/Auth/Storage bằng JWT thật.~~ Hoàn tất ngày 2026-07-30.
 - ~~Hoàn tất UI bảo trì, luân chuyển và phần mềm nếu các module này phải dùng ngay ngày cutover.~~ Hoàn tất luồng chính ngày 2026-07-30.
-- Thay deployment root từ frontend cũ sang Next.js.
+- ~~Thay deployment root từ frontend cũ sang Next.js.~~ Hoàn tất ngày 2026-08-04; Vercel xác nhận `Root Directory=next-app`.
 
 ### P1 — Hoàn thiện kiến trúc mục tiêu
 
@@ -195,7 +195,7 @@ Nguyên tắc:
 ## 6. Giới hạn bằng chứng hiện tại
 
 - Build, TypeScript, smoke test và cú pháp các migration liên quan đã được kiểm tra local.
-- Migration `001` đến `014`, test JWT live và import nền đã được xác minh trên production; bằng chứng trong Git không chứa token hoặc mật khẩu.
+- Migration `001` đến `014`, test JWT live, import nền và cutover Apps Script đã được xác minh trên production; bằng chứng trong Git không chứa token hoặc mật khẩu.
 - Security Advisor có 0 lỗi và 24 cảnh báo. Phần lớn liên quan các hàm `SECURITY DEFINER`; chưa được diễn giải thành “không có rủi ro” và vẫn cần rà soát quyền `EXECUTE`.
 - Socket snapshot của hệ điều hành không đủ để chứng minh không có upload/egress; cần proxy, firewall hoặc network log được tổ chức phê duyệt để đưa ra kết luận đó.
 - Việc “đã có backup” chưa đồng nghĩa backup đã restore thành công; trạng thái restore cần được xác nhận riêng trước thao tác không thể đảo ngược.
