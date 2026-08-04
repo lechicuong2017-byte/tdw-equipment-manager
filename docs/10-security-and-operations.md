@@ -27,6 +27,10 @@ License mới không lưu trong Google Sheet. Sheet chỉ giữ marker `SCRIPT_P
 
 Đây là tách bí mật khỏi Sheet, chưa phải AES-GCM bằng KMS. Muốn mã hóa xác thực đầy đủ cần Google Cloud KMS/Secret Manager hoặc backend có dịch vụ khóa; không tự triển khai AES trong Apps Script.
 
+Delta migration ngày 2026-08-04 chỉ nhập thông tin danh mục của 5 bản quyền
+phần mềm. Cột key nguồn không được chọn khi đọc Sheet, không được ghi vào file
+import và không được gửi tới Supabase; quản trị viên sẽ cập nhật key sau.
+
 ## Backup và phục hồi
 
 1. Tạo thư mục Drive riêng, hạn chế Editor, đặt ID vào `TDW_BACKUP_FOLDER_ID`.

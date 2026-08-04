@@ -23,7 +23,7 @@ Quyết định vận hành: triển khai trực tiếp trên bản chính; ngư
 | Bảo trì, luân chuyển, phần mềm | Đã có luồng chính | CRUD có kiểm tra đầu vào, RLS; luân chuyển dùng RPC giao dịch bất biến |
 | Gmail theo kiến trúc mới | Đã có | Job Next.js đọc Supabase, claim idempotency rồi gửi payload ký số sang Apps Script |
 | XLSX/PDF theo kiến trúc mới | Đã có | Cả bốn báo cáo dùng job HMAC + idempotency; logo, tên báo cáo và định dạng TDW được tạo trên Google Sheets rồi tải trực tiếp |
-| Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings, 72 assets, 7 maintenance plans và 11 maintenance logs đã đối soát; movement/software/responsibles/notification logs chưa có dữ liệu nguồn |
+| Migration dữ liệu | Đã nhập nền production | 20 phòng ban, 24 settings, 72 assets, 7 maintenance plans, 11 maintenance logs và 5 software licenses đã đối soát; movement/responsibles/notification logs chưa có dữ liệu nguồn |
 | Migration ảnh Drive | Đã chuyển production | 11 ảnh đã vào Storage private `asset-media`; checksum và liên kết metadata/object path đều đạt 11/11 (2 ảnh thiết bị, 9 ảnh bảo trì) |
 | Test RLS live | Đã đạt | JWT thật cho admin AAL1, manager, user, viewer và anonymous; xem `docs/15-supabase-production-security-evidence.md` |
 | Deployment | Đã chuyển sang Next.js | Vercel `Root Directory=next-app`; bản production mới sẽ được kích hoạt từ commit chuyển media này |
@@ -79,7 +79,7 @@ Nguyên tắc:
 1. [ ] Đặt hệ thống Sheets cũ ở cửa sổ bảo trì ngắn và lấy delta cuối trước cutover.
 2. [x] Chạy `migration:dry-run` với validation mã trùng, ngày, số lượng, giá, orphan và khóa tham chiếu.
 3. [x] Chạy `migration:apply` với cờ xác nhận cho snapshot hiện có.
-4. [x] Mở rộng/chạy import cho maintenance plans, maintenance logs và media khi có dữ liệu nguồn; movement, software, responsibles và notification logs vẫn chờ dữ liệu nguồn.
+4. [x] Mở rộng/chạy import cho maintenance plans, maintenance logs, software licenses và media khi có dữ liệu nguồn; movement, responsibles và notification logs vẫn chờ dữ liệu nguồn.
 5. [x] Chạy `migration:reconcile`; 72 assets, 24 settings, 20 phòng ban và tổng giá trị đều khớp.
 6. [x] Không xóa dữ liệu nguồn.
 
@@ -170,7 +170,7 @@ Nguyên tắc:
 
 ### P0 — Chặn cutover
 
-- Hoàn tất import/reconcile cho maintenance plans, maintenance logs và media; movement, software, responsibles và notification logs sẽ nhập khi nguồn có dữ liệu.
+- Hoàn tất import/reconcile cho maintenance plans, maintenance logs, software licenses và media; movement, responsibles và notification logs sẽ nhập khi nguồn có dữ liệu.
 - ~~Chuyển 11 ảnh Drive sang Storage private kèm checksum và đối soát metadata.~~ Hoàn tất ngày 2026-08-04 sau khi người dùng phê duyệt cửa sổ chuyển production.
 - ~~Chạy test RLS/Auth/Storage bằng JWT thật.~~ Hoàn tất ngày 2026-07-30.
 - ~~Hoàn tất UI bảo trì, luân chuyển và phần mềm nếu các module này phải dùng ngay ngày cutover.~~ Hoàn tất luồng chính ngày 2026-07-30.

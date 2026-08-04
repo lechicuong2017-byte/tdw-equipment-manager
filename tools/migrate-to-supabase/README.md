@@ -49,6 +49,6 @@ không khớp.
 
 Tài khoản Auth và ảnh Drive không được tự động nhập bởi công cụ nền này.
 
-Giá trị license key cũ không được chép vào PostgreSQL. Công cụ chỉ tạo giá trị
-masked và `license_secret_ref` để một quy trình riêng chuyển secret từ Apps
-Script Properties sang secret manager được phê duyệt.
+Giá trị license key cũ không được chép vào PostgreSQL. Công cụ không gửi hai cột
+`license_key_masked` và `license_secret_ref`; bản ghi mới dùng mặc định rỗng và
+lần import sau không ghi đè key do quản trị viên cập nhật qua luồng được phê duyệt.

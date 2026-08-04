@@ -95,6 +95,7 @@ async function run() {
   assertSyntax("api/google-script.js");
 
   const appsScript = read("google-apps-script/Code.gs");
+  const supabaseImport = read("tools/migrate-to-supabase/import.mjs");
   const googleExportRoute = read(
     "next-app/app/api/integrations/google-export/route.ts",
   );
@@ -158,6 +159,9 @@ async function run() {
   const assetHeaders = [...assetHeaderBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(assetFormFields.filter((name) => !assetHeaders.includes(name)), []);
   assert.ok(appsScript.includes('softwareLicenses: hasPermission_(user, "software.view") ? readSheetAsObjects_(SHEET_NAMES.softwareLicenses).map(publicSoftwareLicense_) : []'));
+  assert.ok(!supabaseImport.includes("license_key_masked:"));
+  assert.ok(!supabaseImport.includes("license_secret_ref:"));
+  assert.ok(!supabaseImport.includes("legacy-apps-script:"));
   assert.ok(appsScript.includes('maintenanceLogs: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenanceLogs) : []'));
   assert.ok(appsScript.includes('maintenancePlans: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenancePlans) : []'));
   assert.ok(appsScript.includes("function normalizeMaintenancePlan_(plan, activeAssets)"));

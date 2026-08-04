@@ -479,15 +479,10 @@ const softwareLicenses = sourceSoftware.map((row, index) => {
   const createdAt = timestampValue(row.created_at);
   const updatedAt = timestampValue(row.updated_at);
   const legacyId = nullable(row.license_id) ?? `software-row:${index + 2}`;
-  const hasLegacySecret = Boolean(nullable(row.license_key_or_note));
   return {
     legacy_id: legacyId,
     software_name: nullable(row.software_name) ?? "Chưa xác định",
     version: nullable(row.version) ?? "",
-    license_key_masked: hasLegacySecret ? "•••• (chờ chuyển secret)" : "",
-    license_secret_ref: hasLegacySecret
-      ? `legacy-apps-script:${legacyId}`
-      : "",
     assigned_asset_id: resolveAssetId(
       row.assigned_asset_id,
       row.assigned_asset_code,

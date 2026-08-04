@@ -60,6 +60,19 @@ Reconcile cuối lúc `2026-07-30T06:51:39.067Z`:
 
 Không có mã thiết bị thiếu hoặc thừa; kết quả `passed=true`.
 
+## Delta software licenses ngày 2026-08-04
+
+- Google Sheet production hiện có 5 dòng `SoftwareLicenses`; lần CSV ban đầu chỉ
+  có header nên chưa phản ánh phần dữ liệu này.
+- Dữ liệu được đọc qua truy vấn Google Visualization chỉ chọn các cột không
+  nhạy cảm; cột license key bị loại trước khi tạo dữ liệu nhập.
+- Đã upsert 5/5 dòng vào `software_licenses` theo `legacy_id`.
+- Đối soát production đạt 5 bản ghi, trong đó 5/5 có
+  `license_key_masked=''` và `license_secret_ref=''`.
+- Màn hình Phần mềm production hiển thị 5 bản ghi và trạng thái key `Không lưu`.
+- Importer không gửi hai cột key nên các lần chạy lại sẽ không ghi đè key do
+  quản trị viên cập nhật sau.
+
 ## Xoay vòng credential
 
 Trong lúc kiểm tra dashboard, JWT service-role legacy xuất hiện trong DOM và
@@ -89,8 +102,8 @@ quyền `0600` đã được xóa sau đối soát.
   object Storage, 11/11 dòng `media_files`, 11/11 checksum SHA-256 và 11/11
   liên kết metadata với object path. Phân bổ gồm 2 ảnh thiết bị và 9 ảnh bảo
   trì.
-- Inventory movements, software licenses, asset responsibles và notification
-  logs vẫn chưa có dữ liệu nguồn ngoài phần header nên chưa phát sinh bản ghi.
+- Inventory movements, asset responsibles và notification logs vẫn chưa có dữ
+  liệu nguồn ngoài phần header nên chưa phát sinh bản ghi.
 - `Users.csv` không được tự động biến thành Auth users; tài khoản vẫn phải đi
   qua luồng invite.
 - Cần lấy delta cuối và đặt Sheets ở read-only trước cutover hoàn toàn.
