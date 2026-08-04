@@ -40,6 +40,12 @@ và chạy hằng ngày lúc 02:00 Asia/Ho_Chi_Minh. Đây không phải backup 
 Supabase PostgreSQL hoặc Supabase Storage; hai loại backup nguồn dữ liệu chính vẫn
 phải cấu hình bằng cơ chế native/đích staging của Supabase trước khi coi là hoàn tất.
 
+Ngày 2026-08-04, Dashboard production xác nhận organization đang ở Free Plan và
+hiển thị rõ project backup không được bao gồm. Không tự nâng cấp lên Pro/PITR vì
+đây là quyết định phát sinh chi phí. Hạng mục này cần chọn một trong hai hướng:
+backup native của Supabase trên gói trả phí, hoặc một backup runner độc lập dùng
+secret manager và khôi phục thử vào project staging tách biệt.
+
 Backup media lớn có thể vượt quota/thời gian Apps Script. Khi số ảnh tăng đáng kể, chuyển backup sang Cloud Storage/Drive API job có retry và cảnh báo.
 
 ## Theo dõi và staging
@@ -48,6 +54,9 @@ Backup media lớn có thể vượt quota/thời gian Apps Script. Khi số ả
 - Cảnh báo nên dựa trên tỷ lệ 5xx/504, latency và lỗi trigger Apps Script/email.
 - Production chỉ chuyển frontend sau khi `npm test`, `next:typecheck`,
   `next:build`, migration, đối soát và kiểm tra đăng nhập/RLS đều đạt.
+- E2E Playwright không lưu cookie trong Git. File storage state của admin,
+  manager, user và viewer phải nằm ở đường dẫn local đã ignore và được truyền qua
+  biến môi trường khi chạy test.
 - Khi triển khai trực tiếp production theo quyết định hiện tại, lưu đầy đủ bằng
   chứng từng cổng và dừng ngay khi migration/reconcile/RLS test không đạt.
 

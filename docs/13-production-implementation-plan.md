@@ -164,6 +164,7 @@ Nguyên tắc:
 4. [x] Chạy `installDailyBackupTrigger()` thành công; Apps Script hiện có 1 trigger time-based cho `backupSystemData`, chạy hằng ngày lúc 02:00 Asia/Ho_Chi_Minh.
 5. [x] Chuyển media Drive sang Storage private; đã đối soát 11/11 object, metadata, checksum và liên kết object path.
 6. [ ] Backup PostgreSQL và Storage độc lập, cùng diễn tập restore tách biệt, vẫn chờ cấu hình backup native/đích staging của Supabase.
+7. [x] Kiểm tra Dashboard ngày 2026-08-04: project đang ở Free Plan, không có project backup; không tự nâng cấp vì sẽ phát sinh chi phí.
 
 ## 4. Backlog theo thứ tự ưu tiên
 
@@ -189,7 +190,7 @@ Nguyên tắc:
 - Theo dõi lỗi Auth, RLS denial, Storage, query chậm và Apps Script.
 - ~~Backup chuyển tiếp Sheet/Drive và lịch hằng ngày.~~ Hoàn tất ngày 2026-08-04; backup PostgreSQL/Storage độc lập vẫn chờ cấu hình native/staging.
 - Diễn tập restore định kỳ.
-- Thêm E2E cho admin, manager, user, viewer và anonymous.
+- Đã bổ sung nền E2E Playwright: anonymous production đạt 2/2 bài kiểm tra; các project admin, manager, user và viewer tự bật khi truyền đường dẫn storage state local đã ignore, còn chờ chuẩn bị phiên test riêng để chạy đủ ma trận.
 
 ## 5. Điều kiện hoàn thành
 

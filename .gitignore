@@ -27,3 +27,5 @@ data/google_sheet_import/*.csv
 coverage/
 .vercel/
 supabase/.temp/
+.playwright/
+**/playwright/.auth/

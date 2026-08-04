@@ -125,6 +125,10 @@ async function run() {
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextConfig = read("next-app/next.config.ts");
+  const playwrightConfig = read("next-app/playwright.config.ts");
+  const anonymousE2e = read("next-app/e2e/anonymous.spec.ts");
+  const authenticatedE2e = read("next-app/e2e/authenticated.spec.ts");
+  const rootGitignore = read(".gitignore");
   const nextSidebar = read("next-app/components/sidebar.tsx");
   const nextHealthPage = read("next-app/app/(protected)/admin/health/page.tsx");
   const nextAuditPage = read("next-app/app/(protected)/admin/audit/page.tsx");
@@ -250,6 +254,13 @@ async function run() {
   assert.ok(nextLayout.includes('icon: "/favicon.ico"'));
   assert.ok(nextLayout.includes('apple: "/tdw-icon-192.png"'));
   assert.ok(nextSidebar.includes('href="/admin/health"'));
+  assert.ok(playwrightConfig.includes('name: "anonymous"'));
+  assert.ok(playwrightConfig.includes("storageState: { cookies: [], origins: [] }"));
+  assert.ok(playwrightConfig.includes("E2E_${role.toUpperCase()}_STORAGE_STATE"));
+  assert.ok(anonymousE2e.includes("/api/jobs/maintenance-reminders"));
+  assert.ok(anonymousE2e.includes("frame-ancestors 'none'"));
+  assert.ok(authenticatedE2e.includes('testInfo.project.name === "admin"'));
+  assert.ok(rootGitignore.includes("**/playwright/.auth/"));
   assert.ok(nextHealthPage.includes('"integrationHealthCheck"'));
   assert.ok(nextHealthPage.includes('supabase.from("audit_logs").select("id").limit(1)'));
   assert.ok(nextHealthPage.includes("không hiển thị URL, khóa hoặc secret tích hợp"));

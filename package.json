@@ -6,6 +6,8 @@
     "dev": "vercel dev",
     "start": "vercel dev",
     "test": "node tools/smoke-test.js",
+    "test:e2e": "npm --prefix next-app run e2e",
+    "test:e2e:production": "npm --prefix next-app run e2e:production",
     "next:dev": "npm --prefix next-app run dev",
     "next:build": "npm --prefix next-app run build",
     "next:typecheck": "npm --prefix next-app run typecheck",
