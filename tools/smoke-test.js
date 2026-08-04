@@ -123,6 +123,9 @@ async function run() {
   const mediaChecksumMigration = read(
     "supabase/migrations/202608040001_media_checksums.sql",
   );
+  const assetQueryPerformanceMigration = read(
+    "supabase/migrations/202608040005_asset_query_performance.sql",
+  );
   const softwareSecretMigration = read(
     "supabase/migrations/202608040002_software_license_secrets.sql",
   );
@@ -138,6 +141,8 @@ async function run() {
   const nextAuditPage = read("next-app/app/(protected)/admin/audit/page.tsx");
   const nextAssetDetailPage = read("next-app/app/(protected)/assets/[id]/page.tsx");
   const nextAssetsPage = read("next-app/app/(protected)/assets/page.tsx");
+  const nextAssetPreviewRoute = read("next-app/app/api/assets/previews/route.ts");
+  const nextAssetListPreviews = read("next-app/components/asset-list-previews.tsx");
   const nextNewAssetPage = read("next-app/app/(protected)/assets/new/page.tsx");
   const nextDashboardPage = read("next-app/app/(protected)/dashboard/page.tsx");
   const nextAssetForm = read("next-app/components/asset-form.tsx");
@@ -376,13 +381,24 @@ async function run() {
   assert.ok(nextAssetActions.includes("thumbnail_path: thumbnailPath"));
   assert.ok(nextAssetActions.indexOf('id: mediaId') < nextAssetActions.indexOf('.upload(objectPath, bytes'));
   assert.ok(nextAssetActions.includes("data.thumbnail_path ? [data.thumbnail_path] : []"));
-  assert.ok(nextAssetsPage.includes("createSignedUrls(previewPaths, 300)"));
-  assert.ok(nextAssetsPage.includes("item.thumbnail_path || item.object_path"));
-  assert.ok(nextAssetsPage.includes("className=\"asset-list-thumbnail\""));
+  assert.ok(nextAssetsPage.includes("<AssetPreviewProvider"));
+  assert.ok(nextAssetsPage.includes("<AssetListThumbnail"));
+  assert.ok(!nextAssetsPage.includes("createSignedUrls"));
+  assert.ok(nextAssetPreviewRoute.includes("requireAccess()"));
+  assert.ok(nextAssetPreviewRoute.includes("assetIdsSchema"));
+  assert.ok(nextAssetPreviewRoute.includes(".max(20)"));
+  assert.ok(nextAssetPreviewRoute.includes("createSignedUrls(paths, 300)"));
+  assert.ok(nextAssetPreviewRoute.includes("item.thumbnail_path || item.object_path"));
+  assert.ok(nextAssetListPreviews.includes('credentials: "same-origin"'));
+  assert.ok(nextAssetListPreviews.includes('className="asset-list-thumbnail"'));
+  assert.ok(nextAssetDetailPage.includes("createSignedUrls(mediaPaths, 300)"));
   assert.ok(nextAssetDetailPage.includes("unoptimized"));
   assert.ok(nextConfig.includes('bodySizeLimit: "6mb"'));
   assert.ok(mediaChecksumMigration.includes("checksum"));
   assert.ok(mediaChecksumMigration.includes("media_files_checksum_sha256"));
+  assert.ok(assetQueryPerformanceMigration.includes("pg_trgm"));
+  assert.ok(assetQueryPerformanceMigration.includes("assets_name_search_active_idx"));
+  assert.ok(assetQueryPerformanceMigration.includes("assets_status_updated_active_idx"));
   assert.ok(nextAssetActions.includes("checksum"));
   assert.ok(assetCategoryFilterMigration.includes("assets_type_updated_active_idx"));
   assert.ok(assetCategoryFilterMigration.includes("security invoker"));

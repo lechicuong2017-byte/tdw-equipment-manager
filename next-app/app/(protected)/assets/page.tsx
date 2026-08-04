@@ -1,24 +1,17 @@
-import Image from "next/image";
 import Link from "next/link";
 import {
   AutoSubmitSelect,
   InstantFilterForm,
 } from "@/components/auto-submit-select";
 import { PageHeader } from "@/components/page-header";
+import {
+  AssetListThumbnail,
+  AssetPreviewProvider,
+} from "@/components/asset-list-previews";
 import { can, requireAccess } from "@/lib/auth";
 import { formatMoney, labelStatus } from "@/lib/format";
 
 export const metadata = { title: "Thiết bị" };
-
-const defaultStatuses = [
-  "CON_SU_DUNG",
-  "MOI_100",
-  "KEM_PHAM_CHAT",
-  "CAN_KIEM_TRA",
-  "KHONG_SU_DUNG",
-  "LUU_KHO_THANH_LY",
-  "LUU_KHO_CHO_THANH_LY",
-];
 
 const allowedKinds = new Set(["DEVICE", "COMPONENT"]);
 
@@ -33,31 +26,18 @@ type AssetsPageProps = {
 };
 
 export default async function AssetsPage({ searchParams }: AssetsPageProps) {
-  const { supabase, access } = await requireAccess();
-  const { data: configuredSettings } = await supabase
-    .from("settings")
-    .select("setting_type,setting_value,display_name")
-    .in("setting_type", ["status", "asset_type"])
-    .eq("active", true)
-    .order("sort_order");
-  const statusSettings = (configuredSettings ?? []).filter(
-    (item) => item.setting_type === "status",
-  );
-  const allowedStatuses = new Set([
-    ...defaultStatuses,
-    ...statusSettings.map((item) => item.setting_value),
+  const [{ supabase, access }, params] = await Promise.all([
+    requireAccess(),
+    searchParams,
   ]);
-  const settingLabels = new Map(
-    (configuredSettings ?? []).map((item) => [item.setting_value, item.display_name]),
-  );
-  const params = await searchParams;
   const search = String(params.q ?? "")
     .trim()
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .slice(0, 80);
-  const status = allowedStatuses.has(String(params.status))
-    ? String(params.status)
-    : "";
+  const status = String(params.status ?? "")
+    .trim()
+    .replace(/[^A-Z0-9_]/g, "")
+    .slice(0, 120);
   const kind = allowedKinds.has(String(params.kind))
     ? String(params.kind)
     : "";
@@ -88,44 +68,32 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   if (kind) query = query.eq("asset_kind", kind);
   if (category) query = query.eq("asset_type", category);
 
-  const [{ data, count }, { data: categoryData }] = await Promise.all([
+  const [
+    { data: configuredSettings },
+    { data, count },
+    { data: categoryData },
+  ] = await Promise.all([
+    supabase
+      .from("settings")
+      .select("setting_type,setting_value,display_name")
+      .in("setting_type", ["status", "asset_type"])
+      .eq("active", true)
+      .order("sort_order"),
     query,
     supabase.rpc("get_asset_filter_options"),
   ]);
+  const statusSettings = (configuredSettings ?? []).filter(
+    (item) => item.setting_type === "status",
+  );
+  const settingLabels = new Map(
+    (configuredSettings ?? []).map((item) => [item.setting_value, item.display_name]),
+  );
   const categoryOptions = (categoryData ?? []) as {
     category: string;
     item_count: number;
   }[];
   const assetRows = data ?? [];
   const assetIds = assetRows.map((asset) => asset.id);
-  const { data: previewMedia } = assetIds.length
-    ? await supabase
-        .from("media_files")
-        .select("asset_id, object_path, thumbnail_path, sort_order, created_at")
-        .in("asset_id", assetIds)
-        .eq("owner_type", "ASSET")
-        .order("sort_order")
-        .order("created_at")
-        .limit(2000)
-    : { data: [] };
-  const firstMediaByAsset = new Map<
-    string,
-    { object_path: string; thumbnail_path: string | null }
-  >();
-  for (const item of previewMedia ?? []) {
-    if (!firstMediaByAsset.has(item.asset_id)) {
-      firstMediaByAsset.set(item.asset_id, item);
-    }
-  }
-  const previewPaths = Array.from(firstMediaByAsset.values()).map(
-    (item) => item.thumbnail_path || item.object_path,
-  );
-  const { data: signedPreviews } = previewPaths.length
-    ? await supabase.storage.from("asset-media").createSignedUrls(previewPaths, 300)
-    : { data: [] };
-  const signedPreviewByPath = new Map(
-    (signedPreviews ?? []).map((item) => [item.path, item.signedUrl]),
-  );
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize));
 
   const pageHref = (targetPage: number) => {
@@ -199,8 +167,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           <small>Trang {Math.min(page, totalPages)} / {totalPages}</small>
         </div>
 
-        <div className="table-wrap">
-          <table>
+        <AssetPreviewProvider assetIds={assetIds}>
+          <div className="table-wrap">
+            <table>
             <thead>
               <tr>
                 <th>Mã & thiết bị</th>
@@ -215,29 +184,11 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 const department = Array.isArray(asset.departments)
                   ? asset.departments[0]?.name
                   : (asset.departments as { name?: string } | null)?.name;
-                const previewMediaItem = firstMediaByAsset.get(asset.id);
-                const previewPath = previewMediaItem
-                  ? previewMediaItem.thumbnail_path || previewMediaItem.object_path
-                  : "";
-                const previewUrl = previewPath
-                  ? signedPreviewByPath.get(previewPath)
-                  : undefined;
                 return (
                   <tr key={asset.id}>
                     <td>
                       <div className="asset-table-identity">
-                        {previewUrl ? (
-                          <Image
-                            alt=""
-                            className="asset-list-thumbnail"
-                            height={48}
-                            src={previewUrl}
-                            unoptimized
-                            width={64}
-                          />
-                        ) : (
-                          <span className="asset-list-thumbnail-placeholder" aria-hidden="true">▤</span>
-                        )}
+                        <AssetListThumbnail assetId={asset.id} assetName={asset.asset_name} />
                         <Link className="asset-name" href={`/assets/${asset.id}`}>
                           <strong>{asset.asset_name}</strong>
                           <small>
@@ -261,8 +212,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 <tr><td className="empty-cell" colSpan={5}>Không tìm thấy thiết bị phù hợp.</td></tr>
               ) : null}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+        </AssetPreviewProvider>
 
         <nav className="pagination" aria-label="Phân trang">
           {page > 1 ? <Link href={pageHref(page - 1)}>← Trang trước</Link> : <span />}

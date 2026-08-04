@@ -64,14 +64,6 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
     departments?: { name?: string } | { name?: string }[] | null;
   };
   const media = (mediaData ?? []) as MediaFile[];
-  const signedMedia = await Promise.all(
-    media.map(async (item) => {
-      const { data } = await supabase.storage
-        .from("asset-media")
-        .createSignedUrl(item.object_path, 300);
-      return { ...item, signed_url: data?.signedUrl };
-    }),
-  );
   const department = Array.isArray(asset.departments)
     ? asset.departments[0]?.name
     : asset.departments?.name;
@@ -81,8 +73,15 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
   const canManageComponents = can(access, "assets.manage");
   const componentFields =
     "id,asset_code,asset_name,asset_type,brand,model,serial_number,status,warranty_end_date";
-  const [activeResult, historyResult, candidatesResult, installedResult] =
-    await Promise.all([
+  const mediaPaths = media.map((item) => item.object_path);
+  const [
+    { data: signedUrls },
+    [activeResult, historyResult, candidatesResult, installedResult],
+  ] = await Promise.all([
+    mediaPaths.length
+      ? supabase.storage.from("asset-media").createSignedUrls(mediaPaths, 300)
+      : Promise.resolve({ data: [] }),
+    Promise.all([
       asset.asset_kind === "DEVICE"
         ? supabase
             .from("asset_component_installations")
@@ -118,7 +117,15 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
             .is("removed_at", null)
             .limit(2000)
         : Promise.resolve({ data: [] }),
-    ]);
+    ]),
+  ]);
+  const signedUrlByPath = new Map(
+    (signedUrls ?? []).map((item) => [item.path, item.signedUrl]),
+  );
+  const signedMedia = media.map((item) => ({
+    ...item,
+    signed_url: signedUrlByPath.get(item.object_path),
+  }));
   const hostComponentHistory = (activeResult.data ?? []).map((item) => ({
     ...item,
     component: relatedSummary(item.component as never) ?? null,
