@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -141,7 +141,6 @@ export function ActionStateToast({
 
 export function ActionUrlToast() {
   const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useActionToast();
 
@@ -153,8 +152,12 @@ export function ActionUrlToast() {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("ok");
     const query = nextParams.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [pathname, router, searchParams, showToast]);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      query ? `${pathname}?${query}` : pathname,
+    );
+  }, [pathname, searchParams, showToast]);
 
   return null;
 }
