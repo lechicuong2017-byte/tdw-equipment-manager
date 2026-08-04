@@ -44,6 +44,7 @@ export default async function SoftwarePage() {
 
   const canManage = can(access, "software.manage");
   const canDelete = can(access, "software.delete");
+  const showActions = canManage || canDelete;
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date());
@@ -75,7 +76,7 @@ export default async function SoftwarePage() {
                 <th>Khóa đã che</th>
                 <th>Hết hạn</th>
                 <th>Trạng thái</th>
-                {canDelete ? <th aria-label="Thao tác" /> : null}
+                {showActions ? <th>Thao tác</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -118,12 +119,21 @@ export default async function SoftwarePage() {
                         {softwareStatusLabels[displayStatus] ?? "Chưa xác định"}
                       </span>
                     </td>
-                    {canDelete ? (
+                    {showActions ? (
                       <td>
-                        <form action={deleteSoftwareLicense}>
-                          <input name="id" type="hidden" value={license.id} />
-                          <button className="text-button text-danger" type="submit">Xóa</button>
-                        </form>
+                        <div className="row-actions">
+                          {canManage ? (
+                            <Link className="text-button" href={`/software/${license.id}/edit`}>
+                              Sửa
+                            </Link>
+                          ) : null}
+                          {canDelete ? (
+                            <form action={deleteSoftwareLicense}>
+                              <input name="id" type="hidden" value={license.id} />
+                              <button className="text-button text-danger" type="submit">Xóa</button>
+                            </form>
+                          ) : null}
+                        </div>
                       </td>
                     ) : null}
                   </tr>
@@ -131,7 +141,7 @@ export default async function SoftwarePage() {
               })}
               {!licenses?.length ? (
                 <tr>
-                  <td className="empty-cell" colSpan={canDelete ? 6 : 5}>
+                  <td className="empty-cell" colSpan={showActions ? 6 : 5}>
                     Chưa có bản quyền phần mềm.
                   </td>
                 </tr>

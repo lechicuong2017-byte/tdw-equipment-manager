@@ -184,6 +184,7 @@ Nguyên tắc:
 - ~~Thêm audit UI và health check Next.js/Supabase/Apps Script.~~ Hoàn tất ngày 2026-07-30.
 - ~~Quản lý linh kiện bên trong và lịch sử thay thế, đồng thời nhóm linh kiện theo thiết bị trong báo cáo.~~ Hoàn tất ngày 2026-07-30.
 - ~~Tạo thumbnail khi upload và hiển thị ảnh xem nhanh riêng tư trong danh sách.~~ Hoàn tất ngày 2026-07-30.
+- ~~Bổ sung màn hình sửa bản quyền phần mềm, gồm phân bổ, thời hạn, key đã che và tham chiếu secret manager.~~ Hoàn tất ngày 2026-08-04; validator server từ chối key đầy đủ.
 
 ### P2 — Vận hành
 

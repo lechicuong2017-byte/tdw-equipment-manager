@@ -31,6 +31,11 @@ Delta migration ngày 2026-08-04 chỉ nhập thông tin danh mục của 5 bả
 phần mềm. Cột key nguồn không được chọn khi đọc Sheet, không được ghi vào file
 import và không được gửi tới Supabase; quản trị viên sẽ cập nhật key sau.
 
+Màn hình sửa bản quyền chỉ nhận key đã che và mã tham chiếu đến secret manager.
+Validator phía server từ chối key đầy đủ; bảng `software_licenses`, báo cáo và
+trình duyệt không phải nơi lưu giá trị bí mật. Muốn nhập và đọc key đầy đủ cần
+tích hợp một secret manager thực sự, có audit và quyền truy cập riêng cho Admin.
+
 ## Backup và phục hồi
 
 1. Tạo thư mục Drive riêng, hạn chế Editor, đặt ID vào `TDW_BACKUP_FOLDER_ID`.

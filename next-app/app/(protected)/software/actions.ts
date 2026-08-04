@@ -66,6 +66,40 @@ export async function createSoftwareLicense(
   return { success: "Đã thêm bản quyền phần mềm." };
 }
 
+export async function updateSoftwareLicense(
+  _previousState: SoftwareFormState,
+  formData: FormData,
+): Promise<SoftwareFormState> {
+  const id = z.uuid().safeParse(formData.get("id"));
+  if (!id.success) {
+    return { error: "Mã bản quyền không hợp lệ." };
+  }
+
+  const parsed = softwareSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "software.manage")) {
+    return { error: "Bạn không có quyền sửa bản quyền phần mềm." };
+  }
+
+  const { data, error } = await supabase
+    .from("software_licenses")
+    .update(parsed.data)
+    .eq("id", id.data)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) {
+    return { error: "Không thể cập nhật bản quyền. Hãy kiểm tra quyền và dữ liệu." };
+  }
+
+  revalidatePath("/software");
+  revalidatePath(`/software/${id.data}/edit`);
+  return { success: "Đã cập nhật bản quyền phần mềm." };
+}
+
 export async function deleteSoftwareLicense(formData: FormData) {
   const id = z.uuid().safeParse(formData.get("id"));
   if (!id.success) return;

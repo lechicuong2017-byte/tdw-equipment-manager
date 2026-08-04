@@ -141,6 +141,18 @@ async function run() {
   const nextAssetActions = read("next-app/app/(protected)/assets/actions.ts");
   const autoSubmitSelect = read("next-app/components/auto-submit-select.tsx");
   const nextReportsPage = read("next-app/app/(protected)/reports/page.tsx");
+  const nextSoftwarePage = read(
+    "next-app/app/(protected)/software/page.tsx",
+  );
+  const nextSoftwareActions = read(
+    "next-app/app/(protected)/software/actions.ts",
+  );
+  const nextSoftwareEditPage = read(
+    "next-app/app/(protected)/software/[id]/edit/page.tsx",
+  );
+  const softwareEditForm = read(
+    "next-app/components/software-edit-form.tsx",
+  );
   const assetQrCard = read("next-app/components/asset-qr-card.tsx");
   const assetQrLabels = read("next-app/components/asset-qr-labels.tsx");
   const assetQr = read("next-app/lib/asset-qr.ts");
@@ -162,6 +174,17 @@ async function run() {
   assert.ok(!supabaseImport.includes("license_key_masked:"));
   assert.ok(!supabaseImport.includes("license_secret_ref:"));
   assert.ok(!supabaseImport.includes("legacy-apps-script:"));
+  assert.ok(nextSoftwarePage.includes("/software/${license.id}/edit"));
+  assert.ok(
+    nextSoftwareActions.includes("export async function updateSoftwareLicense"),
+  );
+  assert.ok(nextSoftwareActions.includes(".update(parsed.data)"));
+  assert.ok(nextSoftwareActions.includes('.eq("id", id.data)'));
+  assert.ok(nextSoftwareEditPage.includes('can(access, "software.manage")'));
+  assert.ok(nextSoftwareEditPage.includes("license_secret_ref"));
+  assert.ok(softwareEditForm.includes("Lưu thay đổi"));
+  assert.ok(softwareEditForm.includes("không nhập key đầy đủ"));
+  assert.ok(!softwareEditForm.includes('name="license_key"'));
   assert.ok(appsScript.includes('maintenanceLogs: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenanceLogs) : []'));
   assert.ok(appsScript.includes('maintenancePlans: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenancePlans) : []'));
   assert.ok(appsScript.includes("function normalizeMaintenancePlan_(plan, activeAssets)"));
