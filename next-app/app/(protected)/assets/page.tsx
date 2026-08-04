@@ -17,6 +17,7 @@ const defaultStatuses = [
   "CAN_KIEM_TRA",
   "KHONG_SU_DUNG",
   "LUU_KHO_THANH_LY",
+  "LUU_KHO_CHO_THANH_LY",
 ];
 
 const allowedKinds = new Set(["DEVICE", "COMPONENT"]);
@@ -170,7 +171,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 <option value="CAN_KIEM_TRA">Cần kiểm tra</option>
                 <option value="KEM_PHAM_CHAT">Kém phẩm chất</option>
                 <option value="KHONG_SU_DUNG">Không sử dụng</option>
-                <option value="LUU_KHO_THANH_LY">Lưu kho / thanh lý</option>
+                <option value="LUU_KHO_THANH_LY">Lưu kho chờ thanh lý</option>
               </>
             )}
           </AutoSubmitSelect>

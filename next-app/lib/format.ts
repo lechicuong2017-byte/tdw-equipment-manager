@@ -37,9 +37,15 @@ export const statusLabels: Record<string, string> = {
   KEM_PHAM_CHAT: "Kém phẩm chất",
   CAN_KIEM_TRA: "Cần kiểm tra",
   KHONG_SU_DUNG: "Không sử dụng",
-  LUU_KHO_THANH_LY: "Lưu kho / thanh lý",
+  LUU_KHO_THANH_LY: "Lưu kho chờ thanh lý",
+};
+
+const statusLabelAliases: Record<string, string> = {
+  LUU_KHO_CHO_THANH_LY: "Lưu kho chờ thanh lý",
 };
 
 export function labelStatus(status: string) {
-  return statusLabels[status] ?? (status || "Chưa xác định");
+  return statusLabels[status]
+    ?? statusLabelAliases[status]
+    ?? (status || "Chưa xác định");
 }
