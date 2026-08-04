@@ -10,14 +10,14 @@ import { formatMoney, labelStatus } from "@/lib/format";
 
 export const metadata = { title: "Thiết bị" };
 
-const allowedStatuses = new Set([
+const defaultStatuses = [
   "CON_SU_DUNG",
   "MOI_100",
   "KEM_PHAM_CHAT",
   "CAN_KIEM_TRA",
   "KHONG_SU_DUNG",
   "LUU_KHO_THANH_LY",
-]);
+];
 
 const allowedKinds = new Set(["DEVICE", "COMPONENT"]);
 
@@ -33,6 +33,22 @@ type AssetsPageProps = {
 
 export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const { supabase, access } = await requireAccess();
+  const { data: configuredSettings } = await supabase
+    .from("settings")
+    .select("setting_type,setting_value,display_name")
+    .in("setting_type", ["status", "asset_type"])
+    .eq("active", true)
+    .order("sort_order");
+  const statusSettings = (configuredSettings ?? []).filter(
+    (item) => item.setting_type === "status",
+  );
+  const allowedStatuses = new Set([
+    ...defaultStatuses,
+    ...statusSettings.map((item) => item.setting_value),
+  ]);
+  const settingLabels = new Map(
+    (configuredSettings ?? []).map((item) => [item.setting_value, item.display_name]),
+  );
   const params = await searchParams;
   const search = String(params.q ?? "")
     .trim()
@@ -145,12 +161,18 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           </label>
           <AutoSubmitSelect aria-label="Lọc theo trạng thái" defaultValue={status} name="status">
             <option value="">Tất cả trạng thái</option>
-            <option value="CON_SU_DUNG">Còn sử dụng</option>
-            <option value="MOI_100">Mới 100%</option>
-            <option value="CAN_KIEM_TRA">Cần kiểm tra</option>
-            <option value="KEM_PHAM_CHAT">Kém phẩm chất</option>
-            <option value="KHONG_SU_DUNG">Không sử dụng</option>
-            <option value="LUU_KHO_THANH_LY">Lưu kho / thanh lý</option>
+            {statusSettings.length ? statusSettings.map((item) => (
+              <option key={item.setting_value} value={item.setting_value}>{item.display_name}</option>
+            )) : (
+              <>
+                <option value="CON_SU_DUNG">Còn sử dụng</option>
+                <option value="MOI_100">Mới 100%</option>
+                <option value="CAN_KIEM_TRA">Cần kiểm tra</option>
+                <option value="KEM_PHAM_CHAT">Kém phẩm chất</option>
+                <option value="KHONG_SU_DUNG">Không sử dụng</option>
+                <option value="LUU_KHO_THANH_LY">Lưu kho / thanh lý</option>
+              </>
+            )}
           </AutoSubmitSelect>
           <AutoSubmitSelect aria-label="Lọc theo phân loại" defaultValue={kind} name="kind">
             <option value="">Tất cả phân loại</option>
@@ -161,7 +183,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <option value="">Tất cả danh mục</option>
             {categoryOptions.map((option) => (
               <option key={option.category} value={option.category}>
-                {option.category} ({option.item_count})
+                {settingLabels.get(option.category) ?? option.category} ({option.item_count})
               </option>
             ))}
           </AutoSubmitSelect>
@@ -224,12 +246,12 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                         </Link>
                       </div>
                     </td>
-                    <td>{asset.asset_type || "—"}</td>
+                    <td>{settingLabels.get(asset.asset_type) ?? (asset.asset_type || "—")}</td>
                     <td>
                       <strong className="table-secondary">{department || "Chưa phân phòng"}</strong>
                       <small className="table-note">{asset.location || "Chưa có vị trí"}</small>
                     </td>
-                    <td><span className="status-pill">{labelStatus(asset.status)}</span></td>
+                    <td><span className="status-pill">{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</span></td>
                     <td className="align-right">{formatMoney(asset.total_price)}</td>
                   </tr>
                 );

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AssetForm } from "@/components/asset-form";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
-import type { Department } from "@/lib/types";
+import type { Department, Setting } from "@/lib/types";
 import { redirect } from "next/navigation";
 
 export const metadata = { title: "Thêm tài sản" };
@@ -17,10 +17,15 @@ export default async function NewAssetPage({ searchParams }: NewAssetPageProps) 
   const { supabase, access } = await requireAccess();
   if (!can(access, "assets.manage")) redirect("/assets");
 
-  const { data } = await supabase
-    .from("departments")
-    .select("id, name")
-    .order("name");
+  const [{ data: departments }, { data: settings }] = await Promise.all([
+    supabase.from("departments").select("id, name").order("name"),
+    supabase
+      .from("settings")
+      .select("id,setting_type,setting_value,display_name,sort_order,active")
+      .in("setting_type", ["asset_group", "asset_type", "status"])
+      .eq("active", true)
+      .order("sort_order"),
+  ]);
 
   return (
     <>
@@ -33,7 +38,8 @@ export default async function NewAssetPage({ searchParams }: NewAssetPageProps) 
       <section className="panel form-panel">
         <AssetForm
           defaultKind={defaultKind}
-          departments={(data ?? []) as Department[]}
+          departments={(departments ?? []) as Department[]}
+          settings={(settings ?? []) as Setting[]}
         />
       </section>
     </>

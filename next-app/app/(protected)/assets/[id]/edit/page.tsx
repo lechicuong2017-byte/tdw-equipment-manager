@@ -8,6 +8,7 @@ import type {
   AssetResponsible,
   Department,
   ResponsibleUser,
+  Setting,
 } from "@/lib/types";
 
 export const metadata = { title: "Chỉnh sửa thiết bị" };
@@ -27,6 +28,7 @@ export default async function EditAssetPage({ params }: EditAssetProps) {
     { data: departments },
     { data: responsibleUsers },
     { data: responsibles },
+    { data: settings },
   ] = await Promise.all([
     supabase.from("assets").select("*").eq("id", id).is("deleted_at", null).single(),
     supabase.from("departments").select("id, name").order("name"),
@@ -40,6 +42,11 @@ export default async function EditAssetPage({ params }: EditAssetProps) {
       .select("user_id, responsibility_role")
       .eq("asset_id", id)
       .eq("active", true),
+    supabase
+      .from("settings")
+      .select("id,setting_type,setting_value,display_name,sort_order,active")
+      .in("setting_type", ["asset_group", "asset_type", "status"])
+      .order("sort_order"),
   ]);
   if (!asset) notFound();
 
@@ -61,6 +68,7 @@ export default async function EditAssetPage({ params }: EditAssetProps) {
           responsibles={
             isAdmin ? (responsibles ?? []) as AssetResponsible[] : []
           }
+          settings={(settings ?? []) as Setting[]}
         />
       </section>
     </>

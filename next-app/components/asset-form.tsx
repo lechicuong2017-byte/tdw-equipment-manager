@@ -11,6 +11,7 @@ import type {
   AssetResponsible,
   Department,
   ResponsibleUser,
+  Setting,
 } from "@/lib/types";
 
 const initialState: AssetFormState = {};
@@ -21,12 +22,14 @@ export function AssetForm({
   departments,
   responsibleUsers = [],
   responsibles = [],
+  settings = [],
 }: {
   asset?: Asset;
   defaultKind?: "DEVICE" | "COMPONENT";
   departments: Department[];
   responsibleUsers?: ResponsibleUser[];
   responsibles?: AssetResponsible[];
+  settings?: Setting[];
 }) {
   const [state, formAction, pending] = useActionState(saveAsset, initialState);
   const primaryUserId = responsibles.find(
@@ -37,6 +40,35 @@ export function AssetForm({
       .filter((item) => item.responsibility_role === "secondary")
       .map((item) => item.user_id),
   );
+  const settingOptions = (type: string, current = "") => {
+    const matching = settings.filter(
+      (item) => item.setting_type === type && (item.active || item.setting_value === current),
+    );
+    if (current && !matching.some((item) => item.setting_value === current)) {
+      matching.push({
+        id: `current-${type}`,
+        setting_type: type,
+        setting_value: current,
+        display_name: current,
+        sort_order: Number.MAX_SAFE_INTEGER,
+        active: false,
+      });
+    }
+    return matching;
+  };
+  const groupOptions = settingOptions("asset_group", asset?.asset_group);
+  const typeOptions = settingOptions("asset_type", asset?.asset_type);
+  const configuredStatuses = settingOptions("status", asset?.status);
+  const statusOptions = configuredStatuses.length
+    ? configuredStatuses
+    : Object.entries(statusLabels).map(([value, label], index) => ({
+        id: value,
+        setting_type: "status",
+        setting_value: value,
+        display_name: label,
+        sort_order: index,
+        active: true,
+      }));
 
   return (
     <form action={formAction} className="data-form">
@@ -67,11 +99,21 @@ export function AssetForm({
         </label>
         <label>
           Nhóm thiết bị
-          <input defaultValue={asset?.asset_group} maxLength={120} name="asset_group" />
+          <select defaultValue={asset?.asset_group ?? ""} name="asset_group">
+            <option value="">Chưa chọn nhóm</option>
+            {groupOptions.map((item) => (
+              <option key={item.id} value={item.setting_value}>{item.display_name}</option>
+            ))}
+          </select>
         </label>
         <label>
           Loại thiết bị
-          <input defaultValue={asset?.asset_type} maxLength={120} name="asset_type" />
+          <select defaultValue={asset?.asset_type ?? ""} name="asset_type">
+            <option value="">Chưa chọn loại</option>
+            {typeOptions.map((item) => (
+              <option key={item.id} value={item.setting_value}>{item.display_name}</option>
+            ))}
+          </select>
         </label>
         <label>
           Thương hiệu
@@ -98,8 +140,8 @@ export function AssetForm({
         <label>
           Trạng thái
           <select defaultValue={asset?.status ?? "CON_SU_DUNG"} name="status">
-            {Object.entries(statusLabels).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+            {statusOptions.map((item) => (
+              <option key={item.id} value={item.setting_value}>{item.display_name}</option>
             ))}
           </select>
         </label>

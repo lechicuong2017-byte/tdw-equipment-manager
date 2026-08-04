@@ -25,7 +25,7 @@ function getRelatedAsset(value: RelatedAsset) {
 
 export default async function SoftwarePage() {
   const { supabase, access } = await requireAccess();
-  const [{ data: assets }, { data: licenses }] = await Promise.all([
+  const [{ data: assets }, { data: licenses }, { data: softwareNames }] = await Promise.all([
     supabase
       .from("assets")
       .select("id, asset_code, asset_name")
@@ -40,6 +40,12 @@ export default async function SoftwarePage() {
       .order("expiry_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("settings")
+      .select("display_name")
+      .eq("setting_type", "software_name")
+      .eq("active", true)
+      .order("sort_order"),
   ]);
 
   const canManage = can(access, "software.manage");
@@ -57,7 +63,12 @@ export default async function SoftwarePage() {
         description="Theo dõi phân bổ và thời hạn; khóa thật nằm ngoài bảng nghiệp vụ và không được gửi xuống trình duyệt."
       />
 
-      {canManage ? <SoftwareForm assets={assets ?? []} /> : null}
+      {canManage ? (
+        <SoftwareForm
+          assets={assets ?? []}
+          softwareNames={(softwareNames ?? []).map((item) => item.display_name)}
+        />
+      ) : null}
 
       <section className="panel module-table">
         <div className="panel-heading">

@@ -28,9 +28,11 @@ const initialState: SoftwareFormState = {};
 export function SoftwareEditForm({
   assets,
   license,
+  softwareNames = [],
 }: {
   assets: AssetOption[];
   license: EditableSoftwareLicense;
+  softwareNames?: string[];
 }) {
   const [state, formAction, pending] = useActionState(
     updateSoftwareLicense,
@@ -53,10 +55,14 @@ export function SoftwareEditForm({
           Tên phần mềm *
           <input
             defaultValue={license.software_name}
+            list="software-edit-name-options"
             maxLength={200}
             name="software_name"
             required
           />
+          <datalist id="software-edit-name-options">
+            {softwareNames.map((name) => <option key={name} value={name} />)}
+          </datalist>
         </label>
         <label>
           Phiên bản

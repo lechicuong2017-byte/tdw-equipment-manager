@@ -28,7 +28,7 @@ function getRelatedAsset(value: RelatedAsset) {
 
 export default async function MaintenancePage() {
   const { supabase, access } = await requireAccess();
-  const [{ data: assets }, { data: plans }, { data: logs }] = await Promise.all([
+  const [{ data: assets }, { data: plans }, { data: logs }, { data: maintenanceTypes }] = await Promise.all([
     supabase
       .from("assets")
       .select("id, asset_code, asset_name")
@@ -47,6 +47,12 @@ export default async function MaintenancePage() {
       .order("maintenance_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("settings")
+      .select("setting_value,display_name")
+      .eq("setting_type", "maintenance_type")
+      .eq("active", true)
+      .order("sort_order"),
   ]);
 
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -62,6 +68,9 @@ export default async function MaintenancePage() {
       asset_id: plan.asset_id,
       title: `${getRelatedAsset(plan.assets)?.asset_code ?? ""} — ${plan.title}`,
     }));
+  const maintenanceTypeLabels = new Map(
+    (maintenanceTypes ?? []).map((item) => [item.setting_value, item.display_name]),
+  );
 
   return (
     <>
@@ -75,7 +84,15 @@ export default async function MaintenancePage() {
       />
 
       {canManage ? (
-        <MaintenanceForms assets={assetOptions} plans={planOptions} today={today} />
+        <MaintenanceForms
+          actionTypes={(maintenanceTypes ?? []).map((item) => ({
+            value: item.setting_value,
+            label: item.display_name,
+          }))}
+          assets={assetOptions}
+          plans={planOptions}
+          today={today}
+        />
       ) : null}
 
       <section className="module-list-grid">
@@ -185,7 +202,9 @@ export default async function MaintenancePage() {
                         </Link>
                       </td>
                       <td>
-                        <strong className="table-secondary">{log.action_type || "Bảo trì"}</strong>
+                        <strong className="table-secondary">
+                          {maintenanceTypeLabels.get(log.action_type) ?? (log.action_type || "Bảo trì")}
+                        </strong>
                         <small className="table-note">{log.description}</small>
                       </td>
                       <td>{log.performed_by || log.vendor || "—"}</td>

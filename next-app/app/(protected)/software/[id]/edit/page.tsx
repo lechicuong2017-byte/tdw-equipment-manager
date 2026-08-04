@@ -20,7 +20,7 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
   if (!can(access, "software.manage")) redirect("/software");
   const isAdmin = access.roles.includes("admin");
 
-  const [{ data: license }, { data: assets }] = await Promise.all([
+  const [{ data: license }, { data: assets }, { data: softwareNames }] = await Promise.all([
     supabase
       .from("software_licenses")
       .select(
@@ -34,6 +34,12 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
       .is("deleted_at", null)
       .order("asset_code")
       .limit(500),
+    supabase
+      .from("settings")
+      .select("display_name")
+      .eq("setting_type", "software_name")
+      .eq("active", true)
+      .order("sort_order"),
   ]);
 
   if (!license) notFound();
@@ -57,7 +63,11 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
         description="Cập nhật thông tin phân bổ, thời hạn và key bản quyền được mã hóa."
         actions={<Link className="secondary-button" href="/software">Hủy</Link>}
       />
-      <SoftwareEditForm assets={assets ?? []} license={editableLicense} />
+      <SoftwareEditForm
+        assets={assets ?? []}
+        license={editableLicense}
+        softwareNames={(softwareNames ?? []).map((item) => item.display_name)}
+      />
       {isAdmin ? (
         <SoftwareLicenseSecretPanel
           hasEncryptedSecret={license.license_secret_ref === "encrypted:v1"}

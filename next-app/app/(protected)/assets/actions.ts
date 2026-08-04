@@ -42,14 +42,7 @@ const assetSchema = z.object({
   assigned_to_name: z.string().trim().max(200),
   department_id: optionalUuid,
   location: z.string().trim().max(200),
-  status: z.enum([
-    "CON_SU_DUNG",
-    "MOI_100",
-    "KEM_PHAM_CHAT",
-    "CAN_KIEM_TRA",
-    "KHONG_SU_DUNG",
-    "LUU_KHO_THANH_LY",
-  ]),
+  status: z.string().trim().min(1, "Trạng thái là bắt buộc").max(120),
   quality_level: z.string().trim().max(120),
   warranty_end_date: optionalDate,
   last_maintenance_date: optionalDate,
@@ -72,9 +65,21 @@ export async function saveAsset(
 
   const { supabase, access } = await requireAccess();
   const { id, ...payload } = parsed.data;
+  const { data: groupSetting } = payload.asset_group
+    ? await supabase
+        .from("settings")
+        .select("display_name")
+        .eq("setting_type", "asset_group")
+        .eq("setting_value", payload.asset_group)
+        .maybeSingle()
+    : { data: null };
+  const assetPayload = {
+    ...payload,
+    asset_group_label: groupSetting?.display_name ?? payload.asset_group,
+  };
   const query = id
-    ? supabase.from("assets").update(payload).eq("id", id).select("id").single()
-    : supabase.from("assets").insert(payload).select("id").single();
+    ? supabase.from("assets").update(assetPayload).eq("id", id).select("id").single()
+    : supabase.from("assets").insert(assetPayload).select("id").single();
 
   const { data, error } = await query;
   if (error) {

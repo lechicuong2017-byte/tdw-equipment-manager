@@ -25,10 +25,12 @@ export function MaintenanceForms({
   assets,
   plans,
   today,
+  actionTypes = [],
 }: {
   assets: AssetOption[];
   plans: PlanOption[];
   today: string;
+  actionTypes?: Array<{ value: string; label: string }>;
 }) {
   const [planState, planAction, planPending] = useActionState(
     createMaintenancePlan,
@@ -121,7 +123,16 @@ export function MaintenanceForms({
           </label>
           <label>
             Hình thức
-            <input maxLength={120} name="action_type" placeholder="Kiểm tra / sửa chữa" />
+            {actionTypes.length ? (
+              <select name="action_type">
+                <option value="">Chọn hình thức</option>
+                {actionTypes.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            ) : (
+              <input maxLength={120} name="action_type" placeholder="Kiểm tra / sửa chữa" />
+            )}
           </label>
         </div>
         <label>

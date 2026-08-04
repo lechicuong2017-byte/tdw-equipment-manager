@@ -82,6 +82,18 @@ export type DashboardStats = {
 export type Department = {
   id: string;
   name: string;
+  manager_name?: string;
+  location?: string;
+  note?: string;
+};
+
+export type Setting = {
+  id: string;
+  setting_type: string;
+  setting_value: string;
+  display_name: string;
+  sort_order: number;
+  active: boolean;
 };
 
 export type ResponsibleUser = {

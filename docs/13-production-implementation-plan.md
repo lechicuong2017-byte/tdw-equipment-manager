@@ -186,6 +186,7 @@ Nguyên tắc:
 - ~~Tạo thumbnail khi upload và hiển thị ảnh xem nhanh riêng tư trong danh sách.~~ Hoàn tất ngày 2026-07-30.
 - ~~Bổ sung màn hình sửa bản quyền phần mềm và điều hướng trực tiếp từ tên phần mềm.~~ Hoàn tất ngày 2026-08-04.
 - ~~Mã hóa key bản quyền bằng AES-256-GCM, tách ciphertext khỏi bảng nghiệp vụ, chỉ Admin + MFA được lưu/xem và ghi audit mỗi lần truy cập.~~ Hoàn tất production ngày 2026-08-04: migration `202608040002` có 4 policy RLS và 2 RPC admin; khóa mã hóa đã được cấu hình dạng Sensitive trên Vercel.
+- ~~Hoàn thiện trang Cấu hình và nối danh mục vào các biểu mẫu nghiệp vụ.~~ Hoàn tất ngày 2026-08-04: quản lý 5 loại danh mục và 20 phòng ban; migration `202608040003` bổ sung RPC Admin đổi thứ tự và sửa nhãn an toàn.
 
 ### P2 — Vận hành
 

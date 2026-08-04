@@ -36,7 +36,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
   const { id } = await params;
   const componentStatus = String((await searchParams).component_status ?? "");
   const { supabase, access } = await requireAccess();
-  const [{ data: assetData }, { data: mediaData }] = await Promise.all([
+  const [{ data: assetData }, { data: mediaData }, { data: configuredSettings }] = await Promise.all([
     supabase
       .from("assets")
       .select("*, departments(name)")
@@ -50,6 +50,11 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       .eq("owner_type", "ASSET")
       .order("sort_order")
       .order("created_at"),
+    supabase
+      .from("settings")
+      .select("setting_value,display_name")
+      .in("setting_type", ["status", "asset_type"])
+      .eq("active", true),
   ]);
 
   if (!assetData) notFound();
@@ -69,6 +74,9 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
   const department = Array.isArray(asset.departments)
     ? asset.departments[0]?.name
     : asset.departments?.name;
+  const settingLabels = new Map(
+    (configuredSettings ?? []).map((item) => [item.setting_value, item.display_name]),
+  );
   const canManageComponents = can(access, "assets.manage");
   const componentFields =
     "id,asset_code,asset_name,asset_type,brand,model,serial_number,status,warranty_end_date";
@@ -145,12 +153,12 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       <section className="profile-grid">
         <article className="panel profile-summary">
           <div className="profile-status">
-            <span className="status-pill">{labelStatus(asset.status)}</span>
+            <span className="status-pill">{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</span>
             <small>Cập nhật {formatDate(asset.updated_at)}</small>
           </div>
           <dl className="detail-list">
             <div><dt>Phân loại</dt><dd>{asset.asset_kind === "COMPONENT" ? "Linh kiện" : "Thiết bị hoàn chỉnh"}</dd></div>
-            <div><dt>Loại thiết bị</dt><dd>{asset.asset_type || "—"}</dd></div>
+            <div><dt>Loại thiết bị</dt><dd>{settingLabels.get(asset.asset_type) ?? (asset.asset_type || "—")}</dd></div>
             <div><dt>Serial</dt><dd>{asset.serial_number || "—"}</dd></div>
             <div><dt>Phòng ban</dt><dd>{department || asset.department_legacy_name || "—"}</dd></div>
             <div><dt>Vị trí</dt><dd>{asset.location || "—"}</dd></div>

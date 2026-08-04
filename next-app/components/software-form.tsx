@@ -14,7 +14,13 @@ type AssetOption = {
 
 const initialState: SoftwareFormState = {};
 
-export function SoftwareForm({ assets }: { assets: AssetOption[] }) {
+export function SoftwareForm({
+  assets,
+  softwareNames = [],
+}: {
+  assets: AssetOption[];
+  softwareNames?: string[];
+}) {
   const [state, formAction, pending] = useActionState(
     createSoftwareLicense,
     initialState,
@@ -32,7 +38,10 @@ export function SoftwareForm({ assets }: { assets: AssetOption[] }) {
       <div className="form-grid">
         <label className="span-2">
           Tên phần mềm *
-          <input maxLength={200} name="software_name" required />
+          <input list="software-name-options" maxLength={200} name="software_name" required />
+          <datalist id="software-name-options">
+            {softwareNames.map((name) => <option key={name} value={name} />)}
+          </datalist>
         </label>
         <label>
           Phiên bản

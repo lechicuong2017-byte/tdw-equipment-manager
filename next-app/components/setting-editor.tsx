@@ -1,0 +1,65 @@
+"use client";
+
+import Link from "next/link";
+import { useActionState, useState } from "react";
+import {
+  saveSetting,
+  type SettingsFormState,
+} from "@/app/(protected)/admin/settings/actions";
+import {
+  settingTypeDefinitions,
+  settingTypes,
+  settingValueFromDisplayName,
+} from "@/lib/settings";
+import type { Setting } from "@/lib/types";
+
+const initialState: SettingsFormState = {};
+
+export function SettingEditor({ setting }: { setting?: Setting }) {
+  const [state, formAction, pending] = useActionState(saveSetting, initialState);
+  const [displayName, setDisplayName] = useState(setting?.display_name ?? "");
+  const generatedValue = setting?.setting_value || settingValueFromDisplayName(displayName);
+
+  return (
+    <form action={formAction} className="panel data-form compact-form settings-editor">
+      <input name="id" type="hidden" value={setting?.id ?? ""} />
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">{setting ? "SỬA DANH MỤC" : "THÊM DANH MỤC"}</p>
+          <h2>{setting ? setting.display_name : "Cấu hình mới"}</h2>
+        </div>
+        {setting ? <Link className="text-button" href="/admin/settings">Hủy sửa</Link> : null}
+      </div>
+      <label>
+        Loại cấu hình
+        <select defaultValue={setting?.setting_type ?? "asset_group"} disabled={Boolean(setting)} name="setting_type">
+          {settingTypes.map((type) => (
+            <option key={type} value={type}>{settingTypeDefinitions[type].label}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Tên hiển thị *
+        <input
+          maxLength={160}
+          name="display_name"
+          onChange={(event) => setDisplayName(event.target.value)}
+          required
+          value={displayName}
+        />
+      </label>
+      <label>
+        Mã nội bộ
+        <input readOnly value={generatedValue} />
+      </label>
+      <p className="form-help">
+        Mã được tạo tự động khi thêm và giữ nguyên khi sửa để bảo toàn dữ liệu đã liên kết.
+      </p>
+      {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
+      {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
+      <button className="primary-button" disabled={pending} type="submit">
+        {pending ? "Đang lưu…" : setting ? "Lưu thay đổi" : "Thêm cấu hình"}
+      </button>
+    </form>
+  );
+}
