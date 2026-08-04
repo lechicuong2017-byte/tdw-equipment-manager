@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmAction } from "@/components/app-modal";
 import { MaintenanceForms } from "@/components/maintenance-forms";
 import { MaintenancePlanEditor } from "@/components/maintenance-plan-editor";
 import { MaintenanceReminderButton } from "@/components/maintenance-reminder-button";
@@ -193,11 +194,12 @@ export default async function MaintenancePage() {
                               </form>
                             ) : null}
                             {canDelete ? (
-                              <form action={deleteMaintenanceRecord}>
-                                <input name="id" type="hidden" value={plan.id} />
-                                <input name="kind" type="hidden" value="plan" />
-                                <button className="text-button text-danger" type="submit">Xóa</button>
-                              </form>
+                              <ConfirmAction
+                                action={deleteMaintenanceRecord}
+                                description={`Kế hoạch “${plan.title}” sẽ bị xóa. Các nhật ký đã ghi vẫn được giữ lại nhưng không còn gắn với kế hoạch này.`}
+                                fields={{ id: plan.id, kind: "plan" }}
+                                title="Xóa kế hoạch bảo trì?"
+                              />
                             ) : null}
                           </div>
                         </td>
@@ -257,11 +259,12 @@ export default async function MaintenancePage() {
                       <td className="align-right">{formatMoney(log.cost)}</td>
                       {canDelete ? (
                         <td>
-                          <form action={deleteMaintenanceRecord}>
-                            <input name="id" type="hidden" value={log.id} />
-                            <input name="kind" type="hidden" value="log" />
-                            <button className="text-button text-danger" type="submit">Xóa</button>
-                          </form>
+                          <ConfirmAction
+                            action={deleteMaintenanceRecord}
+                            description={`Nhật ký bảo trì ngày ${formatDate(log.maintenance_date)} sẽ bị xóa khỏi lịch sử thiết bị.`}
+                            fields={{ id: log.id, kind: "log" }}
+                            title="Xóa nhật ký bảo trì?"
+                          />
                         </td>
                       ) : null}
                     </tr>

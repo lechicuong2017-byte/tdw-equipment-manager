@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ModalPage, ModalTrigger } from "@/components/app-modal";
 import { DepartmentEditor } from "@/components/department-editor";
 import { PageHeader } from "@/components/page-header";
 import { SettingEditor } from "@/components/setting-editor";
@@ -47,16 +48,53 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
         description="Quản lý tập trung các lựa chọn dùng trong thiết bị, bảo trì, phần mềm và phân quyền theo phòng ban."
         actions={
           <>
+            <ModalTrigger
+              description="Thêm lựa chọn dùng chung và tự sinh mã nội bộ từ tên hiển thị."
+              eyebrow="DANH MỤC"
+              size="medium"
+              title="Thêm cấu hình"
+              triggerLabel="+ Cấu hình"
+            >
+              <SettingEditor />
+            </ModalTrigger>
+            <ModalTrigger
+              description="Thêm đơn vị sử dụng để phân bổ thiết bị và phạm vi người dùng."
+              eyebrow="PHÒNG BAN"
+              size="medium"
+              title="Thêm phòng ban"
+              triggerClassName="secondary-button"
+              triggerLabel="+ Phòng ban"
+            >
+              <DepartmentEditor />
+            </ModalTrigger>
             <Link className="secondary-button" href="/admin/audit">Nhật ký</Link>
             <Link className="secondary-button" href="/admin/health">Kiểm tra hệ thống</Link>
           </>
         }
       />
 
-      <section className="settings-workspace">
-        <SettingEditor key={editingSetting?.id ?? "new-setting"} setting={editingSetting} />
-        <DepartmentEditor key={editingDepartment?.id ?? "new-department"} department={editingDepartment} />
-      </section>
+      {editingSetting ? (
+        <ModalPage
+          closeHref="/admin/settings"
+          description="Đổi tên sẽ cập nhật mã nội bộ và các dữ liệu đang liên kết trong cùng giao dịch."
+          eyebrow="SỬA DANH MỤC"
+          size="medium"
+          title={editingSetting.display_name}
+        >
+          <SettingEditor key={editingSetting.id} setting={editingSetting} />
+        </ModalPage>
+      ) : null}
+      {!editingSetting && editingDepartment ? (
+        <ModalPage
+          closeHref="/admin/settings"
+          description="Cập nhật tên, người phụ trách, vị trí và ghi chú của phòng ban."
+          eyebrow="SỬA PHÒNG BAN"
+          size="medium"
+          title={editingDepartment.name}
+        >
+          <DepartmentEditor key={editingDepartment.id} department={editingDepartment} />
+        </ModalPage>
+      ) : null}
 
       <section className="settings-catalog-grid">
         {settingTypes.map((type) => {

@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { AssetForm } from "@/components/asset-form";
-import { PageHeader } from "@/components/page-header";
+import { ModalPage } from "@/components/app-modal";
 import { can, requireAccess } from "@/lib/auth";
 import type { Department, Setting } from "@/lib/types";
 import { redirect } from "next/navigation";
@@ -28,13 +27,13 @@ export default async function NewAssetPage({ searchParams }: NewAssetPageProps) 
   ]);
 
   return (
-    <>
-      <PageHeader
-        eyebrow={isComponent ? "LINH KIỆN MỚI" : "THIẾT BỊ MỚI"}
-        title={isComponent ? "Thêm linh kiện" : "Thêm thiết bị"}
-        description={`${isComponent ? "Linh kiện" : "Thiết bị"} sẽ được lưu trực tiếp vào Supabase và bảo vệ bởi RLS.`}
-        actions={<Link className="secondary-button" href="/assets">Hủy</Link>}
-      />
+    <ModalPage
+      closeHref="/assets"
+      description={`${isComponent ? "Linh kiện" : "Thiết bị"} sẽ được lưu trực tiếp vào Supabase và bảo vệ bởi RLS.`}
+      eyebrow={isComponent ? "LINH KIỆN MỚI" : "THIẾT BỊ MỚI"}
+      size="wide"
+      title={isComponent ? "Thêm linh kiện" : "Thêm thiết bị"}
+    >
       <section className="panel form-panel">
         <AssetForm
           defaultKind={defaultKind}
@@ -42,6 +41,6 @@ export default async function NewAssetPage({ searchParams }: NewAssetPageProps) 
           settings={(settings ?? []) as Setting[]}
         />
       </section>
-    </>
+    </ModalPage>
   );
 }

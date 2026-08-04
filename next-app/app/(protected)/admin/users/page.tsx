@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ModalTrigger } from "@/components/app-modal";
 import { PageHeader } from "@/components/page-header";
 import { requireAccess } from "@/lib/auth";
 import { inviteUser, updateUserAccess } from "./actions";
@@ -54,24 +55,33 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
         eyebrow="QUẢN TRỊ"
         title="Người dùng và phạm vi dữ liệu"
         description="Vai trò quyết định thao tác; phạm vi quyết định những bản ghi người dùng được truy cập."
+        actions={(
+          <ModalTrigger
+            description="Gửi thư mời Supabase Auth và yêu cầu người dùng thiết lập tài khoản."
+            eyebrow="NGƯỜI DÙNG"
+            size="medium"
+            title="Mời tài khoản mới"
+            triggerLabel="+ Mời tài khoản"
+          >
+            <form action={inviteUser} className="data-form compact-form">
+              <label>
+                Họ và tên *
+                <input name="full_name" required />
+              </label>
+              <label>
+                Email *
+                <input name="email" required type="email" />
+              </label>
+              <div className="modal-actions">
+                <button className="primary-button" type="submit">Gửi lời mời</button>
+              </div>
+            </form>
+          </ModalTrigger>
+        )}
       />
 
       {params.ok ? <p className="form-success" role="status">{params.ok}</p> : null}
       {params.error ? <p className="form-error" role="alert">{params.error}</p> : null}
-
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">MỜI TÀI KHOẢN</p>
-            <h2>Supabase Auth</h2>
-          </div>
-        </div>
-        <form action={inviteUser} className="filter-bar">
-          <input name="full_name" placeholder="Họ và tên" required />
-          <input name="email" placeholder="Email" required type="email" />
-          <button className="primary-button" type="submit">Gửi lời mời</button>
-        </form>
-      </section>
 
       <section className="user-access-grid">
         {(profiles ?? []).map((profile) => {
@@ -88,7 +98,15 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                   <small>{profile.email}</small>
                 </div>
               </div>
-              <form action={updateUserAccess} className="stack-form">
+              <ModalTrigger
+                description="Điều chỉnh vai trò, MFA và phạm vi dữ liệu theo từng phân hệ."
+                eyebrow={roleCode.toUpperCase()}
+                size="large"
+                title={`Sửa quyền ${profile.full_name || profile.email}`}
+                triggerClassName="secondary-button"
+                triggerLabel="Sửa quyền truy cập"
+              >
+                <form action={updateUserAccess} className="stack-form">
                 <input name="user_id" type="hidden" value={profile.id} />
                 <label>
                   <span>Vai trò</span>
@@ -150,7 +168,8 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                 <button className="secondary-button" type="submit">
                   Lưu quyền truy cập
                 </button>
-              </form>
+                </form>
+              </ModalTrigger>
             </article>
           );
         })}

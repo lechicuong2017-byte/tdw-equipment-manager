@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AssetForm } from "@/components/asset-form";
-import { PageHeader } from "@/components/page-header";
+import { ModalPage } from "@/components/app-modal";
 import { can, requireAccess } from "@/lib/auth";
 import type {
   Asset,
@@ -51,13 +50,13 @@ export default async function EditAssetPage({ params }: EditAssetProps) {
   if (!asset) notFound();
 
   return (
-    <>
-      <PageHeader
-        eyebrow={asset.asset_code}
-        title="Chỉnh sửa thiết bị"
-        description={asset.asset_name}
-        actions={<Link className="secondary-button" href={`/assets/${id}`}>Hủy</Link>}
-      />
+    <ModalPage
+      closeHref={`/assets/${id}`}
+      description={asset.asset_name}
+      eyebrow={asset.asset_code}
+      size="wide"
+      title="Chỉnh sửa thiết bị"
+    >
       <section className="panel form-panel">
         <AssetForm
           asset={asset as Asset}
@@ -71,6 +70,6 @@ export default async function EditAssetPage({ params }: EditAssetProps) {
           settings={(settings ?? []) as Setting[]}
         />
       </section>
-    </>
+    </ModalPage>
   );
 }

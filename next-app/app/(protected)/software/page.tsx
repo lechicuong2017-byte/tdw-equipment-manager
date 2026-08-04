@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmAction, ModalTrigger } from "@/components/app-modal";
 import { SoftwareForm } from "@/components/software-form";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
@@ -61,14 +62,21 @@ export default async function SoftwarePage() {
         eyebrow="PHẦN MỀM"
         title="Bản quyền phần mềm"
         description="Theo dõi phân bổ và thời hạn; khóa thật nằm ngoài bảng nghiệp vụ và không được gửi xuống trình duyệt."
+        actions={canManage ? (
+          <ModalTrigger
+            description="Khai báo bản quyền mới; admin có thể thêm key mã hóa sau khi lưu."
+            eyebrow="PHẦN MỀM"
+            size="large"
+            title="Thêm bản quyền phần mềm"
+            triggerLabel="+ Thêm phần mềm"
+          >
+            <SoftwareForm
+              assets={assets ?? []}
+              softwareNames={(softwareNames ?? []).map((item) => item.display_name)}
+            />
+          </ModalTrigger>
+        ) : null}
       />
-
-      {canManage ? (
-        <SoftwareForm
-          assets={assets ?? []}
-          softwareNames={(softwareNames ?? []).map((item) => item.display_name)}
-        />
-      ) : null}
 
       <section className="panel module-table">
         <div className="panel-heading">
@@ -146,10 +154,12 @@ export default async function SoftwarePage() {
                             </Link>
                           ) : null}
                           {canDelete ? (
-                            <form action={deleteSoftwareLicense}>
-                              <input name="id" type="hidden" value={license.id} />
-                              <button className="text-button text-danger" type="submit">Xóa</button>
-                            </form>
+                            <ConfirmAction
+                              action={deleteSoftwareLicense}
+                              description={`Bản quyền ${license.software_name} sẽ bị xóa khỏi hệ thống. Khóa mã hóa liên quan cũng không còn truy cập được.`}
+                              fields={{ id: license.id }}
+                              title="Xóa bản quyền phần mềm?"
+                            />
                           ) : null}
                         </div>
                       </td>

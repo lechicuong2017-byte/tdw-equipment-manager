@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ConfirmAction } from "@/components/app-modal";
 import { AssetComponentManager } from "@/components/asset-component-manager";
 import { AssetQrCard } from "@/components/asset-qr-card";
 import { MediaUpload } from "@/components/media-upload";
@@ -179,10 +180,17 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
             warranty_end_date: asset.warranty_end_date,
           }} />
           {can(access, "assets.delete") ? (
-            <form action={archiveAsset} className="danger-zone">
-              <input name="id" type="hidden" value={asset.id} />
-              <button className="danger-button" type="submit">Đưa vào lưu trữ</button>
-            </form>
+            <div className="danger-zone">
+              <ConfirmAction
+                action={archiveAsset}
+                confirmLabel="Đưa vào lưu trữ"
+                description={`Thiết bị ${asset.asset_code} sẽ không còn xuất hiện trong danh sách đang sử dụng. Lịch sử liên quan vẫn được giữ lại.`}
+                fields={{ id: asset.id }}
+                title="Đưa thiết bị vào lưu trữ?"
+                triggerClassName="danger-button"
+                triggerLabel="Đưa vào lưu trữ"
+              />
+            </div>
           ) : null}
         </article>
 
@@ -212,11 +220,15 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
                 <figcaption>
                   <span>{item.file_name}</span>
                   {can(access, "assets.manage") ? (
-                    <form action={deleteAssetMedia}>
-                      <input name="id" type="hidden" value={item.id} />
-                      <input name="asset_id" type="hidden" value={asset.id} />
-                      <button aria-label={`Xóa ${item.file_name}`} type="submit">×</button>
-                    </form>
+                    <ConfirmAction
+                      action={deleteAssetMedia}
+                      description={`Ảnh “${item.file_name}” sẽ bị xóa khỏi hồ sơ và kho lưu trữ.`}
+                      fields={{ id: item.id, asset_id: asset.id }}
+                      title="Xóa ảnh thiết bị?"
+                      triggerAriaLabel={`Xóa ${item.file_name}`}
+                      triggerClassName="media-delete-trigger"
+                      triggerLabel="×"
+                    />
                   ) : null}
                 </figcaption>
               </figure>

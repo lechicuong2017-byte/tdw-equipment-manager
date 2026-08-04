@@ -6,6 +6,7 @@ import {
   createMaintenancePlan,
   type MaintenanceFormState,
 } from "@/app/(protected)/maintenance/actions";
+import { ModalTrigger } from "@/components/app-modal";
 
 type AssetOption = {
   id: string;
@@ -75,7 +76,14 @@ export function MaintenanceForms({
     : [];
 
   return (
-    <div className="module-form-grid">
+    <div className="module-action-bar">
+      <ModalTrigger
+        description="Tạo lịch cho một thiết bị, nhóm thiết bị hoặc toàn bộ loại thiết bị."
+        eyebrow="KẾ HOẠCH"
+        size="medium"
+        title="Thêm lịch định kỳ"
+        triggerLabel="+ Lịch định kỳ"
+      >
       <form action={planAction} className="panel data-form compact-form">
         <div className="panel-heading">
           <div>
@@ -198,7 +206,16 @@ export function MaintenanceForms({
           {planPending ? "Đang lưu…" : "Tạo kế hoạch"}
         </button>
       </form>
+      </ModalTrigger>
 
+      <ModalTrigger
+        description="Ghi nhận nội dung, chi phí, đơn vị thực hiện và thời gian bảo hành bổ sung."
+        eyebrow="NHẬT KÝ"
+        size="medium"
+        title="Ghi nhận bảo trì"
+        triggerClassName="secondary-button"
+        triggerLabel="+ Nhật ký bảo trì"
+      >
       <form action={logAction} className="panel data-form compact-form">
         <div className="panel-heading">
           <div>
@@ -283,6 +300,7 @@ export function MaintenanceForms({
           {logPending ? "Đang lưu…" : "Lưu nhật ký"}
         </button>
       </form>
+      </ModalTrigger>
     </div>
   );
 }

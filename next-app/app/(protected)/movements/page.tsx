@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ModalTrigger } from "@/components/app-modal";
 import { MovementForm } from "@/components/movement-form";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
@@ -44,11 +45,18 @@ export default async function MovementsPage() {
         eyebrow="LUÂN CHUYỂN"
         title="Luân chuyển thiết bị"
         description="Mỗi lần bàn giao được lưu bất biến và cập nhật hồ sơ thiết bị trong cùng một giao dịch."
+        actions={can(access, "movement.manage") ? (
+          <ModalTrigger
+            description="Ghi nhận người sử dụng, vị trí và lý do bàn giao thiết bị."
+            eyebrow="LUÂN CHUYỂN"
+            size="large"
+            title="Thêm lần luân chuyển"
+            triggerLabel="+ Thêm luân chuyển"
+          >
+            <MovementForm assets={assets ?? []} today={today} />
+          </ModalTrigger>
+        ) : null}
       />
-
-      {can(access, "movement.manage") ? (
-        <MovementForm assets={assets ?? []} today={today} />
-      ) : null}
 
       <section className="panel module-table">
         <div className="panel-heading">

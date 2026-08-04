@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
-import { PageHeader } from "@/components/page-header";
+import { ModalPage } from "@/components/app-modal";
 import { SoftwareEditForm } from "@/components/software-edit-form";
 import { SoftwareLicenseSecretPanel } from "@/components/software-license-secret-panel";
 import { can, requireAccess } from "@/lib/auth";
@@ -56,25 +55,27 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
   };
 
   return (
-    <>
-      <PageHeader
-        eyebrow="PHẦN MỀM"
-        title="Sửa bản quyền"
-        description="Cập nhật thông tin phân bổ, thời hạn và key bản quyền được mã hóa."
-        actions={<Link className="secondary-button" href="/software">Hủy</Link>}
-      />
-      <SoftwareEditForm
-        assets={assets ?? []}
-        license={editableLicense}
-        softwareNames={(softwareNames ?? []).map((item) => item.display_name)}
-      />
-      {isAdmin ? (
-        <SoftwareLicenseSecretPanel
-          hasEncryptedSecret={license.license_secret_ref === "encrypted:v1"}
-          licenseId={license.id}
-          maskedKey={license.license_key_masked}
+    <ModalPage
+      closeHref="/software"
+      description="Cập nhật thông tin phân bổ, thời hạn và key bản quyền được mã hóa."
+      eyebrow="PHẦN MỀM"
+      size="large"
+      title="Sửa bản quyền"
+    >
+      <div className="app-modal-stack">
+        <SoftwareEditForm
+          assets={assets ?? []}
+          license={editableLicense}
+          softwareNames={(softwareNames ?? []).map((item) => item.display_name)}
         />
-      ) : null}
-    </>
+        {isAdmin ? (
+          <SoftwareLicenseSecretPanel
+            hasEncryptedSecret={license.license_secret_ref === "encrypted:v1"}
+            licenseId={license.id}
+            maskedKey={license.license_key_masked}
+          />
+        ) : null}
+      </div>
+    </ModalPage>
   );
 }

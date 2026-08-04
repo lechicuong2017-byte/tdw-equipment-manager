@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import {
   saveDepartment,
@@ -20,7 +19,6 @@ export function DepartmentEditor({ department }: { department?: Department }) {
           <p className="eyebrow">{department ? "SỬA PHÒNG BAN" : "THÊM PHÒNG BAN"}</p>
           <h2>{department?.name ?? "Phòng ban mới"}</h2>
         </div>
-        {department ? <Link className="text-button" href="/admin/settings">Hủy sửa</Link> : null}
       </div>
       <label>
         Tên phòng ban *

@@ -5,6 +5,7 @@ import {
   updateMaintenancePlan,
   type MaintenanceFormState,
 } from "@/app/(protected)/maintenance/actions";
+import { AppModal } from "@/components/app-modal";
 
 type EditablePlan = {
   id: string;
@@ -36,36 +37,16 @@ export function MaintenancePlanEditor({
   return (
     <>
       <button className="text-button" onClick={() => setOpen(true)} type="button">Sửa</button>
-      {open ? (
-        <div
-          className="maintenance-plan-editor-backdrop"
-          onClick={() => setOpen(false)}
-          role="presentation"
-        >
-          <form
-            action={action}
-            aria-label="Sửa kế hoạch bảo trì"
-            aria-modal="true"
-            className="maintenance-plan-editor-form"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
+      <AppModal
+        description={scopeLabel}
+        eyebrow="KẾ HOẠCH"
+        onClose={() => setOpen(false)}
+        open={open}
+        size="medium"
+        title="Sửa kế hoạch bảo trì"
+      >
+          <form action={action} className="data-form compact-form">
             <input name="id" type="hidden" value={plan.id} />
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">KẾ HOẠCH</p>
-                <strong>Sửa kế hoạch</strong>
-                <small>{scopeLabel}</small>
-              </div>
-              <button
-                aria-label="Đóng"
-                className="text-button"
-                onClick={() => setOpen(false)}
-                type="button"
-              >
-                Đóng
-              </button>
-            </div>
             <label>
               Tên kế hoạch
               <input defaultValue={plan.title} maxLength={200} name="title" required />
@@ -120,12 +101,14 @@ export function MaintenancePlanEditor({
             ) : null}
             {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
             {state.success ? <p className="form-success" role="status">{state.success}</p> : null}
-            <button className="primary-button" disabled={pending} type="submit">
-              {pending ? "Đang lưu…" : "Lưu thay đổi"}
-            </button>
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setOpen(false)} type="button">Hủy</button>
+              <button className="primary-button" disabled={pending} type="submit">
+                {pending ? "Đang lưu…" : "Lưu thay đổi"}
+              </button>
+            </div>
           </form>
-        </div>
-      ) : null}
+      </AppModal>
     </>
   );
 }

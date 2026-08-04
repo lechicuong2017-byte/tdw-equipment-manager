@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   saveSetting,
@@ -32,7 +31,6 @@ export function SettingEditor({ setting }: { setting?: Setting }) {
           <p className="eyebrow">{setting ? "SỬA DANH MỤC" : "THÊM DANH MỤC"}</p>
           <h2>{setting ? setting.display_name : "Cấu hình mới"}</h2>
         </div>
-        {setting ? <Link className="text-button" href="/admin/settings">Hủy sửa</Link> : null}
       </div>
       <label>
         Loại cấu hình

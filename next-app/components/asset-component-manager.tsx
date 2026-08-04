@@ -4,6 +4,7 @@ import {
   removeAssetComponent,
   replaceAssetComponent,
 } from "@/app/(protected)/assets/actions";
+import { ModalTrigger } from "@/components/app-modal";
 import { formatDate, labelStatus, statusLabels } from "@/lib/format";
 import type {
   Asset,
@@ -167,8 +168,14 @@ export function AssetComponentManager({
 
               {canManage ? (
                 <div className="component-card-actions">
-                  <details>
-                    <summary>Thay linh kiện</summary>
+                  <ModalTrigger
+                    description={`Thay ${component.asset_code} và lưu đầy đủ lịch sử linh kiện cũ/mới.`}
+                    eyebrow="LINH KIỆN"
+                    size="medium"
+                    title="Thay linh kiện"
+                    triggerClassName="secondary-button"
+                    triggerLabel="Thay linh kiện"
+                  >
                     <form action={replaceAssetComponent} className="component-action-form">
                       <input name="host_asset_id" type="hidden" value={asset.id} />
                       <input name="old_component_asset_id" type="hidden" value={component.id} />
@@ -206,10 +213,16 @@ export function AssetComponentManager({
                       </label>
                       <button className="primary-button" type="submit">Xác nhận thay</button>
                     </form>
-                  </details>
+                  </ModalTrigger>
 
-                  <details>
-                    <summary>Tháo linh kiện</summary>
+                  <ModalTrigger
+                    description={`Tháo ${component.asset_code} khỏi thiết bị và lưu trạng thái sau khi tháo.`}
+                    eyebrow="LINH KIỆN"
+                    size="medium"
+                    title="Tháo linh kiện"
+                    triggerClassName="danger-button"
+                    triggerLabel="Tháo linh kiện"
+                  >
                     <form action={removeAssetComponent} className="component-action-form">
                       <input name="host_asset_id" type="hidden" value={asset.id} />
                       <input name="component_asset_id" type="hidden" value={component.id} />
@@ -236,7 +249,7 @@ export function AssetComponentManager({
                       </label>
                       <button className="danger-button" type="submit">Xác nhận tháo</button>
                     </form>
-                  </details>
+                  </ModalTrigger>
                 </div>
               ) : null}
             </article>
@@ -300,33 +313,41 @@ export function AssetComponentManager({
             <h3>Thêm vào cấu hình hiện tại</h3>
           </div>
           {availableComponents.length ? (
-            <form action={installAssetComponent} className="component-install-form">
-              <input name="host_asset_id" type="hidden" value={asset.id} />
-              <label className="span-2">
-                Linh kiện
-                <select name="component_asset_id" required>
-                  <option value="">Chọn linh kiện đang rời</option>
-                  {availableComponents.map((component) => (
-                    <option key={component.id} value={component.id}>
-                      {component.asset_code} — {component.asset_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Ngày lắp
-                <input defaultValue={today} name="installed_at" required type="date" />
-              </label>
-              <label>
-                Vị trí / khe
-                <input maxLength={120} name="slot_name" placeholder="Ví dụ: RAM slot 1, M.2" />
-              </label>
-              <label className="span-2">
-                Ghi chú
-                <input maxLength={1000} name="note" />
-              </label>
-              <button className="primary-button" type="submit">Gắn linh kiện</button>
-            </form>
+            <ModalTrigger
+              description="Chọn linh kiện đang rời, ngày lắp và vị trí trong thiết bị."
+              eyebrow="CẤU HÌNH PHẦN CỨNG"
+              size="medium"
+              title="Gắn linh kiện"
+              triggerLabel="+ Gắn linh kiện"
+            >
+              <form action={installAssetComponent} className="component-install-form">
+                <input name="host_asset_id" type="hidden" value={asset.id} />
+                <label className="span-2">
+                  Linh kiện
+                  <select name="component_asset_id" required>
+                    <option value="">Chọn linh kiện đang rời</option>
+                    {availableComponents.map((component) => (
+                      <option key={component.id} value={component.id}>
+                        {component.asset_code} — {component.asset_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Ngày lắp
+                  <input defaultValue={today} name="installed_at" required type="date" />
+                </label>
+                <label>
+                  Vị trí / khe
+                  <input maxLength={120} name="slot_name" placeholder="Ví dụ: RAM slot 1, M.2" />
+                </label>
+                <label className="span-2">
+                  Ghi chú
+                  <input maxLength={1000} name="note" />
+                </label>
+                <button className="primary-button" type="submit">Gắn linh kiện</button>
+              </form>
+            </ModalTrigger>
           ) : (
             <p className="form-help">
               Chưa có linh kiện rời phù hợp. Hãy <Link href="/assets/new?kind=component">tạo linh kiện mới</Link>,
