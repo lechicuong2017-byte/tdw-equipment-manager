@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createHash } from "node:crypto";
 import { z } from "zod";
+import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
 import { runMaintenanceReminders } from "@/lib/maintenance-reminders";
 
@@ -50,7 +52,31 @@ const logSchema = z.object({
   note: z.string().trim().max(3000),
 });
 
+const maintenanceMediaSchema = z.object({
+  maintenance_log_id: z.uuid("Nhật ký bảo trì không hợp lệ"),
+});
+
+const maintenanceMediaFileSchema = z
+  .instanceof(File)
+  .refine((file) => file.size > 0, "Hãy chọn ít nhất một hình ảnh")
+  .refine((file) => file.size <= 5 * 1024 * 1024, "Ảnh không được vượt quá 5 MB")
+  .refine(
+    (file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type),
+    "Chỉ chấp nhận JPEG, PNG hoặc WebP",
+  );
+
+const maxMaintenanceMediaFiles = 5;
+const maxMaintenanceMediaBytes = 5 * 1024 * 1024;
+
+type AccessContext = Awaited<ReturnType<typeof requireAccess>>;
+
 export type MaintenanceFormState = {
+  error?: string;
+  success?: string;
+  logId?: string;
+};
+
+export type MaintenanceMediaFormState = {
   error?: string;
   success?: string;
 };
@@ -77,6 +103,144 @@ function maintenanceRpcError(message: string) {
     return "Bạn không có quyền quản lý một hoặc nhiều thiết bị trong phạm vi này.";
   }
   return "Không thể lưu kế hoạch. Hãy kiểm tra quyền và dữ liệu.";
+}
+
+function getMaintenanceMediaFiles(formData: FormData) {
+  const files = formData
+    .getAll("files")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+  if (files.length > maxMaintenanceMediaFiles) {
+    return {
+      error: `Chỉ được tải tối đa ${maxMaintenanceMediaFiles} ảnh cho mỗi lần ghi nhận.`,
+      files: [] as File[],
+    };
+  }
+  if (files.reduce((total, file) => total + file.size, 0) > maxMaintenanceMediaBytes) {
+    return {
+      error: "Tổng dung lượng ảnh mỗi lần tải không được vượt quá 5 MB.",
+      files: [] as File[],
+    };
+  }
+  for (const file of files) {
+    const parsed = maintenanceMediaFileSchema.safeParse(file);
+    if (!parsed.success) {
+      return {
+        error: parsed.error.issues[0]?.message ?? "Ảnh chưa hợp lệ",
+        files: [] as File[],
+      };
+    }
+  }
+  return { files };
+}
+
+async function storeMaintenanceMedia({
+  access,
+  assetId,
+  file,
+  logId,
+  supabase,
+}: {
+  access: AccessContext["access"];
+  assetId: string;
+  file: File;
+  logId: string;
+  supabase: AccessContext["supabase"];
+}): Promise<{ error?: string }> {
+  const extension =
+    file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const mediaId = crypto.randomUUID();
+  const objectPath = `${access.user_id}/${assetId}/maintenance/${logId}/${mediaId}.${extension}`;
+  const thumbnailPath = `${access.user_id}/${assetId}/maintenance/${logId}/${mediaId}.thumb.webp`;
+  const bytes = await file.arrayBuffer();
+  const checksum = createHash("sha256")
+    .update(Buffer.from(bytes))
+    .digest("hex");
+  let thumbnailBytes: Buffer;
+  let imageWidth: number | null = null;
+  let imageHeight: number | null = null;
+
+  try {
+    const image = sharp(bytes, {
+      failOn: "error",
+      limitInputPixels: 40_000_000,
+    }).rotate();
+    const metadata = await image.metadata();
+    const detectedMime =
+      metadata.format === "jpeg"
+        ? "image/jpeg"
+        : metadata.format === "png"
+          ? "image/png"
+          : metadata.format === "webp"
+            ? "image/webp"
+            : null;
+    if (
+      detectedMime !== file.type
+      || !metadata.width
+      || !metadata.height
+      || (metadata.pages ?? 1) > 1
+    ) {
+      throw new Error("Unsupported image content");
+    }
+    imageWidth = metadata.width;
+    imageHeight = metadata.height;
+    thumbnailBytes = await image
+      .clone()
+      .resize(480, 360, { fit: "inside", withoutEnlargement: true })
+      .webp({ effort: 4, quality: 78 })
+      .toBuffer();
+  } catch {
+    return { error: "Tệp ảnh không hợp lệ hoặc có kích thước xử lý quá lớn." };
+  }
+
+  const { error: metadataError } = await supabase.from("media_files").insert({
+    id: mediaId,
+    owner_type: "MAINTENANCE",
+    owner_id: logId,
+    asset_id: assetId,
+    object_path: objectPath,
+    thumbnail_path: thumbnailPath,
+    file_name: file.name.slice(0, 200),
+    mime_type: file.type,
+    byte_size: file.size,
+    checksum,
+    width: imageWidth,
+    height: imageHeight,
+    created_by: access.user_id,
+  });
+  if (metadataError) {
+    return { error: "Không thể chuẩn bị metadata cho hình ảnh." };
+  }
+
+  const { error: uploadError } = await supabase.storage
+    .from("asset-media")
+    .upload(objectPath, bytes, {
+      contentType: file.type,
+      cacheControl: "31536000",
+      upsert: false,
+    });
+  if (uploadError) {
+    await supabase.from("media_files").delete().eq("id", mediaId);
+    return { error: "Không thể tải ảnh lên Storage." };
+  }
+
+  const { error: thumbnailUploadError } = await supabase.storage
+    .from("asset-media")
+    .upload(thumbnailPath, thumbnailBytes, {
+      contentType: "image/webp",
+      cacheControl: "31536000",
+      upsert: false,
+    });
+  if (thumbnailUploadError) {
+    const { error: cleanupError } = await supabase.storage
+      .from("asset-media")
+      .remove([objectPath]);
+    if (!cleanupError) {
+      await supabase.from("media_files").delete().eq("id", mediaId);
+    }
+    return { error: "Không thể tạo ảnh xem nhanh; ảnh tải lên đã được hoàn tác." };
+  }
+
+  return {};
 }
 
 export async function createMaintenancePlan(
@@ -164,6 +328,8 @@ export async function createMaintenanceLog(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
   }
+  const mediaFiles = getMaintenanceMediaFiles(formData);
+  if (mediaFiles.error) return { error: mediaFiles.error };
 
   const { supabase, access } = await requireAccess();
   if (!can(access, "maintenance.manage")) {
@@ -183,14 +349,125 @@ export async function createMaintenanceLog(
     }
   }
 
-  const { error } = await supabase.from("maintenance_logs").insert(parsed.data);
-  if (error) {
+  const { data: createdLog, error } = await supabase
+    .from("maintenance_logs")
+    .insert(parsed.data)
+    .select("id")
+    .single();
+  if (error || !createdLog) {
     return { error: "Không thể lưu nhật ký. Hãy kiểm tra quyền và dữ liệu." };
+  }
+
+  let uploadedMedia = 0;
+  for (const file of mediaFiles.files) {
+    const result = await storeMaintenanceMedia({
+      access,
+      assetId: parsed.data.asset_id,
+      file,
+      logId: createdLog.id,
+      supabase,
+    });
+    if (!result.error) uploadedMedia += 1;
   }
 
   revalidatePath("/maintenance");
   revalidatePath(`/assets/${parsed.data.asset_id}`);
-  return { success: "Đã ghi nhận lần bảo trì." };
+  const mediaMessage = mediaFiles.files.length
+    ? ` Đã tải ${uploadedMedia}/${mediaFiles.files.length} ảnh.`
+    : "";
+  const retryMessage = uploadedMedia < mediaFiles.files.length
+    ? " Hãy mở nút Ảnh của nhật ký để tải lại ảnh chưa thành công."
+    : "";
+  return {
+    logId: createdLog.id,
+    success: `Đã ghi nhận lần bảo trì.${mediaMessage}${retryMessage}`,
+  };
+}
+
+export async function uploadMaintenanceMedia(
+  _previousState: MaintenanceMediaFormState,
+  formData: FormData,
+): Promise<MaintenanceMediaFormState> {
+  const parsed = maintenanceMediaSchema.safeParse(
+    Object.fromEntries(formData.entries()),
+  );
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Nhật ký bảo trì không hợp lệ" };
+  }
+  const mediaFiles = getMaintenanceMediaFiles(formData);
+  if (mediaFiles.error) return { error: mediaFiles.error };
+  if (!mediaFiles.files.length) return { error: "Hãy chọn ít nhất một hình ảnh." };
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "maintenance.manage")) {
+    return { error: "Bạn không có quyền tải hình ảnh bảo trì." };
+  }
+  const { data: log, error: logError } = await supabase
+    .from("maintenance_logs")
+    .select("id, asset_id")
+    .eq("id", parsed.data.maintenance_log_id)
+    .single();
+  if (logError || !log) {
+    return { error: "Không tìm thấy nhật ký hoặc bạn không có quyền tải ảnh." };
+  }
+
+  let uploadedMedia = 0;
+  for (const file of mediaFiles.files) {
+    const result = await storeMaintenanceMedia({
+      access,
+      assetId: log.asset_id,
+      file,
+      logId: log.id,
+      supabase,
+    });
+    if (!result.error) uploadedMedia += 1;
+  }
+  if (!uploadedMedia) return { error: "Không thể tải ảnh lên Storage." };
+
+  revalidatePath("/maintenance");
+  revalidatePath(`/assets/${log.asset_id}`);
+  return {
+    success: `Đã tải ${uploadedMedia}/${mediaFiles.files.length} ảnh cho nhật ký bảo trì.`,
+  };
+}
+
+export async function deleteMaintenanceMedia(formData: FormData) {
+  const parsed = z.object({
+    id: z.uuid("Ảnh không hợp lệ"),
+    maintenance_log_id: z.uuid("Nhật ký bảo trì không hợp lệ"),
+  }).safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: "Thông tin ảnh không hợp lệ." };
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "maintenance.manage")) {
+    return { error: "Bạn không có quyền xóa hình ảnh bảo trì." };
+  }
+  const { data } = await supabase
+    .from("media_files")
+    .select("object_path, thumbnail_path, asset_id")
+    .eq("id", parsed.data.id)
+    .eq("owner_type", "MAINTENANCE")
+    .eq("owner_id", parsed.data.maintenance_log_id)
+    .single();
+  if (!data) return { error: "Không tìm thấy ảnh cần xóa." };
+
+  const { error: storageError } = await supabase.storage
+    .from("asset-media")
+    .remove([
+      data.object_path,
+      ...(data.thumbnail_path ? [data.thumbnail_path] : []),
+    ]);
+  if (storageError) return { error: "Không thể xóa tệp ảnh trong kho lưu trữ." };
+
+  const { error: databaseError } = await supabase
+    .from("media_files")
+    .delete()
+    .eq("id", parsed.data.id);
+  if (databaseError) return { error: "Không thể xóa thông tin ảnh." };
+
+  revalidatePath("/maintenance");
+  revalidatePath(`/assets/${data.asset_id}`);
+  return { success: "Đã xóa ảnh bảo trì." };
 }
 
 export async function toggleMaintenancePlan(formData: FormData) {

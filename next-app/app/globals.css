@@ -987,6 +987,19 @@ tbody tr:hover td {
   justify-self: end;
 }
 
+.maintenance-log-upload {
+  margin-top: 0.15rem;
+  min-height: 105px;
+}
+
+.maintenance-media-cell {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 96px;
+}
+
 .maintenance-target-count {
   background: var(--surface-muted);
   border: 1px solid var(--line);

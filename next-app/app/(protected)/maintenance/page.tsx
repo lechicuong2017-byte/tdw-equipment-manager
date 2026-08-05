@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ConfirmAction } from "@/components/app-modal";
 import { MaintenanceForms } from "@/components/maintenance-forms";
+import { MaintenanceMediaUpload } from "@/components/maintenance-media-upload";
 import { MaintenancePlanEditor } from "@/components/maintenance-plan-editor";
 import { MaintenanceReminderButton } from "@/components/maintenance-reminder-button";
 import { PageHeader } from "@/components/page-header";
@@ -58,6 +59,15 @@ export default async function MaintenancePage() {
       .order("sort_order"),
   ]);
 
+  const logIds = (logs ?? []).map((log) => log.id);
+  const { data: maintenanceMedia } = logIds.length
+    ? await supabase
+        .from("media_files")
+        .select("owner_id")
+        .eq("owner_type", "MAINTENANCE")
+        .in("owner_id", logIds)
+    : { data: [] as { owner_id: string }[] };
+
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date());
@@ -88,6 +98,10 @@ export default async function MaintenancePage() {
   const batchSizes = new Map<string, number>();
   (plans ?? []).forEach((plan) => {
     batchSizes.set(plan.batch_id, (batchSizes.get(plan.batch_id) ?? 0) + 1);
+  });
+  const mediaCounts = new Map<string, number>();
+  (maintenanceMedia ?? []).forEach((item) => {
+    mediaCounts.set(item.owner_id, (mediaCounts.get(item.owner_id) ?? 0) + 1);
   });
 
   return (
@@ -235,6 +249,7 @@ export default async function MaintenancePage() {
                   <th>Nội dung</th>
                   <th>Thực hiện</th>
                   <th className="align-right">Chi phí</th>
+                  <th>Hình ảnh</th>
                   {canDelete ? <th aria-label="Thao tác" /> : null}
                 </tr>
               </thead>
@@ -257,6 +272,17 @@ export default async function MaintenancePage() {
                       </td>
                       <td>{log.performed_by || log.vendor || "—"}</td>
                       <td className="align-right">{formatMoney(log.cost)}</td>
+                      <td>
+                        <div className="maintenance-media-cell">
+                          <span className="table-note">{mediaCounts.get(log.id) ?? 0} ảnh</span>
+                          {canManage ? (
+                            <MaintenanceMediaUpload
+                              maintenanceLogId={log.id}
+                              mediaCount={mediaCounts.get(log.id) ?? 0}
+                            />
+                          ) : null}
+                        </div>
+                      </td>
                       {canDelete ? (
                         <td>
                           <ConfirmAction
@@ -272,7 +298,7 @@ export default async function MaintenancePage() {
                 })}
                 {!logs?.length ? (
                   <tr>
-                    <td className="empty-cell" colSpan={canDelete ? 5 : 4}>
+                    <td className="empty-cell" colSpan={canDelete ? 6 : 5}>
                       Chưa có nhật ký bảo trì.
                     </td>
                   </tr>

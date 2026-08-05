@@ -298,6 +298,17 @@ export function MaintenanceForms({
           Ghi chú
           <textarea maxLength={3000} name="note" rows={2} />
         </label>
+        <label className="upload-drop maintenance-log-upload">
+          <span aria-hidden="true">＋</span>
+          <strong>Thêm hình ảnh bảo trì</strong>
+          <small>JPEG, PNG hoặc WebP · tổng tối đa 5 MB/lần · chọn tối đa 5 ảnh</small>
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            name="files"
+            type="file"
+          />
+        </label>
         <ActionMessage state={logState} />
         <button className="primary-button" disabled={logPending || !assets.length} type="submit">
           {logPending ? "Đang lưu…" : "Lưu nhật ký"}
