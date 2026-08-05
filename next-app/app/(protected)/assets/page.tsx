@@ -10,6 +10,7 @@ import {
 } from "@/components/asset-list-previews";
 import { can, requireAccess } from "@/lib/auth";
 import { formatMoney, labelStatus } from "@/lib/format";
+import { z } from "zod";
 
 export const metadata = { title: "Thiết bị" };
 
@@ -21,6 +22,7 @@ type AssetsPageProps = {
     status?: string;
     kind?: string;
     category?: string;
+    department?: string;
     page?: string;
   }>;
 };
@@ -45,6 +47,12 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     .trim()
     .replace(/[^\p{L}\p{N}\s()./+&-]/gu, "")
     .slice(0, 120);
+  const rawDepartment = String(params.department ?? "").trim();
+  const department = rawDepartment === "UNASSIGNED"
+    ? rawDepartment
+    : z.uuid().safeParse(rawDepartment).success
+      ? rawDepartment
+      : "";
   const page = Math.max(1, Math.min(10000, Number.parseInt(params.page ?? "1", 10) || 1));
   const pageSize = 20;
   const from = (page - 1) * pageSize;
@@ -67,11 +75,14 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   if (status) query = query.eq("status", status);
   if (kind) query = query.eq("asset_kind", kind);
   if (category) query = query.eq("asset_type", category);
+  if (department === "UNASSIGNED") query = query.is("department_id", null);
+  else if (department) query = query.eq("department_id", department);
 
   const [
     { data: configuredSettings },
     { data, count },
     { data: categoryData },
+    { data: departments },
   ] = await Promise.all([
     supabase
       .from("settings")
@@ -81,6 +92,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       .order("sort_order"),
     query,
     supabase.rpc("get_asset_filter_options"),
+    supabase
+      .from("departments")
+      .select("id,name")
+      .order("name"),
   ]);
   const statusSettings = (configuredSettings ?? []).filter(
     (item) => item.setting_type === "status",
@@ -102,6 +117,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     if (status) nextParams.set("status", status);
     if (kind) nextParams.set("kind", kind);
     if (category) nextParams.set("category", category);
+    if (department) nextParams.set("department", department);
     nextParams.set("page", String(targetPage));
     return `/assets?${nextParams.toString()}`;
   };
@@ -128,6 +144,26 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <span aria-hidden="true">⌕</span>
             <input defaultValue={search} name="q" placeholder="Tìm mã, tên hoặc serial…" />
           </label>
+          <AutoSubmitSelect aria-label="Lọc theo phòng ban" defaultValue={department} name="department">
+            <option value="">Tất cả phòng ban</option>
+            <option value="UNASSIGNED">Chưa phân phòng</option>
+            {(departments ?? []).map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </AutoSubmitSelect>
+          <AutoSubmitSelect aria-label="Lọc theo danh mục" defaultValue={category} name="category">
+            <option value="">Tất cả danh mục</option>
+            {categoryOptions.map((option) => (
+              <option key={option.category} value={option.category}>
+                {settingLabels.get(option.category) ?? option.category} ({option.item_count})
+              </option>
+            ))}
+          </AutoSubmitSelect>
+          <AutoSubmitSelect aria-label="Lọc theo phân loại" defaultValue={kind} name="kind">
+            <option value="">Tất cả phân loại</option>
+            <option value="DEVICE">Thiết bị hoàn chỉnh</option>
+            <option value="COMPONENT">Linh kiện bên trong</option>
+          </AutoSubmitSelect>
           <AutoSubmitSelect aria-label="Lọc theo trạng thái" defaultValue={status} name="status">
             <option value="">Tất cả trạng thái</option>
             {statusSettings.length ? statusSettings.map((item) => (
@@ -142,19 +178,6 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 <option value="LUU_KHO_THANH_LY">Lưu kho chờ thanh lý</option>
               </>
             )}
-          </AutoSubmitSelect>
-          <AutoSubmitSelect aria-label="Lọc theo phân loại" defaultValue={kind} name="kind">
-            <option value="">Tất cả phân loại</option>
-            <option value="DEVICE">Thiết bị hoàn chỉnh</option>
-            <option value="COMPONENT">Linh kiện bên trong</option>
-          </AutoSubmitSelect>
-          <AutoSubmitSelect aria-label="Lọc theo danh mục" defaultValue={category} name="category">
-            <option value="">Tất cả danh mục</option>
-            {categoryOptions.map((option) => (
-              <option key={option.category} value={option.category}>
-                {settingLabels.get(option.category) ?? option.category} ({option.item_count})
-              </option>
-            ))}
           </AutoSubmitSelect>
           <button className="visually-hidden" type="submit">Tìm kiếm</button>
         </InstantFilterForm>
