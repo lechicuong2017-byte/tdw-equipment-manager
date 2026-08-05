@@ -499,6 +499,37 @@ export async function deleteMaintenanceRecord(formData: FormData) {
 
   const table =
     parsed.data.kind === "plan" ? "maintenance_plans" : "maintenance_logs";
+  if (parsed.data.kind === "log") {
+    const { data: mediaRows, error: mediaLookupError } = await supabase
+      .from("media_files")
+      .select("id, object_path, thumbnail_path")
+      .eq("owner_type", "MAINTENANCE")
+      .eq("owner_id", parsed.data.id);
+    if (mediaLookupError) {
+      return { error: "Không thể kiểm tra hình ảnh của nhật ký bảo trì." };
+    }
+    if (mediaRows?.length) {
+      const { error: storageError } = await supabase.storage
+        .from("asset-media")
+        .remove(
+          mediaRows.flatMap((media) => [
+            media.object_path,
+            ...(media.thumbnail_path ? [media.thumbnail_path] : []),
+          ]),
+        );
+      if (storageError) {
+        return { error: "Không thể xóa hình ảnh của nhật ký bảo trì." };
+      }
+      const { error: mediaDeleteError } = await supabase
+        .from("media_files")
+        .delete()
+        .eq("owner_type", "MAINTENANCE")
+        .eq("owner_id", parsed.data.id);
+      if (mediaDeleteError) {
+        return { error: "Không thể xóa metadata hình ảnh của nhật ký bảo trì." };
+      }
+    }
+  }
   const { error } = await supabase.from(table).delete().eq("id", parsed.data.id);
   if (error) return { error: "Không thể xóa dữ liệu bảo trì." };
   revalidatePath("/maintenance");
