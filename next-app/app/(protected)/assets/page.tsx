@@ -212,7 +212,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                     <td>
                       <div className="asset-table-identity">
                         <AssetListThumbnail assetId={asset.id} assetName={asset.asset_name} />
-                        <Link className="asset-name" href={`/assets/${asset.id}`}>
+                        <Link
+                          className="asset-name"
+                          href={`/assets/${asset.id}?returnTo=${encodeURIComponent(pageHref(page))}`}
+                        >
                           <strong>{asset.asset_name}</strong>
                           <small>
                             {asset.asset_code} · {asset.brand} {asset.model}

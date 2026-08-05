@@ -8,6 +8,7 @@ import { MediaUpload } from "@/components/media-upload";
 import { PageHeader } from "@/components/page-header";
 import { archiveAsset, deleteAssetMedia } from "../actions";
 import { can, requireAccess } from "@/lib/auth";
+import { safeAssetsReturnTo } from "@/lib/asset-navigation";
 import {
   formatDate,
   formatMoney,
@@ -24,7 +25,7 @@ export const metadata = { title: "Hồ sơ thiết bị" };
 
 type AssetDetailProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ component_status?: string }>;
+  searchParams: Promise<{ component_status?: string; returnTo?: string }>;
 };
 
 function relatedSummary(
@@ -35,7 +36,9 @@ function relatedSummary(
 
 export default async function AssetDetailPage({ params, searchParams }: AssetDetailProps) {
   const { id } = await params;
-  const componentStatus = String((await searchParams).component_status ?? "");
+  const routeParams = await searchParams;
+  const componentStatus = String(routeParams.component_status ?? "");
+  const returnTo = safeAssetsReturnTo(routeParams.returnTo);
   const { supabase, access } = await requireAccess();
   const [{ data: assetData }, { data: mediaData }, { data: configuredSettings }] = await Promise.all([
     supabase
@@ -151,9 +154,16 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
         actions={
           <>
             {can(access, "assets.manage") ? (
-              <Link className="secondary-button" href={`/assets/${asset.id}/edit`}>Chỉnh sửa</Link>
+              <Link
+                className="secondary-button"
+                href={returnTo
+                  ? `/assets/${asset.id}/edit?returnTo=${encodeURIComponent(returnTo)}`
+                  : `/assets/${asset.id}/edit`}
+              >
+                Chỉnh sửa
+              </Link>
             ) : null}
-            <Link className="secondary-button" href="/assets">Danh sách</Link>
+            <Link className="secondary-button" href={returnTo ?? "/assets"}>Danh sách</Link>
           </>
         }
       />

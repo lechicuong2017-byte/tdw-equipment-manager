@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
+import { safeAssetsReturnTo } from "@/lib/asset-navigation";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
@@ -109,6 +110,11 @@ export async function saveAsset(
   revalidatePath("/dashboard");
   revalidatePath("/assets");
   const successMessage = id ? "Đã cập nhật thiết bị." : "Đã thêm thiết bị.";
+  const returnTo = safeAssetsReturnTo(formData.get("return_to"));
+  if (returnTo) {
+    const separator = returnTo.includes("?") ? "&" : "?";
+    redirect(`${returnTo}${separator}ok=${encodeURIComponent(successMessage)}`);
+  }
   redirect(`/assets/${data.id}?ok=${encodeURIComponent(successMessage)}`);
 }
 

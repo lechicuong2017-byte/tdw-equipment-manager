@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { AssetForm } from "@/components/asset-form";
 import { ModalPage } from "@/components/app-modal";
 import { can, requireAccess } from "@/lib/auth";
+import { safeAssetsReturnTo } from "@/lib/asset-navigation";
 import type {
   Asset,
   AssetResponsible,
@@ -14,10 +15,12 @@ export const metadata = { title: "Chỉnh sửa thiết bị" };
 
 type EditAssetProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function EditAssetPage({ params }: EditAssetProps) {
+export default async function EditAssetPage({ params, searchParams }: EditAssetProps) {
   const { id } = await params;
+  const returnTo = safeAssetsReturnTo((await searchParams).returnTo);
   const { supabase, access } = await requireAccess();
   if (!can(access, "assets.manage")) redirect(`/assets/${id}`);
 
@@ -51,7 +54,7 @@ export default async function EditAssetPage({ params }: EditAssetProps) {
 
   return (
     <ModalPage
-      closeHref={`/assets/${id}`}
+      closeHref={returnTo ?? `/assets/${id}`}
       description={asset.asset_name}
       eyebrow={asset.asset_code}
       size="wide"
@@ -68,6 +71,7 @@ export default async function EditAssetPage({ params }: EditAssetProps) {
             isAdmin ? (responsibles ?? []) as AssetResponsible[] : []
           }
           settings={(settings ?? []) as Setting[]}
+          returnTo={returnTo ?? undefined}
         />
       </section>
     </ModalPage>

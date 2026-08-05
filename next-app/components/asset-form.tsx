@@ -20,6 +20,7 @@ export function AssetForm({
   asset,
   defaultKind = "DEVICE",
   departments,
+  returnTo,
   responsibleUsers = [],
   responsibles = [],
   settings = [],
@@ -27,6 +28,7 @@ export function AssetForm({
   asset?: Asset;
   defaultKind?: "DEVICE" | "COMPONENT";
   departments: Department[];
+  returnTo?: string;
   responsibleUsers?: ResponsibleUser[];
   responsibles?: AssetResponsible[];
   settings?: Setting[];
@@ -74,6 +76,7 @@ export function AssetForm({
   return (
     <form action={formAction} className="data-form">
       <input name="id" type="hidden" value={asset?.id ?? ""} />
+      {returnTo ? <input name="return_to" type="hidden" value={returnTo} /> : null}
       <div className="form-section-heading">
         <div>
           <p className="eyebrow">THÔNG TIN CHÍNH</p>
