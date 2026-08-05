@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ModalPage, ModalTrigger } from "@/components/app-modal";
+import { ConfirmAction, ModalPage, ModalTrigger } from "@/components/app-modal";
 import { DepartmentEditor } from "@/components/department-editor";
 import { PageHeader } from "@/components/page-header";
 import { SettingEditor } from "@/components/setting-editor";
 import { requireAccess } from "@/lib/auth";
 import { settingTypeDefinitions, settingTypes } from "@/lib/settings";
 import type { Department, Setting } from "@/lib/types";
-import { moveSetting, toggleSetting } from "./actions";
+import { deleteDepartment, moveSetting, toggleSetting } from "./actions";
 
 export const metadata = { title: "Cấu hình" };
 
@@ -189,7 +189,19 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                   <td>{department.manager_name || "—"}</td>
                   <td>{department.location || "—"}</td>
                   <td className="table-secondary">{department.note || "—"}</td>
-                  <td><Link className="text-button" href={`/admin/settings?department=${department.id}`}>Sửa</Link></td>
+                  <td>
+                    <div className="row-actions">
+                      <Link className="text-button" href={`/admin/settings?department=${department.id}`}>Sửa</Link>
+                      <ConfirmAction
+                        action={deleteDepartment}
+                        description={`Phòng ban “${department.name}” chỉ được xóa khi chưa có thiết bị hoặc phạm vi người dùng liên kết.`}
+                        fields={{ id: department.id }}
+                        title="Xóa phòng ban?"
+                        triggerClassName="text-button text-danger"
+                        triggerLabel="Xóa"
+                      />
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!departmentRows.length ? (

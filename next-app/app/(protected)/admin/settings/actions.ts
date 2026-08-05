@@ -188,3 +188,45 @@ export async function saveDepartment(
     success: id.data ? "Đã cập nhật phòng ban." : "Đã thêm phòng ban.",
   };
 }
+
+export async function deleteDepartment(formData: FormData) {
+  const parsed = z.object({ id: z.uuid("Phòng ban không hợp lệ") })
+    .safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: "Thông tin phòng ban không hợp lệ." };
+
+  const { supabase } = await requireAdmin();
+  const [{ count: assetCount, error: assetCountError }, { count: scopeCount, error: scopeCountError }] = await Promise.all([
+    supabase
+      .from("assets")
+      .select("id", { count: "exact", head: true })
+      .eq("department_id", parsed.data.id),
+    supabase
+      .from("data_access_scopes")
+      .select("id", { count: "exact", head: true })
+      .eq("department_id", parsed.data.id),
+  ]);
+  if (assetCountError || scopeCountError) {
+    return { error: "Không thể kiểm tra dữ liệu đang liên kết với phòng ban." };
+  }
+  if ((assetCount ?? 0) > 0 || (scopeCount ?? 0) > 0) {
+    const details = [
+      assetCount ? `${assetCount} thiết bị` : "",
+      scopeCount ? `${scopeCount} phạm vi người dùng` : "",
+    ].filter(Boolean).join(" và ");
+    return {
+      error: `Không thể xóa phòng ban vì đang được sử dụng bởi ${details}. Hãy chuyển dữ liệu trước.`,
+    };
+  }
+
+  const { error } = await supabase
+    .from("departments")
+    .delete()
+    .eq("id", parsed.data.id);
+  if (error?.code === "23503") {
+    return { error: "Phòng ban vẫn còn dữ liệu liên kết nên chưa thể xóa." };
+  }
+  if (error) return { error: "Không thể xóa phòng ban." };
+
+  revalidateSettingsConsumers();
+  return { success: "Đã xóa phòng ban." };
+}
