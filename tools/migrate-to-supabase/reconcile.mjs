@@ -5,9 +5,12 @@ import {
   readCsv,
   supabaseRest,
 } from "./shared.mjs";
+import { withBaselineMaintenanceSettings } from "./default-settings.mjs";
 
 const sourceAssets = await readCsv("Assets.csv");
-const sourceSettings = await readCsv("Settings.csv");
+const sourceSettings = withBaselineMaintenanceSettings(
+  await readCsv("Settings.csv"),
+);
 const sourceDepartments = await readCsv("Departments.csv");
 const sourceMaintenance = await readCsv("MaintenanceLogs.csv");
 const sourceMovements = await readCsv("InventoryMovements.csv");

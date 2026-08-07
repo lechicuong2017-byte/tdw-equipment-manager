@@ -12,13 +12,14 @@ import {
   timestampValue,
   upsertBatches,
 } from "./shared.mjs";
+import { withBaselineMaintenanceSettings } from "./default-settings.mjs";
 
 const apply = process.argv.includes("--apply");
 
 const [
   sourceAssets,
   sourceDepartments,
-  sourceSettings,
+  sourceSettingsCsv,
   sourceMaintenanceLogs,
   sourceMovements,
   sourceSoftware,
@@ -30,6 +31,8 @@ const [
   readCsv("InventoryMovements.csv"),
   readCsv("SoftwareLicenses.csv"),
 ]);
+
+const sourceSettings = withBaselineMaintenanceSettings(sourceSettingsCsv);
 
 const derivedDepartmentNames = [
   ...new Set(
