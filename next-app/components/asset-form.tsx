@@ -61,7 +61,10 @@ export function AssetForm({
   };
   const groupOptions = settingOptions("asset_group", asset?.asset_group);
   const typeOptions = settingOptions("asset_type", asset?.asset_type);
-  const configuredStatuses = settingOptions("status", asset?.status);
+  const isLiquidated = asset?.status === "DA_THANH_LY";
+  const configuredStatuses = settingOptions("status", asset?.status).filter(
+    (item) => item.setting_value !== "DA_THANH_LY" || isLiquidated,
+  );
   const statusOptions = configuredStatuses.length
     ? configuredStatuses
     : Object.entries(statusLabels).map(([value, label], index) => ({
@@ -143,11 +146,20 @@ export function AssetForm({
       <div className="form-grid">
         <label>
           Trạng thái
-          <select defaultValue={asset?.status ?? "CON_SU_DUNG"} name="status">
-            {statusOptions.map((item) => (
-              <option key={item.id} value={item.setting_value}>{item.display_name}</option>
-            ))}
-          </select>
+          {isLiquidated ? (
+            <>
+              <select disabled value="DA_THANH_LY">
+                <option value="DA_THANH_LY">Đã thanh lý</option>
+              </select>
+              <input name="status" type="hidden" value="DA_THANH_LY" />
+            </>
+          ) : (
+            <select defaultValue={asset?.status ?? "CON_SU_DUNG"} name="status">
+              {statusOptions.map((item) => (
+                <option key={item.id} value={item.setting_value}>{item.display_name}</option>
+              ))}
+            </select>
+          )}
         </label>
         <label>
           Phòng ban

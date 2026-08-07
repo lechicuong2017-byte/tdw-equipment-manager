@@ -129,6 +129,9 @@ async function run() {
   const assetSavePerformanceMigration = read(
     "supabase/migrations/202608040007_asset_save_performance.sql",
   );
+  const assetLiquidationMigration = read(
+    "supabase/migrations/202608070003_asset_liquidations.sql",
+  );
   const softwareSecretMigration = read(
     "supabase/migrations/202608040002_software_license_secrets.sql",
   );
@@ -150,6 +153,9 @@ async function run() {
   const nextDashboardPage = read("next-app/app/(protected)/dashboard/page.tsx");
   const nextAssetForm = read("next-app/components/asset-form.tsx");
   const nextAssetActions = read("next-app/app/(protected)/assets/actions.ts");
+  const assetLiquidationAction = read(
+    "next-app/components/asset-liquidation-action.tsx",
+  );
   const autoSubmitSelect = read("next-app/components/auto-submit-select.tsx");
   const nextReportsPage = read("next-app/app/(protected)/reports/page.tsx");
   const nextSoftwarePage = read(
@@ -419,7 +425,7 @@ async function run() {
   assert.ok(nextAssetsPage.includes("<InstantFilterForm"));
   assert.ok(nextAssetsPage.includes('name="category"'));
   assert.ok(nextAssetsPage.includes('query.eq("asset_type", category)'));
-  assert.ok(nextAssetsPage.includes('supabase.rpc("get_asset_filter_options")'));
+  assert.ok(nextAssetsPage.includes('supabase.rpc("get_asset_filter_options_for_scope"'));
   assert.ok(nextAssetsPage.includes('nextParams.set("category", category)'));
   assert.ok(!nextAssetsPage.includes('type="submit">Lọc dữ liệu'));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-logo.webp")));
@@ -828,6 +834,25 @@ async function run() {
   assert.ok(assetAgeMigration.includes("tdw-refresh-asset-age-statuses"));
   assert.ok(assetAgeMigration.includes("'5 17 * * *'"));
   assert.ok(assetAgeMigration.includes("select public.refresh_asset_age_statuses();"));
+  assert.ok(assetLiquidationMigration.includes("create table if not exists public.asset_liquidations"));
+  assert.ok(assetLiquidationMigration.includes("asset_liquidations_active_asset_idx"));
+  assert.ok(assetLiquidationMigration.includes("public.liquidate_asset"));
+  assert.ok(assetLiquidationMigration.includes("public.restore_liquidated_asset"));
+  assert.ok(assetLiquidationMigration.includes("Remove active component links before liquidating the asset"));
+  assert.ok(assetLiquidationMigration.includes("prevent_liquidated_asset_installation"));
+  assert.ok(assetLiquidationMigration.includes("get_asset_filter_options_for_scope"));
+  assert.ok(assetLiquidationMigration.includes("'liquidated_assets'"));
+  assert.ok(nextAssetsPage.includes('scope === "liquidated"'));
+  assert.ok(nextAssetsPage.includes("<AssetLiquidationAction"));
+  assert.ok(nextAssetsPage.includes("Đã thanh lý <span>"));
+  assert.ok(nextAssetActions.includes('supabase.rpc("liquidate_asset"'));
+  assert.ok(nextAssetActions.includes('supabase.rpc("restore_liquidated_asset"'));
+  assert.ok(assetLiquidationAction.includes('name="liquidation_date"'));
+  assert.ok(assetLiquidationAction.includes('name="recovery_value"'));
+  assert.ok(assetLiquidationAction.includes('name="reason"'));
+  assert.ok(googleExportRoute.includes('reportType === "liquidations"'));
+  assert.ok(googleExportRoute.includes("BÁO CÁO THIẾT BỊ ĐÃ THANH LÝ"));
+  assert.ok(nextReportsPage.includes('type: "liquidations"'));
   assert.ok(index.includes('integrity="sha512-'));
 
   const unauthenticated = await invokeProxy({ fn: "healthCheck", args: [] });

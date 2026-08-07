@@ -8,8 +8,9 @@ import {
   AssetListThumbnail,
   AssetPreviewProvider,
 } from "@/components/asset-list-previews";
+import { AssetLiquidationAction } from "@/components/asset-liquidation-action";
 import { can, requireAccess } from "@/lib/auth";
-import { formatMoney, labelStatus, statusTone } from "@/lib/format";
+import { formatDate, formatMoney, labelStatus, statusTone } from "@/lib/format";
 import { z } from "zod";
 
 export const metadata = { title: "Thiết bị" };
@@ -23,6 +24,7 @@ type AssetsPageProps = {
     kind?: string;
     category?: string;
     department?: string;
+    scope?: string;
     page?: string;
   }>;
 };
@@ -53,6 +55,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     : z.uuid().safeParse(rawDepartment).success
       ? rawDepartment
       : "";
+  const scope = params.scope === "liquidated" ? "liquidated" : "active";
   const page = Math.max(1, Math.min(10000, Number.parseInt(params.page ?? "1", 10) || 1));
   const pageSize = 20;
   const from = (page - 1) * pageSize;
@@ -67,12 +70,16 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     .order("updated_at", { ascending: false })
     .range(from, from + pageSize - 1);
 
+  query = scope === "liquidated"
+    ? query.eq("status", "DA_THANH_LY")
+    : query.neq("status", "DA_THANH_LY");
+
   if (search) {
     query = query.or(
       `asset_code.ilike.%${search}%,asset_name.ilike.%${search}%,serial_number.ilike.%${search}%`,
     );
   }
-  if (status) query = query.eq("status", status);
+  if (status && scope === "active") query = query.eq("status", status);
   if (kind) query = query.eq("asset_kind", kind);
   if (category) query = query.eq("asset_type", category);
   if (department === "UNASSIGNED") query = query.is("department_id", null);
@@ -83,6 +90,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     { data, count },
     { data: categoryData },
     { data: departments },
+    { count: activeCount },
+    { count: liquidatedCount },
+    { data: liquidationCandidates },
   ] = await Promise.all([
     supabase
       .from("settings")
@@ -91,11 +101,32 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       .eq("active", true)
       .order("sort_order"),
     query,
-    supabase.rpc("get_asset_filter_options"),
+    supabase.rpc("get_asset_filter_options_for_scope", {
+      target_scope: scope,
+    }),
     supabase
       .from("departments")
       .select("id,name")
       .order("name"),
+    supabase
+      .from("assets")
+      .select("id", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .neq("status", "DA_THANH_LY"),
+    supabase
+      .from("assets")
+      .select("id", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .eq("status", "DA_THANH_LY"),
+    can(access, "assets.delete")
+      ? supabase
+          .from("assets")
+          .select("id,asset_code,asset_name")
+          .is("deleted_at", null)
+          .neq("status", "DA_THANH_LY")
+          .order("asset_code")
+          .limit(5000)
+      : Promise.resolve({ data: [] }),
   ]);
   const statusSettings = (configuredSettings ?? []).filter(
     (item) => item.setting_type === "status",
@@ -109,6 +140,16 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   }[];
   const assetRows = data ?? [];
   const assetIds = assetRows.map((asset) => asset.id);
+  const { data: liquidationData } = scope === "liquidated" && assetIds.length
+    ? await supabase
+        .from("asset_liquidations")
+        .select("asset_id,liquidation_date,recovery_value,reason,note")
+        .in("asset_id", assetIds)
+        .is("voided_at", null)
+    : { data: [] };
+  const liquidationByAsset = new Map(
+    (liquidationData ?? []).map((item) => [item.asset_id, item]),
+  );
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize));
 
   const pageHref = (targetPage: number) => {
@@ -118,6 +159,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     if (kind) nextParams.set("kind", kind);
     if (category) nextParams.set("category", category);
     if (department) nextParams.set("department", department);
+    if (scope === "liquidated") nextParams.set("scope", scope);
     nextParams.set("page", String(targetPage));
     return `/assets?${nextParams.toString()}`;
   };
@@ -126,11 +168,16 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     <>
       <PageHeader
         eyebrow="TÀI SẢN"
-        title="Thiết bị"
-        description="Dữ liệu được lọc và phân trang trực tiếp tại PostgreSQL."
+        title={scope === "liquidated" ? "Thiết bị đã thanh lý" : "Thiết bị"}
+        description={scope === "liquidated"
+          ? "Hồ sơ đã thanh lý được lưu riêng để tra cứu và xuất báo cáo."
+          : "Dữ liệu được lọc và phân trang trực tiếp tại PostgreSQL."}
         actions={
           can(access, "assets.manage") ? (
             <>
+              {can(access, "assets.delete") && (liquidationCandidates ?? []).length ? (
+                <AssetLiquidationAction assets={liquidationCandidates ?? []} />
+              ) : null}
               <Link className="secondary-button" href="/assets/new?kind=component">+ Thêm linh kiện</Link>
               <Link className="primary-button" href="/assets/new">+ Thêm thiết bị</Link>
             </>
@@ -139,7 +186,16 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       />
 
       <section className="panel">
-        <InstantFilterForm className="filter-bar">
+        <nav aria-label="Phạm vi thiết bị" className="asset-scope-nav">
+          <Link className={scope === "active" ? "active" : ""} href="/assets">
+            Đang quản lý <span>{activeCount ?? 0}</span>
+          </Link>
+          <Link className={scope === "liquidated" ? "active" : ""} href="/assets?scope=liquidated">
+            Đã thanh lý <span>{liquidatedCount ?? 0}</span>
+          </Link>
+        </nav>
+        <InstantFilterForm className={`filter-bar${scope === "liquidated" ? " filter-bar--liquidated" : ""}`}>
+          {scope === "liquidated" ? <input name="scope" type="hidden" value="liquidated" /> : null}
           <label className="search-field">
             <span aria-hidden="true">⌕</span>
             <input defaultValue={search} name="q" placeholder="Tìm mã, tên hoặc serial…" />
@@ -164,11 +220,13 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <option value="DEVICE">Thiết bị hoàn chỉnh</option>
             <option value="COMPONENT">Linh kiện bên trong</option>
           </AutoSubmitSelect>
-          <AutoSubmitSelect aria-label="Lọc theo trạng thái" defaultValue={status} name="status">
-            <option value="">Tất cả trạng thái</option>
-            {statusSettings.length ? statusSettings.map((item) => (
+          {scope === "active" ? (
+            <AutoSubmitSelect aria-label="Lọc theo trạng thái" defaultValue={status} name="status">
+              <option value="">Tất cả trạng thái</option>
+              {statusSettings.filter((item) => item.setting_value !== "DA_THANH_LY").length
+                ? statusSettings.filter((item) => item.setting_value !== "DA_THANH_LY").map((item) => (
               <option key={item.setting_value} value={item.setting_value}>{item.display_name}</option>
-            )) : (
+                )) : (
               <>
                 <option value="CON_SU_DUNG">Còn sử dụng</option>
                 <option value="MOI_100">Mới 100%</option>
@@ -177,8 +235,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 <option value="KHONG_SU_DUNG">Không sử dụng</option>
                 <option value="LUU_KHO_THANH_LY">Lưu kho chờ thanh lý</option>
               </>
-            )}
-          </AutoSubmitSelect>
+              )}
+            </AutoSubmitSelect>
+          ) : null}
           <button className="visually-hidden" type="submit">Tìm kiếm</button>
         </InstantFilterForm>
 
@@ -197,9 +256,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
               <tr>
                 <th>Mã & thiết bị</th>
                 <th>Loại</th>
-                <th>Phòng ban / vị trí</th>
-                <th>Trạng thái</th>
-                <th className="align-right">Giá trị</th>
+                <th>{scope === "liquidated" ? "Ngày thanh lý / phòng ban" : "Phòng ban / vị trí"}</th>
+                <th>{scope === "liquidated" ? "Lý do" : "Trạng thái"}</th>
+                <th className="align-right">{scope === "liquidated" ? "Giá trị thu hồi" : "Giá trị"}</th>
               </tr>
             </thead>
             <tbody>
@@ -208,6 +267,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   ? asset.departments[0]?.name
                   : (asset.departments as { name?: string } | null)?.name;
                 const tone = statusTone(asset.status);
+                const liquidation = liquidationByAsset.get(asset.id);
                 return (
                   <tr className={`asset-row asset-row--${tone}`} key={asset.id}>
                     <td>
@@ -226,12 +286,25 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                       </div>
                     </td>
                     <td>{settingLabels.get(asset.asset_type) ?? (asset.asset_type || "—")}</td>
-                    <td>
-                      <strong className="table-secondary">{department || "Chưa phân phòng"}</strong>
-                      <small className="table-note">{asset.location || "Chưa có vị trí"}</small>
-                    </td>
-                    <td><span className={`status-pill status-pill--${tone}`}>{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</span></td>
-                    <td className="align-right">{formatMoney(asset.total_price)}</td>
+                    {scope === "liquidated" ? (
+                      <>
+                        <td>
+                          <strong className="table-secondary">{formatDate(liquidation?.liquidation_date)}</strong>
+                          <small className="table-note">{department || "Chưa phân phòng"}</small>
+                        </td>
+                        <td>{liquidation?.reason || "—"}</td>
+                        <td className="align-right">{formatMoney(liquidation?.recovery_value)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td>
+                          <strong className="table-secondary">{department || "Chưa phân phòng"}</strong>
+                          <small className="table-note">{asset.location || "Chưa có vị trí"}</small>
+                        </td>
+                        <td><span className={`status-pill status-pill--${tone}`}>{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</span></td>
+                        <td className="align-right">{formatMoney(asset.total_price)}</td>
+                      </>
+                    )}
                   </tr>
                 );
               })}

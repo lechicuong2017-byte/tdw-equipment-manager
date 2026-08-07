@@ -23,12 +23,14 @@ export default async function DashboardPage() {
         "id, asset_kind, asset_code, asset_name, status, location, total_price, updated_at",
       )
       .is("deleted_at", null)
+      .neq("status", "DA_THANH_LY")
       .order("updated_at", { ascending: false })
       .limit(6),
   ]);
 
   const stats = (statsData ?? {
     total_assets: 0,
+    liquidated_assets: 0,
     device_assets: 0,
     component_assets: 0,
     installed_components: 0,

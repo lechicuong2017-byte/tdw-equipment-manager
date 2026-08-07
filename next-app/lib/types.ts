@@ -39,6 +39,20 @@ export type Asset = {
   updated_at: string;
 };
 
+export type AssetLiquidation = {
+  id: string;
+  asset_id: string;
+  liquidation_date: string;
+  recovery_value: number | null;
+  reason: string;
+  note: string;
+  recorded_by: string | null;
+  created_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string;
+};
+
 export type AssetComponentSummary = Pick<
   Asset,
   | "id"
@@ -68,6 +82,7 @@ export type AssetComponentInstallation = {
 
 export type DashboardStats = {
   total_assets: number;
+  liquidated_assets: number;
   device_assets: number;
   component_assets: number;
   installed_components: number;

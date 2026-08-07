@@ -38,6 +38,7 @@ export const statusLabels: Record<string, string> = {
   CAN_KIEM_TRA: "Cần kiểm tra",
   KHONG_SU_DUNG: "Không sử dụng",
   LUU_KHO_THANH_LY: "Lưu kho chờ thanh lý",
+  DA_THANH_LY: "Đã thanh lý",
 };
 
 const statusLabelAliases: Record<string, string> = {
@@ -57,6 +58,7 @@ export type StatusTone =
   | "poor"
   | "inactive"
   | "retiring"
+  | "liquidated"
   | "neutral";
 
 /** Maps stored status codes to the shared visual tone used across the app. */
@@ -75,6 +77,8 @@ export function statusTone(status: string | null | undefined): StatusTone {
     case "LUU_KHO_THANH_LY":
     case "LUU_KHO_CHO_THANH_LY":
       return "retiring";
+    case "DA_THANH_LY":
+      return "liquidated";
     default:
       return "neutral";
   }

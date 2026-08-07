@@ -9,7 +9,7 @@ import type { AccessProfile } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-const reportTypes = ["assets", "maintenance", "movement", "software"] as const;
+const reportTypes = ["assets", "liquidations", "maintenance", "movement", "software"] as const;
 type ReportType = (typeof reportTypes)[number];
 const outputFormats = ["xlsx", "pdf"] as const;
 type OutputFormat = (typeof outputFormats)[number];
@@ -22,6 +22,7 @@ const requestSchema = z.object({
 
 const permissionByReport: Record<ReportType, string> = {
   assets: "reports.assets.export",
+  liquidations: "reports.assets.export",
   maintenance: "reports.maintenance.export",
   movement: "reports.movement.export",
   software: "reports.software.export",
@@ -200,6 +201,7 @@ async function buildReportPayload(
         "id, asset_kind, asset_code, asset_name, asset_type, brand, model, serial_number, quantity, unit_price, total_price, assigned_to_name, department_legacy_name, location, status, purchase_date, warranty_end_date, note, departments(name)",
       )
       .is("deleted_at", null)
+      .neq("status", "DA_THANH_LY")
       .order("asset_code")
       .limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu thiết bị");
@@ -292,6 +294,79 @@ async function buildReportPayload(
         { key: "warranty_end_date", label: "Hết bảo hành" },
         { key: "installed_at", label: "Ngày lắp" },
         { key: "slot_name", label: "Vị trí / khe" },
+        { key: "note", label: "Ghi chú" },
+      ],
+      rows,
+    };
+  }
+
+  if (reportType === "liquidations") {
+    const { data, error } = await supabase
+      .from("asset_liquidations")
+      .select(
+        "liquidation_date, recovery_value, reason, note, created_at, assets(asset_code, asset_name, asset_type, brand, model, serial_number, purchase_date, total_price, department_legacy_name, departments(name))",
+      )
+      .is("voided_at", null)
+      .order("liquidation_date", { ascending: false })
+      .limit(5000);
+    if (error) throw new Error("Không thể đọc dữ liệu thanh lý thiết bị");
+
+    const rows: ReportRow[] = (data ?? []).map((item) => {
+      const assetValue = Array.isArray(item.assets) ? item.assets[0] : item.assets;
+      const asset = assetValue as {
+        asset_code?: string;
+        asset_name?: string;
+        asset_type?: string;
+        brand?: string;
+        model?: string;
+        serial_number?: string;
+        purchase_date?: string | null;
+        total_price?: number | null;
+        department_legacy_name?: string;
+        departments?: { name?: string } | { name?: string }[] | null;
+      } | null;
+      const department = Array.isArray(asset?.departments)
+        ? asset?.departments[0]?.name
+        : asset?.departments?.name;
+      const originalValue = Number(asset?.total_price ?? 0);
+      const recoveryValue = Number(item.recovery_value ?? 0);
+      return {
+        asset_code: asset?.asset_code ?? "",
+        asset_name: asset?.asset_name ?? "",
+        asset_type: asset?.asset_type ?? "",
+        brand: asset?.brand ?? "",
+        model: asset?.model ?? "",
+        serial_number: asset?.serial_number ?? "",
+        department: department || asset?.department_legacy_name || "",
+        purchase_date: asset?.purchase_date ?? "",
+        original_value: originalValue,
+        liquidation_date: item.liquidation_date,
+        recovery_value: item.recovery_value,
+        value_difference: Math.max(0, originalValue - recoveryValue),
+        reason: item.reason,
+        note: item.note,
+      };
+    });
+
+    return {
+      report_type: reportType,
+      title: `TDW - Thiết bị đã thanh lý - ${dateLabel}`,
+      report_name: "BÁO CÁO THIẾT BỊ ĐÃ THANH LÝ",
+      requested_by: requestedBy,
+      columns: [
+        { key: "asset_code", label: "Mã thiết bị" },
+        { key: "asset_name", label: "Tên thiết bị" },
+        { key: "asset_type", label: "Loại thiết bị" },
+        { key: "brand", label: "Thương hiệu" },
+        { key: "model", label: "Model" },
+        { key: "serial_number", label: "Serial" },
+        { key: "department", label: "Phòng ban trước thanh lý" },
+        { key: "purchase_date", label: "Ngày mua" },
+        { key: "original_value", label: "Giá trị ghi nhận" },
+        { key: "liquidation_date", label: "Ngày thanh lý" },
+        { key: "recovery_value", label: "Giá trị thu hồi" },
+        { key: "value_difference", label: "Chênh lệch giá trị" },
+        { key: "reason", label: "Lý do thanh lý" },
         { key: "note", label: "Ghi chú" },
       ],
       rows,

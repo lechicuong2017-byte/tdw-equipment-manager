@@ -55,6 +55,11 @@ export type AssetFormState = {
   error?: string;
 };
 
+export type LiquidationActionState = {
+  error?: string;
+  success?: string;
+};
+
 export async function saveAsset(
   _previousState: AssetFormState,
   formData: FormData,
@@ -132,6 +137,81 @@ export async function archiveAsset(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/assets");
   redirect(`/assets?ok=${encodeURIComponent("Đã đưa thiết bị vào lưu trữ.")}`);
+}
+
+const optionalMoney = z.preprocess(
+  emptyToNull,
+  z.coerce.number().min(0).max(1000000000000).nullable(),
+);
+
+const liquidationSchema = z.object({
+  asset_id: z.uuid("Thiết bị không hợp lệ"),
+  liquidation_date: z.iso.date("Ngày thanh lý không hợp lệ"),
+  recovery_value: optionalMoney,
+  reason: z.string().trim().min(1, "Lý do thanh lý là bắt buộc").max(500),
+  note: z.string().trim().max(2000),
+});
+
+export async function liquidateAsset(
+  _previousState: LiquidationActionState,
+  formData: FormData,
+): Promise<LiquidationActionState> {
+  const parsed = liquidationSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Thông tin thanh lý chưa hợp lệ." };
+  }
+
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
+  if (parsed.data.liquidation_date > today) {
+    return { error: "Ngày thanh lý không được lớn hơn ngày hiện tại." };
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "assets.delete")) {
+    return { error: "Bạn không có quyền ghi nhận thanh lý thiết bị." };
+  }
+
+  const { error } = await supabase.rpc("liquidate_asset", {
+    target_asset_id: parsed.data.asset_id,
+    target_liquidation_date: parsed.data.liquidation_date,
+    target_recovery_value: parsed.data.recovery_value,
+    target_reason: parsed.data.reason,
+    target_note: parsed.data.note,
+  });
+  if (error?.code === "23503") {
+    return { error: "Hãy tháo các linh kiện đang gắn trước khi thanh lý thiết bị." };
+  }
+  if (error) return { error: "Không thể ghi nhận thanh lý. Vui lòng kiểm tra lại dữ liệu." };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/assets");
+  revalidatePath("/reports");
+  redirect(`/assets?scope=liquidated&ok=${encodeURIComponent("Đã ghi nhận thiết bị thanh lý.")}`);
+}
+
+export async function restoreLiquidatedAsset(formData: FormData) {
+  const parsed = z.object({
+    id: z.uuid(),
+    reason: z.string().trim().max(500).default("Khôi phục do ghi nhận nhầm"),
+  }).safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: "Thông tin khôi phục không hợp lệ." };
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "assets.delete")) {
+    return { error: "Bạn không có quyền khôi phục thiết bị thanh lý." };
+  }
+  const { error } = await supabase.rpc("restore_liquidated_asset", {
+    target_asset_id: parsed.data.id,
+    target_void_reason: parsed.data.reason,
+  });
+  if (error) return { error: "Không thể khôi phục thiết bị vào danh sách quản lý." };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/assets");
+  revalidatePath("/reports");
+  redirect(`/assets?status=LUU_KHO_THANH_LY&ok=${encodeURIComponent("Đã khôi phục thiết bị về trạng thái lưu kho chờ thanh lý.")}`);
 }
 
 const componentStatus = z.enum([

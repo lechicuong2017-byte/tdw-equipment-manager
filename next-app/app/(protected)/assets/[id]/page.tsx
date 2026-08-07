@@ -3,10 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConfirmAction } from "@/components/app-modal";
 import { AssetComponentManager } from "@/components/asset-component-manager";
+import { AssetLiquidationAction } from "@/components/asset-liquidation-action";
 import { AssetQrCard } from "@/components/asset-qr-card";
 import { MediaUpload } from "@/components/media-upload";
 import { PageHeader } from "@/components/page-header";
-import { archiveAsset, deleteAssetMedia } from "../actions";
+import {
+  archiveAsset,
+  deleteAssetMedia,
+  restoreLiquidatedAsset,
+} from "../actions";
 import { can, requireAccess } from "@/lib/auth";
 import { safeAssetsReturnTo } from "@/lib/asset-navigation";
 import {
@@ -41,7 +46,12 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
   const componentStatus = String(routeParams.component_status ?? "");
   const returnTo = safeAssetsReturnTo(routeParams.returnTo);
   const { supabase, access } = await requireAccess();
-  const [{ data: assetData }, { data: mediaData }, { data: configuredSettings }] = await Promise.all([
+  const [
+    { data: assetData },
+    { data: mediaData },
+    { data: configuredSettings },
+    { data: liquidationData },
+  ] = await Promise.all([
     supabase
       .from("assets")
       .select("*, departments(name)")
@@ -60,6 +70,12 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       .select("setting_value,display_name")
       .in("setting_type", ["status", "asset_type"])
       .eq("active", true),
+    supabase
+      .from("asset_liquidations")
+      .select("liquidation_date,recovery_value,reason,note,created_at")
+      .eq("asset_id", id)
+      .is("voided_at", null)
+      .maybeSingle(),
   ]);
 
   if (!assetData) notFound();
@@ -185,8 +201,18 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
             <div><dt>Ngày mua</dt><dd>{formatDate(asset.purchase_date)}</dd></div>
             <div><dt>Bảo hành đến</dt><dd>{formatDate(asset.warranty_end_date)}</dd></div>
             <div><dt>Giá trị</dt><dd>{formatMoney(asset.total_price)}</dd></div>
+            {asset.status === "DA_THANH_LY" ? (
+              <>
+                <div><dt>Ngày thanh lý</dt><dd>{formatDate(liquidationData?.liquidation_date)}</dd></div>
+                <div><dt>Giá trị thu hồi</dt><dd>{formatMoney(liquidationData?.recovery_value)}</dd></div>
+                <div><dt>Lý do thanh lý</dt><dd>{liquidationData?.reason || "—"}</dd></div>
+              </>
+            ) : null}
           </dl>
           {asset.note ? <p className="profile-note">{asset.note}</p> : null}
+          {asset.status === "DA_THANH_LY" && liquidationData?.note ? (
+            <p className="profile-note"><strong>Ghi chú thanh lý:</strong><br />{liquidationData.note}</p>
+          ) : null}
           <AssetQrCard asset={{
             id: asset.id,
             asset_code: asset.asset_code,
@@ -199,15 +225,38 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
           }} />
           {can(access, "assets.delete") ? (
             <div className="danger-zone">
-              <ConfirmAction
-                action={archiveAsset}
-                confirmLabel="Đưa vào lưu trữ"
-                description={`Thiết bị ${asset.asset_code} sẽ không còn xuất hiện trong danh sách đang sử dụng. Lịch sử liên quan vẫn được giữ lại.`}
-                fields={{ id: asset.id }}
-                title="Đưa thiết bị vào lưu trữ?"
-                triggerClassName="danger-button"
-                triggerLabel="Đưa vào lưu trữ"
-              />
+              {asset.status === "DA_THANH_LY" ? (
+                <ConfirmAction
+                  action={restoreLiquidatedAsset}
+                  confirmLabel="Khôi phục về lưu kho"
+                  description={`Thiết bị ${asset.asset_code} sẽ trở lại danh sách quản lý với trạng thái lưu kho chờ thanh lý. Bản ghi thanh lý cũ vẫn được giữ trong lịch sử.`}
+                  fields={{ id: asset.id, reason: "Khôi phục do ghi nhận nhầm" }}
+                  title="Khôi phục thiết bị thanh lý?"
+                  triggerClassName="secondary-button"
+                  triggerLabel="Khôi phục về lưu kho"
+                />
+              ) : (
+                <>
+                  <AssetLiquidationAction
+                    assets={[{
+                      id: asset.id,
+                      asset_code: asset.asset_code,
+                      asset_name: asset.asset_name,
+                    }]}
+                    preselectedAssetId={asset.id}
+                    triggerClassName="danger-button"
+                  />
+                  <ConfirmAction
+                    action={archiveAsset}
+                    confirmLabel="Đưa vào lưu trữ"
+                    description={`Thiết bị ${asset.asset_code} sẽ không còn xuất hiện trong danh sách đang sử dụng. Lịch sử liên quan vẫn được giữ lại.`}
+                    fields={{ id: asset.id }}
+                    title="Đưa thiết bị vào lưu trữ?"
+                    triggerClassName="secondary-button"
+                    triggerLabel="Đưa vào lưu trữ"
+                  />
+                </>
+              )}
             </div>
           ) : null}
         </article>
@@ -263,7 +312,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
         activeComponents={activeComponents}
         asset={asset}
         availableComponents={availableComponents}
-        canManage={canManageComponents}
+        canManage={canManageComponents && asset.status !== "DA_THANH_LY"}
         componentHistory={componentHistory}
         hostComponentHistory={hostComponentHistory}
         status={componentStatus}

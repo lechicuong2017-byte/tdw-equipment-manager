@@ -757,6 +757,9 @@ textarea:focus {
 .status-row--retiring,
 .status-dot--retiring { --status-color: #c76583; }
 
+.status-row--liquidated,
+.status-dot--liquidated { --status-color: #8060a3; }
+
 .status-row--neutral,
 .status-dot--neutral { --status-color: var(--brand); }
 
@@ -854,6 +857,12 @@ tbody tr.asset-row:hover > td {
   --asset-row-hover: #fff1f5;
 }
 
+.asset-row--liquidated {
+  --asset-row-accent: #8060a3;
+  --asset-row-bg: #fcfbfe;
+  --asset-row-hover: #f5f1fa;
+}
+
 .asset-name {
   display: grid;
 }
@@ -925,6 +934,12 @@ tbody tr.asset-row:hover > td {
   --status-pill-color: #b64b6a;
 }
 
+.status-pill--liquidated {
+  --status-pill-bg: #f3f0f8;
+  --status-pill-border: #d9cfea;
+  --status-pill-color: #6f4c91;
+}
+
 .status-pill--neutral {
   --status-pill-bg: var(--brand-soft);
   --status-pill-border: #c5e5ec;
@@ -951,6 +966,66 @@ tbody tr.asset-row:hover > td {
   grid-template-columns: minmax(260px, 1.55fr) repeat(4, minmax(150px, 1fr));
   margin: -0.1rem -0.1rem 1rem;
   padding: 0 0 1rem;
+}
+
+.filter-bar--liquidated {
+  grid-template-columns: minmax(260px, 1.55fr) repeat(3, minmax(150px, 1fr));
+}
+
+.asset-scope-nav {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 0.5rem;
+  margin: -0.35rem -0.1rem 1rem;
+  padding: 0 0 0.8rem;
+}
+
+.asset-scope-nav a {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 800;
+  gap: 0.45rem;
+  padding: 0.55rem 0.8rem;
+}
+
+.asset-scope-nav a span {
+  align-items: center;
+  background: var(--surface-muted);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.66rem;
+  justify-content: center;
+  min-width: 1.6rem;
+  padding: 0.15rem 0.4rem;
+}
+
+.asset-scope-nav a.active {
+  background: var(--brand-soft);
+  border-color: #c5e5ec;
+  color: var(--brand-dark);
+}
+
+.liquidation-form {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.liquidation-form label {
+  color: #334155;
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 750;
+  gap: 0.4rem;
+}
+
+.liquidation-form .span-2 {
+  grid-column: 1 / -1;
 }
 
 .visually-hidden {
@@ -1732,7 +1807,11 @@ tbody tr.asset-row:hover > td {
 }
 
 .danger-zone {
+  align-items: center;
   border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   margin-top: 1rem;
   padding-top: 1rem;
 }
@@ -2503,6 +2582,23 @@ tbody tr.asset-row:hover > td {
 
   .app-modal-body {
     padding: 1rem;
+  }
+
+  .asset-scope-nav {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .asset-scope-nav a {
+    justify-content: space-between;
+  }
+
+  .liquidation-form {
+    grid-template-columns: 1fr;
+  }
+
+  .liquidation-form .span-2 {
+    grid-column: auto;
   }
 
   .modal-actions {

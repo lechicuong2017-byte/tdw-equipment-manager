@@ -14,7 +14,7 @@ export function ExportReportButton({
   outputFormat = "xlsx",
   buttonLabel = "Xuất XLSX",
 }: {
-  reportType: "assets" | "maintenance" | "movement" | "software";
+  reportType: "assets" | "liquidations" | "maintenance" | "movement" | "software";
   outputFormat?: OutputFormat;
   buttonLabel?: string;
 }) {

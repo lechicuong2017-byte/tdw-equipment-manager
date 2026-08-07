@@ -14,6 +14,7 @@ export default async function ReportsPage() {
         .from("assets")
         .select("id,asset_code,asset_name,asset_group,asset_group_label,purchase_year,last_maintenance_date,warranty_end_date")
         .is("deleted_at", null)
+        .neq("status", "DA_THANH_LY")
         .order("asset_code")
     : { data: [] };
   const reports = [
@@ -24,6 +25,15 @@ export default async function ReportsPage() {
       description:
         "Thiết bị cùng các linh kiện đang lắp, giá trị, vị trí và trạng thái.",
       icon: "▤",
+      permission: "reports.assets.export",
+    },
+    {
+      type: "liquidations",
+      eyebrow: "THANH LÝ",
+      title: "Thiết bị đã thanh lý",
+      description:
+        "Ngày thanh lý, giá trị thu hồi, chênh lệch giá trị, lý do và ghi chú.",
+      icon: "⌫",
       permission: "reports.assets.export",
     },
     {
