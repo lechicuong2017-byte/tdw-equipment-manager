@@ -140,6 +140,7 @@ async function run() {
   );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
+  const nextGlobals = read("next-app/app/globals.css");
   const nextConfig = read("next-app/next.config.ts");
   const playwrightConfig = read("next-app/playwright.config.ts");
   const anonymousE2e = read("next-app/e2e/anonymous.spec.ts");
@@ -220,6 +221,13 @@ async function run() {
   assert.ok(softwareAssetSelector.includes('type="checkbox"'));
   assert.ok(softwareAssetSelector.includes('name="assigned_asset_ids"'));
   assert.ok(softwareAssetSelector.includes("Chọn tất cả đang lọc"));
+  assert.ok(softwareAssetSelector.includes("software-asset-checkmark"));
+  assert.ok(softwareAssetSelector.includes("Danh sách thiết bị"));
+  assert.ok(nextGlobals.includes('.software-asset-option:has(input:checked)'));
+  assert.ok(nextGlobals.includes("background: #edf9f1"));
+  assert.ok(nextGlobals.includes('input[type="checkbox"]'));
+  assert.ok(nextGlobals.includes("accent-color: #20a454"));
+  assert.ok(nextGlobals.includes('.qr-device-list > label:has(input:checked)'));
   assert.ok(nextSoftwarePage.includes("software_license_assets(asset_id"));
   assert.ok(nextSoftwareEditPage.includes('.from("software_license_assets")'));
   assert.ok(googleExportRoute.includes("software_license_assets: assignments"));

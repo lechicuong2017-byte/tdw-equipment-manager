@@ -136,27 +136,36 @@ export function SoftwareAssetSelector({
       </div>
 
       <div className="software-asset-selection-summary">
-        <button className="secondary-button" onClick={toggleVisibleAssets} type="button">
+        <button className="software-select-all-button" onClick={toggleVisibleAssets} type="button">
           {allVisibleSelected ? "Bỏ chọn danh sách đang lọc" : "Chọn tất cả đang lọc"}
         </button>
-        <span>
-          <strong>{selectedIds.size}</strong> đã chọn · {visibleAssets.length} đang hiển thị
-        </span>
+        <div aria-live="polite" className="software-selection-count">
+          <strong>{selectedIds.size}</strong>
+          <span>đã chọn</span>
+          <small>{visibleAssets.length} đang hiển thị</small>
+        </div>
       </div>
 
+      <div className="software-asset-list-heading">
+        <strong>Danh sách thiết bị</strong>
+        <small>Tick vào thiết bị cần cấp bản quyền</small>
+      </div>
       <div className="software-asset-checklist">
         {visibleAssets.map((asset) => (
           <label className="software-asset-option" key={asset.id}>
             <input
+              className="software-asset-checkbox"
               checked={selectedIds.has(asset.id)}
               onChange={(event) => setAssetSelected(asset.id, event.target.checked)}
               type="checkbox"
             />
-            <span>
-              <strong>{asset.asset_code} — {asset.asset_name}</strong>
-              <small>
+            <span aria-hidden="true" className="software-asset-checkmark">✓</span>
+            <span className="software-asset-copy">
+              <strong>{asset.asset_name}</strong>
+              <small className="software-asset-code">{asset.asset_code}</small>
+              <small className="software-asset-meta">
                 {asset.asset_group_label || asset.asset_group || "Chưa có nhóm"}
-                {" · "}
+                <i aria-hidden="true" />
                 {asset.asset_type || "Chưa có loại"}
               </small>
             </span>
