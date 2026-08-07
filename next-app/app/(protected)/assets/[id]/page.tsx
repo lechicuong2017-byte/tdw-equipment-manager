@@ -13,6 +13,7 @@ import {
   formatDate,
   formatMoney,
   labelStatus,
+  statusTone,
 } from "@/lib/format";
 import type {
   Asset,
@@ -171,7 +172,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       <section className="profile-grid">
         <article className="panel profile-summary">
           <div className="profile-status">
-            <span className="status-pill">{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</span>
+            <span className={`status-pill status-pill--${statusTone(asset.status)}`}>{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</span>
             <small>Cập nhật {formatDate(asset.updated_at)}</small>
           </div>
           <dl className="detail-list">

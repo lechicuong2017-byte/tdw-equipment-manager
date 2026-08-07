@@ -5,7 +5,7 @@ import {
   replaceAssetComponent,
 } from "@/app/(protected)/assets/actions";
 import { ModalTrigger } from "@/components/app-modal";
-import { formatDate, labelStatus, statusLabels } from "@/lib/format";
+import { formatDate, labelStatus, statusLabels, statusTone } from "@/lib/format";
 import type {
   Asset,
   AssetComponentInstallation,
@@ -151,7 +151,7 @@ export function AssetComponentManager({
               <div className="component-card-main">
                 <ComponentIdentity component={component} />
                 <div className="component-meta">
-                  <span className="status-pill">{labelStatus(component.status)}</span>
+                  <span className={`status-pill status-pill--${statusTone(component.status)}`}>{labelStatus(component.status)}</span>
                   <small>
                     Lắp {formatDate(installation.installed_at)}
                     {installation.slot_name ? ` · ${installation.slot_name}` : ""}

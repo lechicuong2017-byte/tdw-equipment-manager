@@ -7,6 +7,7 @@ import {
   formatMoney,
   formatNumber,
   labelStatus,
+  statusTone,
 } from "@/lib/format";
 import type { Asset, DashboardStats } from "@/lib/types";
 
@@ -126,10 +127,10 @@ export default async function DashboardPage() {
             {Object.entries(stats.by_status).length ? (
               Object.entries(stats.by_status)
                 .sort(([, a], [, b]) => b - a)
-                .map(([status, count], index) => (
-                  <div className={`status-row status-tone-${index % 6}`} key={status}>
+                .map(([status, count]) => (
+                  <div className={`status-row status-row--${statusTone(status)}`} key={status}>
                     <div>
-                      <span className={`status-dot status-${status.toLowerCase()}`} />
+                      <span className={`status-dot status-dot--${statusTone(status)}`} />
                       <span>{labelStatus(status)}</span>
                     </div>
                     <strong>{formatNumber(count)}</strong>
@@ -167,22 +168,25 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {assets.map((asset) => (
-                  <tr key={asset.id}>
-                    <td>
-                      <Link className="asset-name" href={`/assets/${asset.id}`}>
-                        <strong>{asset.asset_name}</strong>
-                        <small>
-                          {asset.asset_code}
-                          {asset.asset_kind === "COMPONENT" ? " · Linh kiện" : ""}
-                        </small>
-                      </Link>
-                    </td>
-                    <td><span className="status-pill">{labelStatus(asset.status)}</span></td>
-                    <td>{asset.location || "—"}</td>
-                    <td>{formatDate(asset.updated_at)}</td>
-                  </tr>
-                ))}
+                {assets.map((asset) => {
+                  const tone = statusTone(asset.status);
+                  return (
+                    <tr className={`asset-row asset-row--${tone}`} key={asset.id}>
+                      <td>
+                        <Link className="asset-name" href={`/assets/${asset.id}`}>
+                          <strong>{asset.asset_name}</strong>
+                          <small>
+                            {asset.asset_code}
+                            {asset.asset_kind === "COMPONENT" ? " · Linh kiện" : ""}
+                          </small>
+                        </Link>
+                      </td>
+                      <td><span className={`status-pill status-pill--${tone}`}>{labelStatus(asset.status)}</span></td>
+                      <td>{asset.location || "—"}</td>
+                      <td>{formatDate(asset.updated_at)}</td>
+                    </tr>
+                  );
+                })}
                 {!assets.length ? (
                   <tr><td className="empty-cell" colSpan={4}>Chưa có tài sản.</td></tr>
                 ) : null}

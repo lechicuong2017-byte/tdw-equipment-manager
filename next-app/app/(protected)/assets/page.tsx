@@ -9,7 +9,7 @@ import {
   AssetPreviewProvider,
 } from "@/components/asset-list-previews";
 import { can, requireAccess } from "@/lib/auth";
-import { formatMoney, labelStatus } from "@/lib/format";
+import { formatMoney, labelStatus, statusTone } from "@/lib/format";
 import { z } from "zod";
 
 export const metadata = { title: "Thiết bị" };
@@ -207,8 +207,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 const department = Array.isArray(asset.departments)
                   ? asset.departments[0]?.name
                   : (asset.departments as { name?: string } | null)?.name;
+                const tone = statusTone(asset.status);
                 return (
-                  <tr key={asset.id}>
+                  <tr className={`asset-row asset-row--${tone}`} key={asset.id}>
                     <td>
                       <div className="asset-table-identity">
                         <AssetListThumbnail assetId={asset.id} assetName={asset.asset_name} />
@@ -229,7 +230,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                       <strong className="table-secondary">{department || "Chưa phân phòng"}</strong>
                       <small className="table-note">{asset.location || "Chưa có vị trí"}</small>
                     </td>
-                    <td><span className="status-pill">{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</span></td>
+                    <td><span className={`status-pill status-pill--${tone}`}>{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</span></td>
                     <td className="align-right">{formatMoney(asset.total_price)}</td>
                   </tr>
                 );

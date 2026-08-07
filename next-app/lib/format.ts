@@ -49,3 +49,33 @@ export function labelStatus(status: string) {
     ?? statusLabelAliases[status]
     ?? (status || "Chưa xác định");
 }
+
+export type StatusTone =
+  | "active"
+  | "new"
+  | "attention"
+  | "poor"
+  | "inactive"
+  | "retiring"
+  | "neutral";
+
+/** Maps stored status codes to the shared visual tone used across the app. */
+export function statusTone(status: string | null | undefined): StatusTone {
+  switch (String(status ?? "").trim().toUpperCase()) {
+    case "CON_SU_DUNG":
+      return "active";
+    case "MOI_100":
+      return "new";
+    case "CAN_KIEM_TRA":
+      return "attention";
+    case "KEM_PHAM_CHAT":
+      return "poor";
+    case "KHONG_SU_DUNG":
+      return "inactive";
+    case "LUU_KHO_THANH_LY":
+    case "LUU_KHO_CHO_THANH_LY":
+      return "retiring";
+    default:
+      return "neutral";
+  }
+}
