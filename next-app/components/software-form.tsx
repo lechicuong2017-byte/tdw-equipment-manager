@@ -6,12 +6,10 @@ import {
   type SoftwareFormState,
 } from "@/app/(protected)/software/actions";
 import { ActionStateToast } from "@/components/action-toast";
-
-type AssetOption = {
-  id: string;
-  asset_code: string;
-  asset_name: string;
-};
+import {
+  SoftwareAssetSelector,
+  type SoftwareAssetOption,
+} from "@/components/software-asset-selector";
 
 const initialState: SoftwareFormState = {};
 
@@ -19,7 +17,7 @@ export function SoftwareForm({
   assets,
   softwareNames = [],
 }: {
-  assets: AssetOption[];
+  assets: SoftwareAssetOption[];
   softwareNames?: string[];
 }) {
   const [state, formAction, pending] = useActionState(
@@ -67,17 +65,7 @@ export function SoftwareForm({
           Người được cấp
           <input maxLength={200} name="assigned_user_name" />
         </label>
-        <label className="span-2">
-          Thiết bị được cấp
-          <select name="assigned_asset_id">
-            <option value="">Không gắn thiết bị</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.asset_code} — {asset.asset_name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SoftwareAssetSelector assets={assets} />
         <label className="span-3">
           Ghi chú
           <textarea maxLength={3000} name="note" rows={3} />

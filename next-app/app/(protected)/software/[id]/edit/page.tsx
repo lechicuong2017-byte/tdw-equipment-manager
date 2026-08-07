@@ -19,7 +19,12 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
   if (!can(access, "software.manage")) redirect("/software");
   const isAdmin = access.roles.includes("admin");
 
-  const [{ data: license }, { data: assets }, { data: softwareNames }] = await Promise.all([
+  const [
+    { data: license },
+    { data: assets },
+    { data: assignments },
+    { data: softwareNames },
+  ] = await Promise.all([
     supabase
       .from("software_licenses")
       .select(
@@ -29,10 +34,16 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
       .maybeSingle(),
     supabase
       .from("assets")
-      .select("id, asset_code, asset_name")
+      .select("id, asset_code, asset_name, asset_group, asset_group_label, asset_type")
       .is("deleted_at", null)
+      .neq("status", "DA_THANH_LY")
       .order("asset_code")
-      .limit(500),
+      .limit(5000),
+    supabase
+      .from("software_license_assets")
+      .select("asset_id")
+      .eq("license_id", parsedId.data)
+      .order("created_at"),
     supabase
       .from("settings")
       .select("display_name")
@@ -47,7 +58,11 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
     id: license.id,
     software_name: license.software_name,
     version: license.version,
-    assigned_asset_id: license.assigned_asset_id,
+    assigned_asset_ids: assignments?.length
+      ? assignments.map((assignment) => assignment.asset_id)
+      : license.assigned_asset_id
+        ? [license.assigned_asset_id]
+        : [],
     assigned_user_name: license.assigned_user_name,
     expiry_date: license.expiry_date,
     status: license.status,
@@ -59,7 +74,7 @@ export default async function EditSoftwarePage({ params }: EditSoftwarePageProps
       closeHref="/software"
       description="Cập nhật thông tin phân bổ, thời hạn và key bản quyền được mã hóa."
       eyebrow="PHẦN MỀM"
-      size="large"
+      size="wide"
       title="Sửa bản quyền"
     >
       <div className="app-modal-stack">

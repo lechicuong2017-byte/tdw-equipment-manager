@@ -15,7 +15,6 @@ const emptyToNull = (value: unknown) =>
 const softwareSchema = z.object({
   software_name: z.string().trim().min(1, "Tên phần mềm là bắt buộc").max(200),
   version: z.string().trim().max(120),
-  assigned_asset_id: z.preprocess(emptyToNull, z.uuid().nullable()),
   assigned_user_name: z.string().trim().max(200),
   expiry_date: z.preprocess(
     emptyToNull,
@@ -24,6 +23,30 @@ const softwareSchema = z.object({
   status: z.enum(["ACTIVE", "EXPIRING", "EXPIRED", "SUSPENDED", ""]),
   note: z.string().trim().max(3000),
 });
+
+const assignedAssetIdsSchema = z.array(z.uuid("Thiết bị được chọn không hợp lệ")).max(
+  1000,
+  "Chỉ được gán tối đa 1.000 thiết bị cho một bản quyền.",
+);
+
+function parseSoftwareInput(formData: FormData) {
+  const license = softwareSchema.safeParse(Object.fromEntries(formData.entries()));
+  const assetIds = assignedAssetIdsSchema.safeParse(
+    formData.getAll("assigned_asset_ids").map(String),
+  );
+  if (!license.success) {
+    return { error: license.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" } as const;
+  }
+  if (!assetIds.success) {
+    return { error: assetIds.error.issues[0]?.message ?? "Thiết bị được chọn chưa hợp lệ" } as const;
+  }
+  return {
+    data: {
+      license: license.data,
+      assetIds: [...new Set(assetIds.data)],
+    },
+  } as const;
+}
 
 export type SoftwareFormState = {
   error?: string;
@@ -45,9 +68,9 @@ export async function createSoftwareLicense(
   _previousState: SoftwareFormState,
   formData: FormData,
 ): Promise<SoftwareFormState> {
-  const parsed = softwareSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
+  const parsed = parseSoftwareInput(formData);
+  if ("error" in parsed) {
+    return { error: parsed.error };
   }
 
   const { supabase, access } = await requireAccess();
@@ -55,7 +78,16 @@ export async function createSoftwareLicense(
     return { error: "Bạn không có quyền thêm bản quyền phần mềm." };
   }
 
-  const { error } = await supabase.from("software_licenses").insert(parsed.data);
+  const { error } = await supabase.rpc("save_software_license_with_assets", {
+    target_license_id: null,
+    target_software_name: parsed.data.license.software_name,
+    target_version: parsed.data.license.version,
+    target_assigned_asset_ids: parsed.data.assetIds,
+    target_assigned_user_name: parsed.data.license.assigned_user_name,
+    target_expiry_date: parsed.data.license.expiry_date,
+    target_status: parsed.data.license.status,
+    target_note: parsed.data.license.note,
+  });
   if (error) {
     return { error: "Không thể lưu bản quyền. Hãy kiểm tra quyền và dữ liệu." };
   }
@@ -73,9 +105,9 @@ export async function updateSoftwareLicense(
     return { error: "Mã bản quyền không hợp lệ." };
   }
 
-  const parsed = softwareSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
+  const parsed = parseSoftwareInput(formData);
+  if ("error" in parsed) {
+    return { error: parsed.error };
   }
 
   const { supabase, access } = await requireAccess();
@@ -83,12 +115,16 @@ export async function updateSoftwareLicense(
     return { error: "Bạn không có quyền sửa bản quyền phần mềm." };
   }
 
-  const { data, error } = await supabase
-    .from("software_licenses")
-    .update(parsed.data)
-    .eq("id", id.data)
-    .select("id")
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("save_software_license_with_assets", {
+    target_license_id: id.data,
+    target_software_name: parsed.data.license.software_name,
+    target_version: parsed.data.license.version,
+    target_assigned_asset_ids: parsed.data.assetIds,
+    target_assigned_user_name: parsed.data.license.assigned_user_name,
+    target_expiry_date: parsed.data.license.expiry_date,
+    target_status: parsed.data.license.status,
+    target_note: parsed.data.license.note,
+  });
   if (error || !data) {
     return { error: "Không thể cập nhật bản quyền. Hãy kiểm tra quyền và dữ liệu." };
   }

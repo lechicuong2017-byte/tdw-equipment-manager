@@ -6,18 +6,16 @@ import {
   type SoftwareFormState,
 } from "@/app/(protected)/software/actions";
 import { ActionStateToast } from "@/components/action-toast";
-
-type AssetOption = {
-  id: string;
-  asset_code: string;
-  asset_name: string;
-};
+import {
+  SoftwareAssetSelector,
+  type SoftwareAssetOption,
+} from "@/components/software-asset-selector";
 
 type EditableSoftwareLicense = {
   id: string;
   software_name: string;
   version: string;
-  assigned_asset_id: string | null;
+  assigned_asset_ids: string[];
   assigned_user_name: string;
   expiry_date: string | null;
   status: string;
@@ -31,7 +29,7 @@ export function SoftwareEditForm({
   license,
   softwareNames = [],
 }: {
-  assets: AssetOption[];
+  assets: SoftwareAssetOption[];
   license: EditableSoftwareLicense;
   softwareNames?: string[];
 }) {
@@ -92,17 +90,10 @@ export function SoftwareEditForm({
             name="assigned_user_name"
           />
         </label>
-        <label className="span-2">
-          Thiết bị được cấp
-          <select defaultValue={license.assigned_asset_id ?? ""} name="assigned_asset_id">
-            <option value="">Không gắn thiết bị</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.asset_code} — {asset.asset_name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SoftwareAssetSelector
+          assets={assets}
+          initialSelectedIds={license.assigned_asset_ids}
+        />
         <label className="span-3">
           Ghi chú
           <textarea defaultValue={license.note} maxLength={3000} name="note" rows={4} />

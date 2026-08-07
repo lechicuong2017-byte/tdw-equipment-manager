@@ -135,6 +135,9 @@ async function run() {
   const softwareSecretMigration = read(
     "supabase/migrations/202608040002_software_license_secrets.sql",
   );
+  const softwareMultiAssignmentMigration = read(
+    "supabase/migrations/202608070004_software_multi_asset_assignments.sql",
+  );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextConfig = read("next-app/next.config.ts");
@@ -170,6 +173,9 @@ async function run() {
   const softwareEditForm = read(
     "next-app/components/software-edit-form.tsx",
   );
+  const softwareAssetSelector = read(
+    "next-app/components/software-asset-selector.tsx",
+  );
   const softwareSecretPanel = read(
     "next-app/components/software-license-secret-panel.tsx",
   );
@@ -201,13 +207,23 @@ async function run() {
   assert.ok(
     nextSoftwareActions.includes("export async function updateSoftwareLicense"),
   );
-  assert.ok(nextSoftwareActions.includes(".update(parsed.data)"));
-  assert.ok(nextSoftwareActions.includes('.eq("id", id.data)'));
+  assert.ok(nextSoftwareActions.includes('rpc("save_software_license_with_assets"'));
+  assert.ok(nextSoftwareActions.includes('formData.getAll("assigned_asset_ids")'));
   assert.ok(nextSoftwareEditPage.includes('can(access, "software.manage")'));
   assert.ok(nextSoftwareEditPage.includes("license_secret_ref"));
   assert.ok(nextSoftwareEditPage.includes('access.roles.includes("admin")'));
   assert.ok(softwareEditForm.includes("Lưu thay đổi"));
   assert.ok(!softwareEditForm.includes("license_key"));
+  assert.ok(softwareEditForm.includes("SoftwareAssetSelector"));
+  assert.ok(softwareAssetSelector.includes("Nhóm thiết bị"));
+  assert.ok(softwareAssetSelector.includes("Loại thiết bị"));
+  assert.ok(softwareAssetSelector.includes('type="checkbox"'));
+  assert.ok(softwareAssetSelector.includes('name="assigned_asset_ids"'));
+  assert.ok(softwareAssetSelector.includes("Chọn tất cả đang lọc"));
+  assert.ok(nextSoftwarePage.includes("software_license_assets(asset_id"));
+  assert.ok(nextSoftwareEditPage.includes('.from("software_license_assets")'));
+  assert.ok(googleExportRoute.includes("software_license_assets: assignments"));
+  assert.ok(googleExportRoute.includes("(data ?? []).flatMap"));
   assert.ok(softwareSecretPanel.includes('type="password"'));
   assert.ok(softwareSecretPanel.includes('name="license_key_plaintext"'));
   assert.ok(softwareSecretPanel.includes("revealSoftwareLicenseSecret"));
@@ -225,6 +241,11 @@ async function run() {
   assert.ok(softwareSecretMigration.includes("'REVEAL_SECRET'"));
   assert.ok(softwareSecretMigration.includes("'STORE_SECRET'"));
   assert.ok(!softwareSecretMigration.includes("license_key_plaintext"));
+  assert.ok(softwareMultiAssignmentMigration.includes("create table if not exists public.software_license_assets"));
+  assert.ok(softwareMultiAssignmentMigration.includes("save_software_license_with_assets"));
+  assert.ok(softwareMultiAssignmentMigration.includes("insert into public.software_license_assets"));
+  assert.ok(softwareMultiAssignmentMigration.includes("asset.status <> 'DA_THANH_LY'"));
+  assert.ok(softwareMultiAssignmentMigration.includes("public.can_access_asset"));
   assert.ok(appsScript.includes('maintenanceLogs: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenanceLogs) : []'));
   assert.ok(appsScript.includes('maintenancePlans: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenancePlans) : []'));
   assert.ok(appsScript.includes("function normalizeMaintenancePlan_(plan, activeAssets)"));

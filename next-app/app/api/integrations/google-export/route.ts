@@ -47,8 +47,18 @@ type ExportJobClaim = {
 };
 
 type RelatedAsset =
-  | { asset_code?: string; asset_name?: string }
-  | { asset_code?: string; asset_name?: string }[]
+  | {
+      asset_code?: string;
+      asset_name?: string;
+      asset_group_label?: string;
+      asset_type?: string;
+    }
+  | {
+      asset_code?: string;
+      asset_name?: string;
+      asset_group_label?: string;
+      asset_type?: string;
+    }[]
   | null;
 
 function relatedAsset(value: RelatedAsset) {
@@ -493,7 +503,7 @@ async function buildReportPayload(
   const { data, error } = await supabase
     .from("software_licenses")
     .select(
-      "software_name, version, license_key_masked, assigned_user_name, expiry_date, status, note, assets(asset_code, asset_name)",
+      "software_name, version, license_key_masked, assigned_user_name, expiry_date, status, note, assets(asset_code, asset_name), software_license_assets(asset_id, assets(asset_code, asset_name, asset_group_label, asset_type))",
     )
     .order("expiry_date", { ascending: true, nullsFirst: false })
     .limit(5000);
@@ -510,19 +520,31 @@ async function buildReportPayload(
       { key: "license_key_masked", label: "Khóa đã che" },
       { key: "asset_code", label: "Mã thiết bị" },
       { key: "asset_name", label: "Tên thiết bị" },
+      { key: "asset_group", label: "Nhóm thiết bị" },
+      { key: "asset_type", label: "Loại thiết bị" },
       { key: "assigned_user_name", label: "Người được cấp" },
       { key: "expiry_date", label: "Ngày hết hạn" },
       { key: "status", label: "Trạng thái" },
       { key: "note", label: "Ghi chú" },
     ],
-    rows: (data ?? []).map((license) => {
-      const { assets, ...fields } = license;
-      const asset = relatedAsset(license.assets);
-      return {
+    rows: (data ?? []).flatMap((license) => {
+      const { assets, software_license_assets: assignments, ...fields } = license;
+      const assignedAssets = (assignments ?? []).map((assignment) => ({
+        asset_id: assignment.asset_id,
+        asset: Array.isArray(assignment.assets) ? assignment.assets[0] : assignment.assets,
+      }));
+      const fallbackAsset = relatedAsset(assets);
+      const rows = assignedAssets.length
+        ? assignedAssets
+        : [{ asset_id: "", asset: fallbackAsset }];
+
+      return rows.map(({ asset }) => ({
         ...fields,
         asset_code: asset?.asset_code ?? "",
         asset_name: asset?.asset_name ?? "",
-      };
+        asset_group: asset?.asset_group_label ?? "",
+        asset_type: asset?.asset_type ?? "",
+      }));
     }),
   };
 }

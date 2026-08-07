@@ -16,9 +16,14 @@ const softwareStatusLabels: Record<string, string> = {
 };
 
 type RelatedAsset =
-  | { asset_code?: string; asset_name?: string }
-  | { asset_code?: string; asset_name?: string }[]
+  | { asset_code?: string; asset_name?: string; asset_group_label?: string; asset_type?: string }
+  | { asset_code?: string; asset_name?: string; asset_group_label?: string; asset_type?: string }[]
   | null;
+
+type LicenseAssignment = {
+  asset_id: string;
+  assets: RelatedAsset;
+};
 
 function getRelatedAsset(value: RelatedAsset) {
   return Array.isArray(value) ? value[0] : value;
@@ -29,14 +34,15 @@ export default async function SoftwarePage() {
   const [{ data: assets }, { data: licenses }, { data: softwareNames }] = await Promise.all([
     supabase
       .from("assets")
-      .select("id, asset_code, asset_name")
+      .select("id, asset_code, asset_name, asset_group, asset_group_label, asset_type")
       .is("deleted_at", null)
+      .neq("status", "DA_THANH_LY")
       .order("asset_code")
-      .limit(500),
+      .limit(5000),
     supabase
       .from("software_licenses")
       .select(
-        "id, software_name, version, license_key_masked, assigned_asset_id, assigned_user_name, expiry_date, status, note, created_at, assets(asset_code, asset_name)",
+        "id, software_name, version, license_key_masked, assigned_asset_id, assigned_user_name, expiry_date, status, note, created_at, assets(asset_code, asset_name), software_license_assets(asset_id, assets(asset_code, asset_name, asset_group_label, asset_type))",
       )
       .order("expiry_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -66,7 +72,7 @@ export default async function SoftwarePage() {
           <ModalTrigger
             description="Khai báo bản quyền mới; admin có thể thêm key mã hóa sau khi lưu."
             eyebrow="PHẦN MỀM"
-            size="large"
+            size="wide"
             title="Thêm bản quyền phần mềm"
             triggerLabel="+ Thêm phần mềm"
           >
@@ -101,6 +107,7 @@ export default async function SoftwarePage() {
             <tbody>
               {(licenses ?? []).map((license) => {
                 const asset = getRelatedAsset(license.assets);
+                const assignments = (license.software_license_assets ?? []) as LicenseAssignment[];
                 const isExpired = Boolean(
                   license.expiry_date && license.expiry_date < today,
                 );
@@ -121,7 +128,22 @@ export default async function SoftwarePage() {
                       )}
                     </td>
                     <td>
-                      {license.assigned_asset_id ? (
+                      {assignments.length ? (
+                        <div className="software-assignment-list">
+                          <strong>{assignments.length} thiết bị</strong>
+                          {assignments.slice(0, 3).map((assignment) => {
+                            const assignedAsset = getRelatedAsset(assignment.assets);
+                            return (
+                              <Link href={`/assets/${assignment.asset_id}`} key={assignment.asset_id}>
+                                {assignedAsset?.asset_code || assignedAsset?.asset_name || "Thiết bị"}
+                              </Link>
+                            );
+                          })}
+                          {assignments.length > 3 ? (
+                            <small>và {assignments.length - 3} thiết bị khác</small>
+                          ) : null}
+                        </div>
+                      ) : license.assigned_asset_id ? (
                         <Link className="asset-name" href={`/assets/${license.assigned_asset_id}`}>
                           <strong>{asset?.asset_code || "Thiết bị"}</strong>
                           <small>{asset?.asset_name}</small>
