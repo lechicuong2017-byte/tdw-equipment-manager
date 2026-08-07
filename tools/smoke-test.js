@@ -138,6 +138,9 @@ async function run() {
   const softwareMultiAssignmentMigration = read(
     "supabase/migrations/202608070004_software_multi_asset_assignments.sql",
   );
+  const assetCodeGenerationMigration = read(
+    "supabase/migrations/202608070005_asset_code_generation.sql",
+  );
   const app = read("app/app.js");
   const nextLayout = read("next-app/app/layout.tsx");
   const nextGlobals = read("next-app/app/globals.css");
@@ -157,6 +160,7 @@ async function run() {
   const nextDashboardPage = read("next-app/app/(protected)/dashboard/page.tsx");
   const nextAssetForm = read("next-app/components/asset-form.tsx");
   const nextAssetActions = read("next-app/app/(protected)/assets/actions.ts");
+  const assetCode = read("next-app/lib/asset-code.ts");
   const assetLiquidationAction = read(
     "next-app/components/asset-liquidation-action.tsx",
   );
@@ -258,6 +262,17 @@ async function run() {
   assert.ok(softwareMultiAssignmentMigration.includes("insert into public.software_license_assets"));
   assert.ok(softwareMultiAssignmentMigration.includes("asset.status <> 'DA_THANH_LY'"));
   assert.ok(softwareMultiAssignmentMigration.includes("public.can_access_asset"));
+  assert.ok(assetCode.includes('LAPTOP: "LAP"'));
+  assert.ok(assetCode.includes('"MAY IN": "PRN"'));
+  assert.ok(assetCode.includes("suggestedAssetCode"));
+  assert.ok(nextAssetForm.includes('name="auto_asset_code"'));
+  assert.ok(nextAssetForm.includes("Dùng mã tự động"));
+  assert.ok(nextAssetForm.includes("Nhập thủ công"));
+  assert.ok(nextAssetActions.includes('rpc(\n      "next_asset_code"'));
+  assert.ok(assetCodeGenerationMigration.includes("create table if not exists public.asset_code_counters"));
+  assert.ok(assetCodeGenerationMigration.includes("create or replace function public.next_asset_code"));
+  assert.ok(assetCodeGenerationMigration.includes("greatest("));
+  assert.ok(assetCodeGenerationMigration.includes("public.has_permission('assets.manage')"));
   assert.ok(appsScript.includes('maintenanceLogs: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenanceLogs) : []'));
   assert.ok(appsScript.includes('maintenancePlans: hasPermission_(user, "maintenance.view") ? readSheetAsObjects_(SHEET_NAMES.maintenancePlans) : []'));
   assert.ok(appsScript.includes("function normalizeMaintenancePlan_(plan, activeAssets)"));

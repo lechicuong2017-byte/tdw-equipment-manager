@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
+import { assetCodePrefix, currentAssetCodeYear } from "@/lib/asset-code";
 import { safeAssetsReturnTo } from "@/lib/asset-navigation";
 
 const emptyToNull = (value: unknown) =>
@@ -49,6 +50,7 @@ const assetSchema = z.object({
   last_maintenance_date: optionalDate,
   next_check_date: optionalDate,
   note: z.string().trim().max(3000),
+  auto_asset_code: z.preprocess((value) => value === "true", z.boolean()),
 });
 
 export type AssetFormState = {
@@ -70,7 +72,22 @@ export async function saveAsset(
   }
 
   const { supabase, access } = await requireAccess();
-  const { id, ...payload } = parsed.data;
+  const { id, auto_asset_code: autoAssetCode, ...payload } = parsed.data;
+  if (!id && autoAssetCode) {
+    const prefix = assetCodePrefix(payload.asset_type, payload.asset_kind);
+    const year = payload.purchase_year ?? currentAssetCodeYear();
+    const { data: generatedCode, error: codeError } = await supabase.rpc(
+      "next_asset_code",
+      {
+        target_prefix: prefix,
+        target_year: year,
+      },
+    );
+    if (codeError || typeof generatedCode !== "string") {
+      return { error: "Không thể tự sinh mã thiết bị. Vui lòng thử lại hoặc nhập mã thủ công." };
+    }
+    payload.asset_code = generatedCode;
+  }
   const query = id
     ? supabase.from("assets").update(payload).eq("id", id).select("id").single()
     : supabase.from("assets").insert(payload).select("id").single();

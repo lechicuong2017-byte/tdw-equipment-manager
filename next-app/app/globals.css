@@ -1138,6 +1138,47 @@ tbody tr.asset-row:hover > td {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.asset-code-field {
+  align-content: start;
+}
+
+.asset-code-label {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+  justify-content: space-between;
+}
+
+.asset-code-label button {
+  background: transparent;
+  border: 0;
+  color: var(--brand);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 0;
+}
+
+.asset-code-label button:hover {
+  color: var(--brand-dark);
+  text-decoration: underline;
+}
+
+.asset-code-input-auto {
+  background: #edf9f1;
+  border-color: #9bd4ad;
+  color: #146c36;
+  font-weight: 850;
+  letter-spacing: 0.035em;
+}
+
+.asset-code-help {
+  color: #5f6f67;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
 .span-2 {
   grid-column: span 2;
 }

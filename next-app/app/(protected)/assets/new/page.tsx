@@ -16,7 +16,7 @@ export default async function NewAssetPage({ searchParams }: NewAssetPageProps) 
   const { supabase, access } = await requireAccess();
   if (!can(access, "assets.manage")) redirect("/assets");
 
-  const [{ data: departments }, { data: settings }] = await Promise.all([
+  const [{ data: departments }, { data: settings }, { data: existingAssets }] = await Promise.all([
     supabase.from("departments").select("id, name").order("name"),
     supabase
       .from("settings")
@@ -24,6 +24,11 @@ export default async function NewAssetPage({ searchParams }: NewAssetPageProps) 
       .in("setting_type", ["asset_group", "asset_type", "status"])
       .eq("active", true)
       .order("sort_order"),
+    supabase
+      .from("assets")
+      .select("asset_code")
+      .order("asset_code")
+      .limit(5000),
   ]);
 
   return (
@@ -38,6 +43,7 @@ export default async function NewAssetPage({ searchParams }: NewAssetPageProps) 
         <AssetForm
           defaultKind={defaultKind}
           departments={(departments ?? []) as Department[]}
+          existingAssetCodes={(existingAssets ?? []).map((item) => item.asset_code)}
           settings={(settings ?? []) as Setting[]}
         />
       </section>

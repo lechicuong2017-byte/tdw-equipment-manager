@@ -1,10 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   saveAsset,
   type AssetFormState,
 } from "@/app/(protected)/assets/actions";
+import {
+  assetCodePrefix,
+  currentAssetCodeYear,
+  suggestedAssetCode,
+} from "@/lib/asset-code";
 import { statusLabels } from "@/lib/format";
 import type {
   Asset,
@@ -20,6 +25,7 @@ export function AssetForm({
   asset,
   defaultKind = "DEVICE",
   departments,
+  existingAssetCodes = [],
   returnTo,
   responsibleUsers = [],
   responsibles = [],
@@ -28,6 +34,7 @@ export function AssetForm({
   asset?: Asset;
   defaultKind?: "DEVICE" | "COMPONENT";
   departments: Department[];
+  existingAssetCodes?: string[];
   returnTo?: string;
   responsibleUsers?: ResponsibleUser[];
   responsibles?: AssetResponsible[];
@@ -35,6 +42,21 @@ export function AssetForm({
 }) {
   const [state, formAction, pending] = useActionState(saveAsset, initialState);
   const [responsiblesChanged, setResponsiblesChanged] = useState(false);
+  const [assetKind, setAssetKind] = useState<"DEVICE" | "COMPONENT">(
+    asset?.asset_kind ?? defaultKind,
+  );
+  const [assetType, setAssetType] = useState(asset?.asset_type ?? "");
+  const [purchaseYear, setPurchaseYear] = useState(
+    asset?.purchase_year ? String(asset.purchase_year) : "",
+  );
+  const [autoAssetCode, setAutoAssetCode] = useState(!asset);
+  const [manualAssetCode, setManualAssetCode] = useState(asset?.asset_code ?? "");
+  const generatedPrefix = assetCodePrefix(assetType, assetKind);
+  const generatedYear = Number(purchaseYear) || currentAssetCodeYear();
+  const generatedAssetCode = useMemo(
+    () => suggestedAssetCode(generatedPrefix, generatedYear, existingAssetCodes),
+    [existingAssetCodes, generatedPrefix, generatedYear],
+  );
   const primaryUserId = responsibles.find(
     (item) => item.responsibility_role === "primary",
   )?.user_id;
@@ -91,14 +113,51 @@ export function AssetForm({
       <div className="form-grid">
         <label>
           Phân loại *
-          <select defaultValue={asset?.asset_kind ?? defaultKind} name="asset_kind">
+          <select
+            name="asset_kind"
+            value={assetKind}
+            onChange={(event) => setAssetKind(event.target.value as "DEVICE" | "COMPONENT")}
+          >
             <option value="DEVICE">Thiết bị hoàn chỉnh</option>
             <option value="COMPONENT">Linh kiện bên trong</option>
           </select>
         </label>
-        <label>
-          Mã thiết bị *
-          <input defaultValue={asset?.asset_code} maxLength={80} name="asset_code" required />
+        <input
+          name="auto_asset_code"
+          type="hidden"
+          value={autoAssetCode ? "true" : "false"}
+        />
+        <label className="asset-code-field">
+          <span className="asset-code-label">
+            <span>Mã thiết bị *</span>
+            {!asset ? (
+              <button
+                onClick={() => {
+                  if (autoAssetCode) setManualAssetCode(generatedAssetCode);
+                  setAutoAssetCode((current) => !current);
+                }}
+                type="button"
+              >
+                {autoAssetCode ? "Nhập thủ công" : "Dùng mã tự động"}
+              </button>
+            ) : null}
+          </span>
+          <input
+            className={autoAssetCode ? "asset-code-input-auto" : ""}
+            maxLength={80}
+            name="asset_code"
+            onChange={(event) => setManualAssetCode(event.target.value)}
+            readOnly={autoAssetCode}
+            required
+            value={autoAssetCode ? generatedAssetCode : manualAssetCode}
+          />
+          {!asset ? (
+            <small className="asset-code-help">
+              {autoAssetCode
+                ? `${assetType || (assetKind === "COMPONENT" ? "Linh kiện" : "Thiết bị")} · năm ${generatedYear} · số kế tiếp`
+                : "Mã thủ công vẫn được kiểm tra trùng khi lưu."}
+            </small>
+          ) : null}
         </label>
         <label className="span-2">
           Tên thiết bị *
@@ -115,7 +174,11 @@ export function AssetForm({
         </label>
         <label>
           Loại thiết bị
-          <select defaultValue={asset?.asset_type ?? ""} name="asset_type">
+          <select
+            name="asset_type"
+            value={assetType}
+            onChange={(event) => setAssetType(event.target.value)}
+          >
             <option value="">Chưa chọn loại</option>
             {typeOptions.map((item) => (
               <option key={item.id} value={item.setting_value}>{item.display_name}</option>
@@ -195,7 +258,14 @@ export function AssetForm({
         </label>
         <label>
           Năm mua
-          <input defaultValue={asset?.purchase_year ?? ""} max={2100} min={1990} name="purchase_year" type="number" />
+          <input
+            max={2100}
+            min={1990}
+            name="purchase_year"
+            onChange={(event) => setPurchaseYear(event.target.value)}
+            type="number"
+            value={purchaseYear}
+          />
         </label>
         <label>
           Ngày mua
