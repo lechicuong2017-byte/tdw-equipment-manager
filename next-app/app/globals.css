@@ -1732,7 +1732,7 @@ tbody tr.asset-row:hover > td {
 .software-asset-filters {
   display: grid;
   gap: 0.8rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .software-asset-filters label {
@@ -2796,6 +2796,10 @@ tbody tr.asset-row:hover > td {
 
   .filter-bar {
     grid-template-columns: minmax(240px, 1fr) minmax(180px, 0.7fr);
+  }
+
+  .software-asset-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dashboard-grid,

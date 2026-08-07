@@ -9,13 +9,23 @@ export type SoftwareAssetOption = {
   asset_group: string;
   asset_group_label: string;
   asset_type: string;
+  department_legacy_name: string;
+  departments: { name: string } | { name: string }[] | null;
 };
 
 const ungroupedValue = "__UNGROUPED__";
 const untypedValue = "__UNTYPED__";
+const unassignedDepartmentValue = "__UNASSIGNED_DEPARTMENT__";
 
 function searchable(value: string) {
   return value.trim().toLocaleLowerCase("vi");
+}
+
+function departmentName(asset: SoftwareAssetOption) {
+  const department = Array.isArray(asset.departments)
+    ? asset.departments[0]
+    : asset.departments;
+  return department?.name || asset.department_legacy_name || "";
 }
 
 export function SoftwareAssetSelector({
@@ -27,6 +37,7 @@ export function SoftwareAssetSelector({
 }) {
   const [group, setGroup] = useState("");
   const [type, setType] = useState("");
+  const [department, setDepartment] = useState("");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState(
     () => new Set(initialSelectedIds),
@@ -58,17 +69,33 @@ export function SoftwareAssetSelector({
     );
   }, [assets]);
 
+  const departmentOptions = useMemo(() => {
+    const values = new Set(
+      assets.map((asset) => departmentName(asset) || unassignedDepartmentValue),
+    );
+    return [...values].sort((left, right) =>
+      (left === unassignedDepartmentValue ? "Chưa phân phòng" : left).localeCompare(
+        right === unassignedDepartmentValue ? "Chưa phân phòng" : right,
+        "vi",
+      ),
+    );
+  }, [assets]);
+
   const visibleAssets = useMemo(() => {
     const keyword = searchable(search);
     return assets.filter((asset) => {
       if (group && (asset.asset_group || ungroupedValue) !== group) return false;
       if (type && (asset.asset_type || untypedValue) !== type) return false;
+      if (
+        department
+        && (departmentName(asset) || unassignedDepartmentValue) !== department
+      ) return false;
       if (!keyword) return true;
       return searchable(
-        `${asset.asset_code} ${asset.asset_name} ${asset.asset_group_label} ${asset.asset_type}`,
+        `${asset.asset_code} ${asset.asset_name} ${asset.asset_group_label} ${asset.asset_type} ${departmentName(asset)}`,
       ).includes(keyword);
     });
-  }, [assets, group, search, type]);
+  }, [assets, department, group, search, type]);
 
   const selectedVisibleCount = visibleAssets.filter((asset) =>
     selectedIds.has(asset.id),
@@ -125,6 +152,20 @@ export function SoftwareAssetSelector({
           </select>
         </label>
         <label>
+          Phòng ban
+          <select
+            value={department}
+            onChange={(event) => setDepartment(event.target.value)}
+          >
+            <option value="">Tất cả phòng ban</option>
+            {departmentOptions.map((value) => (
+              <option key={value} value={value}>
+                {value === unassignedDepartmentValue ? "Chưa phân phòng" : value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           Tìm thiết bị
           <input
             onChange={(event) => setSearch(event.target.value)}
@@ -167,6 +208,8 @@ export function SoftwareAssetSelector({
                 {asset.asset_group_label || asset.asset_group || "Chưa có nhóm"}
                 <i aria-hidden="true" />
                 {asset.asset_type || "Chưa có loại"}
+                <i aria-hidden="true" />
+                {departmentName(asset) || "Chưa phân phòng"}
               </small>
             </span>
           </label>
@@ -176,7 +219,7 @@ export function SoftwareAssetSelector({
         ) : null}
       </div>
       <p className="form-help">
-        Các thiết bị đã tick vẫn được giữ khi bạn đổi nhóm, loại hoặc từ khóa lọc.
+        Các thiết bị đã tick vẫn được giữ khi bạn đổi nhóm, loại, phòng ban hoặc từ khóa lọc.
       </p>
     </fieldset>
   );

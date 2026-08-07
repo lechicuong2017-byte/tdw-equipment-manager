@@ -219,6 +219,9 @@ async function run() {
   assert.ok(softwareEditForm.includes("SoftwareAssetSelector"));
   assert.ok(softwareAssetSelector.includes("Nhóm thiết bị"));
   assert.ok(softwareAssetSelector.includes("Loại thiết bị"));
+  assert.ok(softwareAssetSelector.includes("Phòng ban"));
+  assert.ok(softwareAssetSelector.includes("departmentName(asset)"));
+  assert.ok(softwareAssetSelector.includes("Chưa phân phòng"));
   assert.ok(softwareAssetSelector.includes('type="checkbox"'));
   assert.ok(softwareAssetSelector.includes('name="assigned_asset_ids"'));
   assert.ok(softwareAssetSelector.includes("Chọn tất cả đang lọc"));
