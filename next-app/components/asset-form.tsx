@@ -127,9 +127,9 @@ export function AssetForm({
           type="hidden"
           value={autoAssetCode ? "true" : "false"}
         />
-        <label className="asset-code-field">
+        <div className="asset-code-field">
           <span className="asset-code-label">
-            <span>Mã thiết bị *</span>
+            <label htmlFor="asset-code-input">Mã thiết bị *</label>
             {!asset ? (
               <button
                 onClick={() => {
@@ -144,6 +144,7 @@ export function AssetForm({
           </span>
           <input
             className={autoAssetCode ? "asset-code-input-auto" : ""}
+            id="asset-code-input"
             maxLength={80}
             name="asset_code"
             onChange={(event) => setManualAssetCode(event.target.value)}
@@ -158,7 +159,7 @@ export function AssetForm({
                 : "Mã thủ công vẫn được kiểm tra trùng khi lưu."}
             </small>
           ) : null}
-        </label>
+        </div>
         <label className="span-2">
           Tên thiết bị *
           <input defaultValue={asset?.asset_name} maxLength={200} name="asset_name" required />

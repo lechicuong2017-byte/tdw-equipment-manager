@@ -1140,6 +1140,15 @@ tbody tr.asset-row:hover > td {
 
 .asset-code-field {
   align-content: start;
+  color: #334155;
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 0.45rem;
+}
+
+.asset-code-field label {
+  cursor: pointer;
 }
 
 .asset-code-label {
