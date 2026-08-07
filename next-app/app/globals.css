@@ -1982,6 +1982,15 @@ tbody tr.asset-row:hover > td {
   width: 3px;
 }
 
+.software-asset-user {
+  color: #475569;
+  font-weight: 700;
+}
+
+.software-asset-option:has(input:checked) .software-asset-user {
+  color: #188047;
+}
+
 .software-assignment-list {
   display: grid;
   gap: 0.25rem;

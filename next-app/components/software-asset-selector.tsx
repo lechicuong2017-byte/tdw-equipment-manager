@@ -9,6 +9,7 @@ export type SoftwareAssetOption = {
   asset_group: string;
   asset_group_label: string;
   asset_type: string;
+  assigned_to_name: string;
   department_legacy_name: string;
   departments: { name: string } | { name: string }[] | null;
 };
@@ -92,7 +93,7 @@ export function SoftwareAssetSelector({
       ) return false;
       if (!keyword) return true;
       return searchable(
-        `${asset.asset_code} ${asset.asset_name} ${asset.asset_group_label} ${asset.asset_type} ${departmentName(asset)}`,
+        `${asset.asset_code} ${asset.asset_name} ${asset.asset_group_label} ${asset.asset_type} ${departmentName(asset)} ${asset.assigned_to_name}`,
       ).includes(keyword);
     });
   }, [assets, department, group, search, type]);
@@ -169,7 +170,7 @@ export function SoftwareAssetSelector({
           Tìm thiết bị
           <input
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Mã hoặc tên thiết bị…"
+            placeholder="Mã, tên hoặc người sử dụng…"
             type="search"
             value={search}
           />
@@ -210,6 +211,10 @@ export function SoftwareAssetSelector({
                 {asset.asset_type || "Chưa có loại"}
                 <i aria-hidden="true" />
                 {departmentName(asset) || "Chưa phân phòng"}
+                <i aria-hidden="true" />
+                <span className="software-asset-user">
+                  Người sử dụng: {asset.assigned_to_name || "Chưa gán"}
+                </span>
               </small>
             </span>
           </label>

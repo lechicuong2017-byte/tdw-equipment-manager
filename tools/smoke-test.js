@@ -226,6 +226,10 @@ async function run() {
   assert.ok(softwareAssetSelector.includes("Phòng ban"));
   assert.ok(softwareAssetSelector.includes("departmentName(asset)"));
   assert.ok(softwareAssetSelector.includes("Chưa phân phòng"));
+  assert.ok(softwareAssetSelector.includes("assigned_to_name"));
+  assert.ok(softwareAssetSelector.includes("Người sử dụng:"));
+  assert.ok(nextSoftwarePage.includes("assigned_to_name"));
+  assert.ok(nextSoftwareEditPage.includes("assigned_to_name"));
   assert.ok(softwareAssetSelector.includes('type="checkbox"'));
   assert.ok(softwareAssetSelector.includes('name="assigned_asset_ids"'));
   assert.ok(softwareAssetSelector.includes("Chọn tất cả đang lọc"));
