@@ -210,6 +210,7 @@ async function run() {
   );
   assert.ok(nextSoftwareActions.includes('rpc("save_software_license_with_assets"'));
   assert.ok(nextSoftwareActions.includes('formData.getAll("assigned_asset_ids")'));
+  assert.ok(nextSoftwareActions.includes('redirect(`/software?ok=${encodeURIComponent'));
   assert.ok(nextSoftwareEditPage.includes('can(access, "software.manage")'));
   assert.ok(nextSoftwareEditPage.includes("license_secret_ref"));
   assert.ok(nextSoftwareEditPage.includes('access.roles.includes("admin")'));

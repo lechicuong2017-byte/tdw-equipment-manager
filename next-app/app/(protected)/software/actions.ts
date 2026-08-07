@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
 import {
@@ -131,7 +132,7 @@ export async function updateSoftwareLicense(
 
   revalidatePath("/software");
   revalidatePath(`/software/${id.data}/edit`);
-  return { success: "Đã cập nhật bản quyền phần mềm." };
+  redirect(`/software?ok=${encodeURIComponent("Đã cập nhật bản quyền phần mềm.")}`);
 }
 
 export async function saveSoftwareLicenseSecret(
