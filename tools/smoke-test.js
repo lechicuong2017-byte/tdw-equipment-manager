@@ -817,6 +817,17 @@ async function run() {
     cron.path === "/api/jobs/maintenance-reminders"
       && cron.schedule === "0 1 * * *"
   ));
+  const assetAgeMigration = read("supabase/migrations/202608070002_auto_age_new_assets.sql");
+  assert.ok(assetAgeMigration.includes("public.asset_effective_purchase_date"));
+  assert.ok(assetAgeMigration.includes("then make_date(target_purchase_year::integer, 12, 31)"));
+  assert.ok(assetAgeMigration.includes("new.status = 'MOI_100'"));
+  assert.ok(assetAgeMigration.includes("new.status := 'CON_SU_DUNG'"));
+  assert.ok(assetAgeMigration.includes("status = 'MOI_100'"));
+  assert.ok(assetAgeMigration.includes("set status = 'CON_SU_DUNG'"));
+  assert.ok(assetAgeMigration.includes("assets_apply_age_status"));
+  assert.ok(assetAgeMigration.includes("tdw-refresh-asset-age-statuses"));
+  assert.ok(assetAgeMigration.includes("'5 17 * * *'"));
+  assert.ok(assetAgeMigration.includes("select public.refresh_asset_age_statuses();"));
   assert.ok(index.includes('integrity="sha512-'));
 
   const unauthenticated = await invokeProxy({ fn: "healthCheck", args: [] });
