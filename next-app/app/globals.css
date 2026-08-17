@@ -2416,6 +2416,64 @@ tbody tr.asset-row:hover > td {
   padding: 0.75rem;
 }
 
+.maintenance-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.maintenance-detail-summary,
+.maintenance-detail-media {
+  min-width: 0;
+}
+
+.maintenance-detail-copy {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #f7fafc;
+  border: 1px solid var(--line);
+}
+
+.maintenance-detail-copy p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.maintenance-detail-media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.maintenance-detail-media-grid a {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.maintenance-detail-media-grid img,
+.maintenance-detail-media-grid .media-unavailable {
+  width: 100%;
+  height: 210px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: #f4f7fa;
+  border: 1px solid var(--line);
+}
+
+.maintenance-detail-media-grid small {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .maintenance-saved-media-heading {
   align-items: baseline;
   display: flex;
@@ -3076,6 +3134,7 @@ tbody tr.asset-row:hover > td {
   }
 
   .dashboard-grid,
+  .maintenance-detail-grid,
   .profile-grid,
   .report-grid,
   .user-access-grid,
@@ -3248,6 +3307,10 @@ tbody tr.asset-row:hover > td {
   }
 
   .media-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .maintenance-detail-media-grid {
     grid-template-columns: 1fr;
   }
 

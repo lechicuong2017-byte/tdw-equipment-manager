@@ -425,6 +425,7 @@ export async function uploadMaintenanceMedia(
   if (!uploadedMedia) return { error: "Không thể tải ảnh lên Storage." };
 
   revalidatePath("/maintenance");
+  revalidatePath(`/maintenance/${log.id}`);
   revalidatePath(`/assets/${log.asset_id}`);
   return {
     success: `Đã tải ${uploadedMedia}/${mediaFiles.files.length} ảnh cho nhật ký bảo trì.`,
@@ -468,6 +469,7 @@ export async function deleteMaintenanceMedia(formData: FormData) {
   if (databaseError) return { error: "Không thể xóa thông tin ảnh." };
 
   revalidatePath("/maintenance");
+  revalidatePath(`/maintenance/${parsed.data.maintenance_log_id}`);
   revalidatePath(`/assets/${data.asset_id}`);
   return { success: "Đã xóa ảnh bảo trì." };
 }

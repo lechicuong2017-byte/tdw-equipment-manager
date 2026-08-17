@@ -291,7 +291,7 @@ export default async function MaintenancePage() {
                   return (
                     <tr key={log.id}>
                       <td>
-                        <Link className="asset-name" href={`/assets/${log.asset_id}`}>
+                        <Link className="asset-name" href={`/maintenance/${log.id}`}>
                           <strong>{formatDate(log.maintenance_date)}</strong>
                           <small>{asset?.asset_code} · {asset?.asset_name}</small>
                         </Link>
