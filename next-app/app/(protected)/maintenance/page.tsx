@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ConfirmAction } from "@/components/app-modal";
 import { MaintenanceForms } from "@/components/maintenance-forms";
+import { MaintenanceLogEditor } from "@/components/maintenance-log-editor";
 import { MaintenanceMediaUpload } from "@/components/maintenance-media-upload";
 import { MaintenancePlanEditor } from "@/components/maintenance-plan-editor";
 import { MaintenanceReminderButton } from "@/components/maintenance-reminder-button";
@@ -46,7 +47,7 @@ export default async function MaintenancePage() {
       .limit(500),
     supabase
       .from("maintenance_logs")
-      .select("id, asset_id, maintenance_date, action_type, description, cost, vendor, performed_by, assets(id, asset_code, asset_name)")
+      .select("id, asset_id, plan_id, maintenance_date, action_type, description, cost, vendor, warranty_months, performed_by, note, assets(id, asset_code, asset_name)")
       .order("maintenance_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(100),
@@ -112,6 +113,11 @@ export default async function MaintenancePage() {
       asset_id: plan.asset_id,
       title: `${getRelatedAsset(plan.assets)?.asset_code ?? ""} — ${plan.title}`,
     }));
+  const editPlanOptions = (plans ?? []).map((plan) => ({
+    id: plan.id,
+    asset_id: plan.asset_id,
+    title: plan.title,
+  }));
   const maintenanceTypeLabels = new Map(
     maintenanceTypes.map((item) => [item.setting_value, item.display_name]),
   );
@@ -282,7 +288,7 @@ export default async function MaintenancePage() {
                   <th>Thực hiện</th>
                   <th className="align-right">Chi phí</th>
                   <th>Hình ảnh</th>
-                  {canDelete ? <th aria-label="Thao tác" /> : null}
+                  {(canManage || canDelete) ? <th aria-label="Thao tác" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -317,14 +323,41 @@ export default async function MaintenancePage() {
                           ) : null}
                         </div>
                       </td>
-                      {canDelete ? (
+                      {(canManage || canDelete) ? (
                         <td>
-                          <ConfirmAction
-                            action={deleteMaintenanceRecord}
-                            description={`Nhật ký bảo trì ngày ${formatDate(log.maintenance_date)} sẽ bị xóa khỏi lịch sử thiết bị.`}
-                            fields={{ id: log.id, kind: "log" }}
-                            title="Xóa nhật ký bảo trì?"
-                          />
+                          <div className="row-actions">
+                            {canManage ? (
+                              <MaintenanceLogEditor
+                                actionTypes={maintenanceTypes.map((item) => ({
+                                  value: item.setting_value,
+                                  label: item.display_name,
+                                }))}
+                                assetLabel={`${asset?.asset_code ?? ""} · ${asset?.asset_name ?? "Thiết bị"}`}
+                                log={{
+                                  id: log.id,
+                                  asset_id: log.asset_id,
+                                  plan_id: log.plan_id,
+                                  maintenance_date: log.maintenance_date,
+                                  action_type: log.action_type,
+                                  description: log.description,
+                                  cost: log.cost,
+                                  vendor: log.vendor,
+                                  warranty_months: log.warranty_months,
+                                  performed_by: log.performed_by,
+                                  note: log.note,
+                                }}
+                                plans={editPlanOptions}
+                              />
+                            ) : null}
+                            {canDelete ? (
+                              <ConfirmAction
+                                action={deleteMaintenanceRecord}
+                                description={`Nhật ký bảo trì ngày ${formatDate(log.maintenance_date)} sẽ bị xóa khỏi lịch sử thiết bị.`}
+                                fields={{ id: log.id, kind: "log" }}
+                                title="Xóa nhật ký bảo trì?"
+                              />
+                            ) : null}
+                          </div>
                         </td>
                       ) : null}
                     </tr>
@@ -332,7 +365,7 @@ export default async function MaintenancePage() {
                 })}
                 {!logs?.length ? (
                   <tr>
-                    <td className="empty-cell" colSpan={canDelete ? 6 : 5}>
+                    <td className="empty-cell" colSpan={canManage || canDelete ? 6 : 5}>
                       Chưa có nhật ký bảo trì.
                     </td>
                   </tr>

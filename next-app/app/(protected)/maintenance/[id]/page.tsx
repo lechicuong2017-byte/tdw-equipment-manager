@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MaintenanceMediaUpload } from "@/components/maintenance-media-upload";
+import { MaintenanceLogEditor } from "@/components/maintenance-log-editor";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -72,6 +73,11 @@ export default async function MaintenanceLogDetailPage({
   const maintenanceType = typeLabels.get(log.action_type)
     ?? log.action_type
     ?? "Bảo trì";
+  const { data: plans } = await supabase
+    .from("maintenance_plans")
+    .select("id,asset_id,title")
+    .eq("asset_id", log.asset_id)
+    .order("title");
 
   return (
     <>
@@ -81,6 +87,30 @@ export default async function MaintenanceLogDetailPage({
         description={`${asset?.asset_code ?? ""} · ${asset?.asset_name ?? "Thiết bị"}`}
         actions={
           <>
+            {can(access, "maintenance.manage") ? (
+              <MaintenanceLogEditor
+                actionTypes={(settings ?? []).map((item) => ({
+                  value: item.setting_value,
+                  label: item.display_name,
+                }))}
+                assetLabel={`${asset?.asset_code ?? ""} · ${asset?.asset_name ?? "Thiết bị"}`}
+                log={{
+                  id: log.id,
+                  asset_id: log.asset_id,
+                  plan_id: log.plan_id,
+                  maintenance_date: log.maintenance_date,
+                  action_type: log.action_type,
+                  description: log.description,
+                  cost: log.cost,
+                  vendor: log.vendor,
+                  warranty_months: log.warranty_months,
+                  performed_by: log.performed_by,
+                  note: log.note,
+                }}
+                plans={plans ?? []}
+                triggerClassName="secondary-button"
+              />
+            ) : null}
             <Link className="secondary-button" href="/maintenance">Danh sách bảo trì</Link>
             {asset?.id ? (
               <Link className="secondary-button" href={`/assets/${asset.id}`}>

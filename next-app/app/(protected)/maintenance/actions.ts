@@ -52,6 +52,10 @@ const logSchema = z.object({
   note: z.string().trim().max(3000),
 });
 
+const logUpdateSchema = logSchema.extend({
+  id: z.uuid("Nhật ký bảo trì không hợp lệ"),
+});
+
 const maintenanceMediaSchema = z.object({
   maintenance_log_id: z.uuid("Nhật ký bảo trì không hợp lệ"),
 });
@@ -382,6 +386,57 @@ export async function createMaintenanceLog(
     logId: createdLog.id,
     success: `Đã ghi nhận lần bảo trì.${mediaMessage}${retryMessage}`,
   };
+}
+
+export async function updateMaintenanceLog(
+  _previousState: MaintenanceFormState,
+  formData: FormData,
+): Promise<MaintenanceFormState> {
+  const parsed = logUpdateSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "maintenance.manage")) {
+    return { error: "Bạn không có quyền sửa nhật ký bảo trì." };
+  }
+
+  const { data: currentLog } = await supabase
+    .from("maintenance_logs")
+    .select("id,asset_id")
+    .eq("id", parsed.data.id)
+    .single();
+  if (!currentLog) return { error: "Không tìm thấy nhật ký cần sửa." };
+  if (currentLog.asset_id !== parsed.data.asset_id) {
+    return { error: "Không thể chuyển nhật ký sang thiết bị khác." };
+  }
+
+  if (parsed.data.plan_id) {
+    const { data: matchingPlan } = await supabase
+      .from("maintenance_plans")
+      .select("id")
+      .eq("id", parsed.data.plan_id)
+      .eq("asset_id", currentLog.asset_id)
+      .maybeSingle();
+    if (!matchingPlan) {
+      return { error: "Kế hoạch đã chọn không thuộc thiết bị này." };
+    }
+  }
+
+  const { id, ...updates } = parsed.data;
+  const { error } = await supabase
+    .from("maintenance_logs")
+    .update(updates)
+    .eq("id", id);
+  if (error) {
+    return { error: "Không thể cập nhật nhật ký. Hãy kiểm tra quyền và dữ liệu." };
+  }
+
+  revalidatePath("/maintenance");
+  revalidatePath(`/maintenance/${id}`);
+  revalidatePath(`/assets/${currentLog.asset_id}`);
+  return { logId: id, success: "Đã cập nhật nhật ký bảo trì." };
 }
 
 export async function uploadMaintenanceMedia(
