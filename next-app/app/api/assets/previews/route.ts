@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAccess } from "@/lib/auth";
+import { excludeMaintenanceDuplicates } from "@/lib/media-ownership";
 
 const assetIdsSchema = z.array(z.uuid()).min(1).max(20);
 
@@ -14,15 +15,39 @@ export async function GET(request: Request) {
   }
 
   const { supabase } = await requireAccess();
-  const { data: media } = await supabase
-    .from("media_files")
-    .select("asset_id,object_path,thumbnail_path,sort_order,created_at")
-    .in("asset_id", parsed.data)
-    .eq("owner_type", "ASSET")
-    .in("owner_id", parsed.data)
-    .order("sort_order")
-    .order("created_at")
-    .limit(200);
+  const [{ data: assetMedia }, { data: maintenanceMedia }] = await Promise.all([
+    supabase
+      .from("media_files")
+      .select("asset_id,object_path,thumbnail_path,file_name,byte_size,checksum,sort_order,created_at")
+      .in("asset_id", parsed.data)
+      .eq("owner_type", "ASSET")
+      .in("owner_id", parsed.data)
+      .order("sort_order")
+      .order("created_at")
+      .limit(200),
+    supabase
+      .from("media_files")
+      .select("asset_id,file_name,byte_size,checksum")
+      .in("asset_id", parsed.data)
+      .eq("owner_type", "MAINTENANCE")
+      .limit(500),
+  ]);
+
+  const maintenanceByAsset = new Map<
+    string,
+    { byte_size: number; checksum: string | null; file_name: string }[]
+  >();
+  (maintenanceMedia ?? []).forEach((item) => {
+    const current = maintenanceByAsset.get(item.asset_id) ?? [];
+    current.push(item);
+    maintenanceByAsset.set(item.asset_id, current);
+  });
+  const media = (assetMedia ?? []).filter((item) =>
+    excludeMaintenanceDuplicates(
+      [item],
+      maintenanceByAsset.get(item.asset_id) ?? [],
+    ).length,
+  );
 
   const firstMediaByAsset = new Map<
     string,

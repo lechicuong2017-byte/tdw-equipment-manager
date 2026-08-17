@@ -170,6 +170,7 @@ async function run() {
     "next-app/components/maintenance-media-upload.tsx",
   );
   const assetCode = read("next-app/lib/asset-code.ts");
+  const mediaOwnership = read("next-app/lib/media-ownership.ts");
   const assetLiquidationAction = read(
     "next-app/components/asset-liquidation-action.tsx",
   );
@@ -276,6 +277,10 @@ async function run() {
   assert.ok(nextAssetDetailPage.includes('.eq("owner_id", id)'));
   assert.ok(nextAssetPreviewRoute.includes('.eq("owner_type", "ASSET")'));
   assert.ok(nextAssetPreviewRoute.includes('.in("owner_id", parsed.data)'));
+  assert.ok(mediaOwnership.includes("excludeMaintenanceDuplicates"));
+  assert.ok(mediaOwnership.includes("sha256:"));
+  assert.ok(nextAssetDetailPage.includes("excludeMaintenanceDuplicates"));
+  assert.ok(nextAssetPreviewRoute.includes("excludeMaintenanceDuplicates"));
   assert.ok(googleExportRoute.includes("software_license_assets: assignments"));
   assert.ok(googleExportRoute.includes("(data ?? []).flatMap"));
   assert.ok(softwareSecretPanel.includes('type="password"'));

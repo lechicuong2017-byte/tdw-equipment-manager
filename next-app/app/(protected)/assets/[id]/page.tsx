@@ -20,6 +20,7 @@ import {
   labelStatus,
   statusTone,
 } from "@/lib/format";
+import { excludeMaintenanceDuplicates } from "@/lib/media-ownership";
 import type {
   Asset,
   AssetComponentInstallation,
@@ -51,6 +52,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
     { data: mediaData },
     { data: configuredSettings },
     { data: liquidationData },
+    { data: maintenanceMediaData },
   ] = await Promise.all([
     supabase
       .from("assets")
@@ -60,7 +62,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       .single(),
     supabase
       .from("media_files")
-      .select("id, object_path, thumbnail_path, file_name, mime_type, byte_size, sort_order, created_at")
+      .select("id, object_path, thumbnail_path, file_name, mime_type, byte_size, checksum, sort_order, created_at")
       .eq("asset_id", id)
       .eq("owner_type", "ASSET")
       .eq("owner_id", id)
@@ -77,6 +79,11 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       .eq("asset_id", id)
       .is("voided_at", null)
       .maybeSingle(),
+    supabase
+      .from("media_files")
+      .select("file_name,byte_size,checksum")
+      .eq("asset_id", id)
+      .eq("owner_type", "MAINTENANCE"),
   ]);
 
   if (!assetData) notFound();
@@ -84,7 +91,10 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
   const asset = assetData as Asset & {
     departments?: { name?: string } | { name?: string }[] | null;
   };
-  const media = (mediaData ?? []) as MediaFile[];
+  const media = excludeMaintenanceDuplicates(
+    (mediaData ?? []) as MediaFile[],
+    maintenanceMediaData ?? [],
+  );
   const department = Array.isArray(asset.departments)
     ? asset.departments[0]?.name
     : asset.departments?.name;
