@@ -7,6 +7,7 @@ import {
   uploadMaintenanceMedia,
 } from "@/app/(protected)/maintenance/actions";
 import { ActionStateToast } from "@/components/action-toast";
+import { ImageFilePicker } from "@/components/image-file-picker";
 import { ModalTrigger } from "@/components/app-modal";
 
 const initialState: MaintenanceMediaFormState = {};
@@ -44,18 +45,14 @@ export function MaintenanceMediaUpload({
           type="hidden"
           value={maintenanceLogId}
         />
-        <label className="upload-drop">
-          <span aria-hidden="true">＋</span>
-          <strong>Chọn hình ảnh</strong>
-          <small>JPEG, PNG hoặc WebP · tổng tối đa 5 MB/lần · chọn tối đa 5 ảnh</small>
-          <input
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            name="files"
-            required
-            type="file"
-          />
-        </label>
+        <ImageFilePicker
+          help="JPEG, PNG hoặc WebP · tổng tối đa 5 MB/lần · chọn tối đa 5 ảnh"
+          inputName="files"
+          label="Chọn hình ảnh"
+          maxFiles={5}
+          multiple
+          required
+        />
         {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
         <div className="modal-actions">
           <button className="primary-button" disabled={pending} type="submit">

@@ -7,6 +7,7 @@ import {
 } from "@/app/(protected)/assets/actions";
 import { ActionStateToast } from "@/components/action-toast";
 import { ModalTrigger } from "@/components/app-modal";
+import { ImageFilePicker } from "@/components/image-file-picker";
 
 const initialState: MediaFormState = {};
 
@@ -28,12 +29,12 @@ export function MediaUpload({ assetId }: { assetId: string }) {
       <form action={formAction} className="upload-form">
         <ActionStateToast state={state} />
         <input name="asset_id" type="hidden" value={assetId} />
-        <label className="upload-drop">
-          <span aria-hidden="true">＋</span>
-          <strong>Chọn hình ảnh</strong>
-          <small>JPEG, PNG hoặc WebP · tối đa 5 MB</small>
-          <input accept="image/jpeg,image/png,image/webp" name="file" required type="file" />
-        </label>
+        <ImageFilePicker
+          help="JPEG, PNG hoặc WebP · tối đa 5 MB"
+          inputName="file"
+          label="Chọn hình ảnh"
+          required
+        />
         {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
         <div className="modal-actions">
           <button className="primary-button" disabled={pending} type="submit">

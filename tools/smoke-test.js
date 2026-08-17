@@ -164,6 +164,11 @@ async function run() {
     "next-app/app/(protected)/maintenance/page.tsx",
   );
   const maintenanceForms = read("next-app/components/maintenance-forms.tsx");
+  const imageFilePicker = read("next-app/components/image-file-picker.tsx");
+  const mediaUpload = read("next-app/components/media-upload.tsx");
+  const maintenanceMediaUpload = read(
+    "next-app/components/maintenance-media-upload.tsx",
+  );
   const assetCode = read("next-app/lib/asset-code.ts");
   const assetLiquidationAction = read(
     "next-app/components/asset-liquidation-action.tsx",
@@ -253,6 +258,13 @@ async function run() {
   assert.ok(maintenanceForms.includes("Tất cả nhóm"));
   assert.ok(maintenanceForms.includes("Tất cả loại"));
   assert.ok(maintenanceForms.includes("maintenance-asset-filter-count"));
+  assert.ok(imageFilePicker.includes("URL.createObjectURL"));
+  assert.ok(imageFilePicker.includes("URL.revokeObjectURL"));
+  assert.ok(imageFilePicker.includes("image-file-preview-grid"));
+  assert.ok(imageFilePicker.includes("Bỏ tất cả"));
+  assert.ok(maintenanceForms.includes("<ImageFilePicker"));
+  assert.ok(mediaUpload.includes("<ImageFilePicker"));
+  assert.ok(maintenanceMediaUpload.includes("<ImageFilePicker"));
   assert.ok(googleExportRoute.includes("software_license_assets: assignments"));
   assert.ok(googleExportRoute.includes("(data ?? []).flatMap"));
   assert.ok(softwareSecretPanel.includes('type="password"'));

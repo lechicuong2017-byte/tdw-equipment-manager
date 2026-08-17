@@ -2304,6 +2304,96 @@ tbody tr.asset-row:hover > td {
   width: 1px;
 }
 
+.image-file-picker {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.image-file-preview-section {
+  background: #f8fbfc;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.image-file-preview-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.image-file-preview-heading strong {
+  color: var(--ink);
+  font-size: 0.72rem;
+}
+
+.image-file-preview-heading button,
+.image-file-preview figcaption button {
+  background: transparent;
+  border: 0;
+  color: var(--red);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.image-file-preview-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.image-file-preview {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.image-file-preview img {
+  aspect-ratio: 4 / 3;
+  background: #eef3f5;
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.image-file-preview figcaption {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+  justify-content: space-between;
+  padding: 0.45rem 0.55rem;
+}
+
+.image-file-preview figcaption span {
+  color: var(--ink-soft);
+  font-size: 0.62rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-file-preview figcaption button {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.image-file-preview figcaption button:hover {
+  background: #fff0f1;
+}
+
 .migration-panel {
   max-width: 720px;
   padding: 2rem;

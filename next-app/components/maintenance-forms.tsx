@@ -8,6 +8,7 @@ import {
 } from "@/app/(protected)/maintenance/actions";
 import { ActionStateToast } from "@/components/action-toast";
 import { ModalTrigger } from "@/components/app-modal";
+import { ImageFilePicker } from "@/components/image-file-picker";
 
 type AssetOption = {
   id: string;
@@ -439,17 +440,14 @@ export function MaintenanceForms({
           Ghi chú
           <textarea maxLength={3000} name="note" rows={2} />
         </label>
-        <label className="upload-drop maintenance-log-upload">
-          <span aria-hidden="true">＋</span>
-          <strong>Thêm hình ảnh bảo trì</strong>
-          <small>JPEG, PNG hoặc WebP · tổng tối đa 5 MB/lần · chọn tối đa 5 ảnh</small>
-          <input
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            name="files"
-            type="file"
-          />
-        </label>
+        <ImageFilePicker
+          dropClassName="maintenance-log-upload"
+          help="JPEG, PNG hoặc WebP · tổng tối đa 5 MB/lần · chọn tối đa 5 ảnh"
+          inputName="files"
+          label="Thêm hình ảnh bảo trì"
+          maxFiles={5}
+          multiple
+        />
         <ActionMessage state={logState} />
         <button className="primary-button" disabled={logPending || !assets.length} type="submit">
           {logPending ? "Đang lưu…" : "Lưu nhật ký"}
