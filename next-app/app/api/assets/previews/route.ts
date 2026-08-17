@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     .select("asset_id,object_path,thumbnail_path,sort_order,created_at")
     .in("asset_id", parsed.data)
     .eq("owner_type", "ASSET")
+    .in("owner_id", parsed.data)
     .order("sort_order")
     .order("created_at")
     .limit(200);

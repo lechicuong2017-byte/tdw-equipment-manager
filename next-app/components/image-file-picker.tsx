@@ -16,6 +16,7 @@ type ImageFilePickerProps = {
   maxFiles?: number;
   multiple?: boolean;
   required?: boolean;
+  tone?: "asset" | "maintenance";
 };
 
 function fileId(file: File, index: number) {
@@ -30,6 +31,7 @@ export function ImageFilePicker({
   maxFiles = 1,
   multiple = false,
   required = false,
+  tone = "asset",
 }: ImageFilePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -74,7 +76,7 @@ export function ImageFilePicker({
   }
 
   return (
-    <div className="image-file-picker">
+    <div className={`image-file-picker image-file-picker--${tone}`}>
       <label className={`upload-drop ${dropClassName}`.trim()}>
         <span aria-hidden="true">＋</span>
         <strong>{files.length ? "Chọn lại hình ảnh" : label}</strong>

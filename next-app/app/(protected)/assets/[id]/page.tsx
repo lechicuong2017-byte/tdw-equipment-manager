@@ -63,6 +63,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       .select("id, object_path, thumbnail_path, file_name, mime_type, byte_size, sort_order, created_at")
       .eq("asset_id", id)
       .eq("owner_type", "ASSET")
+      .eq("owner_id", id)
       .order("sort_order")
       .order("created_at"),
     supabase
@@ -265,9 +266,9 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
           <div className="panel-heading">
             <div>
               <p className="eyebrow">HÌNH ẢNH</p>
-              <h2>Ảnh thiết bị</h2>
+              <h2>Ảnh thiết bị (đại diện)</h2>
             </div>
-            <small>{signedMedia.length} ảnh</small>
+            <small>{signedMedia.length} ảnh · không gồm ảnh bảo trì</small>
           </div>
           <div className="media-grid">
             {signedMedia.map((item) => (

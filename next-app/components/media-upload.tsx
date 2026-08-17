@@ -19,10 +19,10 @@ export function MediaUpload({ assetId }: { assetId: string }) {
 
   return (
     <ModalTrigger
-      description="Chọn ảnh JPEG, PNG hoặc WebP có dung lượng tối đa 5 MB."
-      eyebrow="HÌNH ẢNH"
+      description="Ảnh này thuộc hồ sơ thiết bị và được dùng làm ảnh đại diện; không đưa vào nhật ký bảo trì."
+      eyebrow="ẢNH THIẾT BỊ"
       size="medium"
-      title="Thêm ảnh thiết bị"
+      title="Thêm ảnh thiết bị (đại diện)"
       triggerClassName="secondary-button"
       triggerLabel="+ Thêm hình ảnh"
     >
@@ -32,8 +32,9 @@ export function MediaUpload({ assetId }: { assetId: string }) {
         <ImageFilePicker
           help="JPEG, PNG hoặc WebP · tối đa 5 MB"
           inputName="file"
-          label="Chọn hình ảnh"
+          label="Chọn ảnh thiết bị"
           required
+          tone="asset"
         />
         {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
         <div className="modal-actions">

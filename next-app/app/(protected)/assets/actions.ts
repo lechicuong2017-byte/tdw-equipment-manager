@@ -520,6 +520,8 @@ export async function deleteAssetMedia(formData: FormData) {
     .select("object_path, thumbnail_path")
     .eq("id", parsed.data.id)
     .eq("asset_id", parsed.data.asset_id)
+    .eq("owner_type", "ASSET")
+    .eq("owner_id", parsed.data.asset_id)
     .single();
   if (!data) return { error: "Không tìm thấy ảnh cần xóa." };
 
@@ -534,7 +536,9 @@ export async function deleteAssetMedia(formData: FormData) {
   const { error: databaseError } = await supabase
     .from("media_files")
     .delete()
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("owner_type", "ASSET")
+    .eq("owner_id", parsed.data.asset_id);
   if (databaseError) return { error: "Không thể xóa thông tin ảnh." };
   revalidatePath("/assets");
   revalidatePath(`/assets/${parsed.data.asset_id}`);

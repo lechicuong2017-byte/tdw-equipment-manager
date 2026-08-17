@@ -447,6 +447,7 @@ export function MaintenanceForms({
           label="Thêm hình ảnh bảo trì"
           maxFiles={5}
           multiple
+          tone="maintenance"
         />
         <ActionMessage state={logState} />
         <button className="primary-button" disabled={logPending || !assets.length} type="submit">

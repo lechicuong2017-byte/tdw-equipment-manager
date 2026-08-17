@@ -2310,6 +2310,21 @@ tbody tr.asset-row:hover > td {
   min-width: 0;
 }
 
+.image-file-picker--asset .upload-drop {
+  background: linear-gradient(145deg, #f5fbff, #eef7fb);
+  border-color: #b9dce8;
+}
+
+.image-file-picker--maintenance .upload-drop {
+  background: linear-gradient(145deg, #fffaf2, #fff5e8);
+  border-color: #e9c892;
+}
+
+.image-file-picker--maintenance .upload-drop > span {
+  background: #fff0d7;
+  color: #b96b12;
+}
+
 .image-file-preview-section {
   background: #f8fbfc;
   border: 1px solid var(--line);
@@ -2392,6 +2407,79 @@ tbody tr.asset-row:hover > td {
 
 .image-file-preview figcaption button:hover {
   background: #fff0f1;
+}
+
+.maintenance-saved-media {
+  background: #fffaf2;
+  border: 1px solid #ead2aa;
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.maintenance-saved-media-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.maintenance-saved-media-heading strong {
+  color: #8a4c0c;
+  font-size: 0.74rem;
+}
+
+.maintenance-saved-media-heading small,
+.maintenance-media-empty {
+  color: var(--ink-soft);
+  font-size: 0.65rem;
+}
+
+.maintenance-saved-media-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.maintenance-saved-media-grid figure {
+  background: #fff;
+  border: 1px solid #eadfcf;
+  border-radius: 10px;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.maintenance-saved-media-grid img,
+.maintenance-saved-media-grid .media-unavailable {
+  aspect-ratio: 4 / 3;
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.maintenance-saved-media-grid figcaption {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+  justify-content: space-between;
+  padding: 0.4rem 0.5rem;
+}
+
+.maintenance-saved-media-grid figcaption span {
+  color: var(--ink-soft);
+  font-size: 0.61rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maintenance-media-empty {
+  background: #fffaf2;
+  border: 1px solid #ead2aa;
+  border-radius: 10px;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
 }
 
 .migration-panel {

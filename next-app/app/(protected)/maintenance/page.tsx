@@ -63,10 +63,32 @@ export default async function MaintenancePage() {
   const { data: maintenanceMedia } = logIds.length
     ? await supabase
         .from("media_files")
-        .select("owner_id")
+        .select("id,owner_id,object_path,thumbnail_path,file_name")
         .eq("owner_type", "MAINTENANCE")
         .in("owner_id", logIds)
-    : { data: [] as { owner_id: string }[] };
+        .order("sort_order")
+        .order("created_at")
+    : {
+        data: [] as {
+          file_name: string;
+          id: string;
+          object_path: string;
+          owner_id: string;
+          thumbnail_path: string | null;
+        }[],
+      };
+
+  const maintenanceMediaPaths = (maintenanceMedia ?? []).map(
+    (item) => item.thumbnail_path || item.object_path,
+  );
+  const { data: maintenanceMediaUrls } = maintenanceMediaPaths.length
+    ? await supabase.storage
+        .from("asset-media")
+        .createSignedUrls(maintenanceMediaPaths, 300)
+    : { data: [] };
+  const maintenanceMediaUrlByPath = new Map(
+    (maintenanceMediaUrls ?? []).map((item) => [item.path, item.signedUrl]),
+  );
 
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -99,9 +121,19 @@ export default async function MaintenancePage() {
   (plans ?? []).forEach((plan) => {
     batchSizes.set(plan.batch_id, (batchSizes.get(plan.batch_id) ?? 0) + 1);
   });
-  const mediaCounts = new Map<string, number>();
+  const maintenanceMediaByLog = new Map<
+    string,
+    { file_name: string; id: string; signed_url: string | null }[]
+  >();
   (maintenanceMedia ?? []).forEach((item) => {
-    mediaCounts.set(item.owner_id, (mediaCounts.get(item.owner_id) ?? 0) + 1);
+    const current = maintenanceMediaByLog.get(item.owner_id) ?? [];
+    const path = item.thumbnail_path || item.object_path;
+    current.push({
+      file_name: item.file_name,
+      id: item.id,
+      signed_url: maintenanceMediaUrlByPath.get(path) ?? null,
+    });
+    maintenanceMediaByLog.set(item.owner_id, current);
   });
 
   return (
@@ -274,11 +306,13 @@ export default async function MaintenancePage() {
                       <td className="align-right">{formatMoney(log.cost)}</td>
                       <td>
                         <div className="maintenance-media-cell">
-                          <span className="table-note">{mediaCounts.get(log.id) ?? 0} ảnh</span>
+                          <span className="table-note">
+                            {maintenanceMediaByLog.get(log.id)?.length ?? 0} ảnh bảo trì
+                          </span>
                           {canManage ? (
                             <MaintenanceMediaUpload
                               maintenanceLogId={log.id}
-                              mediaCount={mediaCounts.get(log.id) ?? 0}
+                              media={maintenanceMediaByLog.get(log.id) ?? []}
                             />
                           ) : null}
                         </div>

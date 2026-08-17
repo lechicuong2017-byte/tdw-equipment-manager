@@ -462,7 +462,9 @@ export async function deleteMaintenanceMedia(formData: FormData) {
   const { error: databaseError } = await supabase
     .from("media_files")
     .delete()
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("owner_type", "MAINTENANCE")
+    .eq("owner_id", parsed.data.maintenance_log_id);
   if (databaseError) return { error: "Không thể xóa thông tin ảnh." };
 
   revalidatePath("/maintenance");
