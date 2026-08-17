@@ -16,6 +16,8 @@ type AssetOption = {
   asset_group: string;
   asset_group_label: string;
   asset_type: string;
+  department_legacy_name: string;
+  departments: { name: string } | { name: string }[] | null;
 };
 
 type PlanOption = {
@@ -30,6 +32,20 @@ type SettingOption = {
 };
 
 const initialState: MaintenanceFormState = {};
+const ungroupedValue = "__UNGROUPED__";
+const untypedValue = "__UNTYPED__";
+const unassignedDepartmentValue = "__UNASSIGNED_DEPARTMENT__";
+
+function searchable(value: string) {
+  return value.trim().toLocaleLowerCase("vi");
+}
+
+function departmentName(asset: AssetOption) {
+  const department = Array.isArray(asset.departments)
+    ? asset.departments[0]
+    : asset.departments;
+  return department?.name || asset.department_legacy_name || "";
+}
 
 export function MaintenanceForms({
   assets,
@@ -59,6 +75,60 @@ export function MaintenanceForms({
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [logAsset, setLogAsset] = useState("");
+  const [logGroup, setLogGroup] = useState("");
+  const [logType, setLogType] = useState("");
+  const [logDepartment, setLogDepartment] = useState("");
+  const [logSearch, setLogSearch] = useState("");
+
+  const logGroupOptions = useMemo(() => {
+    const labels = new Map<string, string>();
+    assets.forEach((asset) => {
+      const value = asset.asset_group || ungroupedValue;
+      labels.set(
+        value,
+        asset.asset_group_label || asset.asset_group || "Chưa có nhóm",
+      );
+    });
+    return [...labels.entries()].sort((left, right) =>
+      left[1].localeCompare(right[1], "vi"),
+    );
+  }, [assets]);
+
+  const logTypeOptions = useMemo(() => {
+    const values = new Set(assets.map((asset) => asset.asset_type || untypedValue));
+    return [...values].sort((left, right) =>
+      (left === untypedValue ? "Chưa có loại" : left).localeCompare(
+        right === untypedValue ? "Chưa có loại" : right,
+        "vi",
+      ),
+    );
+  }, [assets]);
+
+  const logDepartmentOptions = useMemo(() => {
+    const values = new Set(
+      assets.map((asset) => departmentName(asset) || unassignedDepartmentValue),
+    );
+    return [...values].sort((left, right) =>
+      (left === unassignedDepartmentValue ? "Chưa phân phòng" : left).localeCompare(
+        right === unassignedDepartmentValue ? "Chưa phân phòng" : right,
+        "vi",
+      ),
+    );
+  }, [assets]);
+
+  const filteredLogAssets = useMemo(() => {
+    const keyword = searchable(logSearch);
+    return assets.filter((asset) => {
+      if (logGroup && (asset.asset_group || ungroupedValue) !== logGroup) return false;
+      if (logType && (asset.asset_type || untypedValue) !== logType) return false;
+      if (
+        logDepartment
+        && (departmentName(asset) || unassignedDepartmentValue) !== logDepartment
+      ) return false;
+      if (!keyword) return true;
+      return searchable(`${asset.asset_code} ${asset.asset_name}`).includes(keyword);
+    });
+  }, [assets, logDepartment, logGroup, logSearch, logType]);
 
   const targetCount = useMemo(() => {
     if (scopeType === "ASSET") return selectedAsset ? 1 : 0;
@@ -226,22 +296,93 @@ export function MaintenanceForms({
             <h2>Ghi nhận bảo trì</h2>
           </div>
         </div>
-        <label>
-          Thiết bị *
-          <select
-            name="asset_id"
-            onChange={(event) => setLogAsset(event.target.value)}
-            required
-            value={logAsset}
-          >
-            <option value="">Chọn thiết bị</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.asset_code} — {asset.asset_name}
+        <div className="maintenance-asset-picker">
+          <div className="maintenance-asset-filters">
+            <label>
+              Tìm thiết bị
+              <input
+                onChange={(event) => {
+                  setLogSearch(event.target.value);
+                  setLogAsset("");
+                }}
+                placeholder="Mã hoặc tên thiết bị…"
+                type="search"
+                value={logSearch}
+              />
+            </label>
+            <label>
+              Phòng ban
+              <select
+                onChange={(event) => {
+                  setLogDepartment(event.target.value);
+                  setLogAsset("");
+                }}
+                value={logDepartment}
+              >
+                <option value="">Tất cả phòng ban</option>
+                {logDepartmentOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value === unassignedDepartmentValue ? "Chưa phân phòng" : value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Nhóm thiết bị
+              <select
+                onChange={(event) => {
+                  setLogGroup(event.target.value);
+                  setLogAsset("");
+                }}
+                value={logGroup}
+              >
+                <option value="">Tất cả nhóm</option>
+                {logGroupOptions.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Loại thiết bị
+              <select
+                onChange={(event) => {
+                  setLogType(event.target.value);
+                  setLogAsset("");
+                }}
+                value={logType}
+              >
+                <option value="">Tất cả loại</option>
+                {logTypeOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value === untypedValue ? "Chưa có loại" : value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="maintenance-asset-select">
+            Thiết bị *
+            <select
+              disabled={!filteredLogAssets.length}
+              name="asset_id"
+              onChange={(event) => setLogAsset(event.target.value)}
+              required
+              value={logAsset}
+            >
+              <option value="">
+                {filteredLogAssets.length ? "Chọn thiết bị" : "Không có thiết bị phù hợp"}
               </option>
-            ))}
-          </select>
-        </label>
+              {filteredLogAssets.map((asset) => (
+                <option key={asset.id} value={asset.id}>
+                  {asset.asset_code} — {asset.asset_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="maintenance-asset-filter-count" aria-live="polite">
+            Hiển thị <strong>{filteredLogAssets.length}</strong> / {assets.length} thiết bị.
+          </p>
+        </div>
         <label>
           Kế hoạch liên quan
           <select name="plan_id">

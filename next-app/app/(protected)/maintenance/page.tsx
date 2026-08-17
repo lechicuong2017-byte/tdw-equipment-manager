@@ -34,7 +34,7 @@ export default async function MaintenancePage() {
   const [{ data: assets }, { data: plans }, { data: logs }, { data: settings }] = await Promise.all([
     supabase
       .from("assets")
-      .select("id, asset_code, asset_name, asset_group, asset_group_label, asset_type")
+      .select("id, asset_code, asset_name, asset_group, asset_group_label, asset_type, department_legacy_name, departments(name)")
       .is("deleted_at", null)
       .order("asset_code")
       .limit(500),

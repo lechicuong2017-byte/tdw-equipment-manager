@@ -1779,6 +1779,38 @@ tbody tr.asset-row:hover > td {
   padding: 0 0.35rem;
 }
 
+.maintenance-asset-picker {
+  background: linear-gradient(145deg, #fbfcfd, #f5fafb);
+  border: 1px solid #dce5ea;
+  border-radius: 16px;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.maintenance-asset-filters {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.maintenance-asset-filters label,
+.maintenance-asset-select {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.maintenance-asset-filter-count {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  margin: -0.2rem 0 0;
+  text-align: right;
+}
+
+.maintenance-asset-filter-count strong {
+  color: var(--brand);
+}
+
 .software-asset-filters {
   display: grid;
   gap: 0.8rem;
@@ -2861,6 +2893,10 @@ tbody tr.asset-row:hover > td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .maintenance-asset-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .dashboard-grid,
   .profile-grid,
   .report-grid,
@@ -3023,6 +3059,7 @@ tbody tr.asset-row:hover > td {
   }
 
   .software-asset-filters,
+  .maintenance-asset-filters,
   .software-asset-checklist {
     grid-template-columns: 1fr;
   }

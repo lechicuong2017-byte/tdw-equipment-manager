@@ -160,6 +160,10 @@ async function run() {
   const nextDashboardPage = read("next-app/app/(protected)/dashboard/page.tsx");
   const nextAssetForm = read("next-app/components/asset-form.tsx");
   const nextAssetActions = read("next-app/app/(protected)/assets/actions.ts");
+  const nextMaintenancePage = read(
+    "next-app/app/(protected)/maintenance/page.tsx",
+  );
+  const maintenanceForms = read("next-app/components/maintenance-forms.tsx");
   const assetCode = read("next-app/lib/asset-code.ts");
   const assetLiquidationAction = read(
     "next-app/components/asset-liquidation-action.tsx",
@@ -242,6 +246,13 @@ async function run() {
   assert.ok(nextGlobals.includes('.qr-device-list > label:has(input:checked)'));
   assert.ok(nextSoftwarePage.includes("software_license_assets(asset_id"));
   assert.ok(nextSoftwareEditPage.includes('.from("software_license_assets")'));
+  assert.ok(nextMaintenancePage.includes("department_legacy_name, departments(name)"));
+  assert.ok(maintenanceForms.includes("filteredLogAssets"));
+  assert.ok(maintenanceForms.includes("logDepartmentOptions"));
+  assert.ok(maintenanceForms.includes("Tất cả phòng ban"));
+  assert.ok(maintenanceForms.includes("Tất cả nhóm"));
+  assert.ok(maintenanceForms.includes("Tất cả loại"));
+  assert.ok(maintenanceForms.includes("maintenance-asset-filter-count"));
   assert.ok(googleExportRoute.includes("software_license_assets: assignments"));
   assert.ok(googleExportRoute.includes("(data ?? []).flatMap"));
   assert.ok(softwareSecretPanel.includes('type="password"'));
