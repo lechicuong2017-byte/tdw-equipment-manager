@@ -25,14 +25,25 @@ type PlanOption = {
   id: string;
   batch_id: string;
   asset_id: string;
+  asset_group: string;
+  asset_group_label: string;
   title: string;
+  frequency: "MONTHLY" | "QUARTERLY" | "YEARLY";
   scope_type: "ASSET" | "GROUP" | "TYPE";
   scope_value: string;
   next_due_date: string;
 };
 
-type PlanBatchOption = Omit<PlanOption, "id" | "asset_id"> & {
+type PlanBatchOption = {
+  key: string;
+  batch_id: string | null;
+  title: string;
+  frequency: PlanOption["frequency"];
+  scope_type: PlanOption["scope_type"];
+  scope_value: string;
+  next_due_date: string;
   assetIds: string[];
+  planIds: string[];
 };
 
 type SettingOption = {
@@ -92,27 +103,72 @@ export function MaintenanceForms({
   const [logAssetIds, setLogAssetIds] = useState<Set<string>>(() => new Set());
 
   const planBatches = useMemo(() => {
-    const batches = new Map<string, PlanBatchOption>();
+    const plansByBatch = new Map<string, PlanOption[]>();
     plans.forEach((plan) => {
-      const existing = batches.get(plan.batch_id);
-      if (existing) {
-        existing.assetIds.push(plan.asset_id);
+      const current = plansByBatch.get(plan.batch_id) ?? [];
+      current.push(plan);
+      plansByBatch.set(plan.batch_id, current);
+    });
+
+    const grouped: PlanBatchOption[] = [];
+    const legacyPlans: PlanOption[] = [];
+    plansByBatch.forEach((batchPlans, batchId) => {
+      const first = batchPlans[0];
+      if (!first) return;
+      if (batchPlans.length === 1 && first.scope_type === "ASSET") {
+        legacyPlans.push(first);
         return;
       }
-      batches.set(plan.batch_id, {
-        batch_id: plan.batch_id,
-        title: plan.title,
-        scope_type: plan.scope_type,
-        scope_value: plan.scope_value,
-        next_due_date: plan.next_due_date,
-        assetIds: [plan.asset_id],
+      grouped.push({
+        key: `batch:${batchId}`,
+        batch_id: batchId,
+        title: first.title,
+        frequency: first.frequency,
+        scope_type: first.scope_type,
+        scope_value: first.scope_value,
+        next_due_date: first.next_due_date,
+        assetIds: batchPlans.map((plan) => plan.asset_id),
+        planIds: batchPlans.map((plan) => plan.id),
       });
     });
-    return [...batches.values()];
+
+    const legacyGroups = new Map<string, PlanOption[]>();
+    legacyPlans.forEach((plan) => {
+      const signature = [
+        plan.title,
+        plan.frequency,
+        plan.next_due_date,
+        plan.asset_group || ungroupedValue,
+      ].join("\u0000");
+      const current = legacyGroups.get(signature) ?? [];
+      current.push(plan);
+      legacyGroups.set(signature, current);
+    });
+    legacyGroups.forEach((matchingPlans, signature) => {
+      const first = matchingPlans[0];
+      if (!first) return;
+      const isLegacyGroup = matchingPlans.length > 1;
+      grouped.push({
+        key: isLegacyGroup ? `legacy:${signature}` : `batch:${first.batch_id}`,
+        batch_id: isLegacyGroup ? null : first.batch_id,
+        title: first.title,
+        frequency: first.frequency,
+        scope_type: isLegacyGroup ? "GROUP" : first.scope_type,
+        scope_value: isLegacyGroup ? first.asset_group : first.scope_value,
+        next_due_date: first.next_due_date,
+        assetIds: matchingPlans.map((plan) => plan.asset_id),
+        planIds: matchingPlans.map((plan) => plan.id),
+      });
+    });
+
+    return grouped.sort((left, right) =>
+      left.next_due_date.localeCompare(right.next_due_date)
+      || left.title.localeCompare(right.title, "vi"),
+    );
   }, [plans]);
 
   const selectedPlanBatch = useMemo(
-    () => planBatches.find((plan) => plan.batch_id === logPlanBatch),
+    () => planBatches.find((plan) => plan.key === logPlanBatch),
     [logPlanBatch, planBatches],
   );
 
@@ -205,7 +261,7 @@ export function MaintenanceForms({
     setLogDepartment("");
     setLogGroup("");
     setLogType("");
-    const batch = planBatches.find((plan) => plan.batch_id === batchId);
+    const batch = planBatches.find((plan) => plan.key === batchId);
     setLogAssetIds(new Set(batch?.assetIds ?? []));
   }
 
@@ -232,7 +288,7 @@ export function MaintenanceForms({
   function maintenanceScopeLabel(plan: PlanBatchOption) {
     if (plan.scope_type === "GROUP") {
       return assetGroups.find((item) => item.value === plan.scope_value)?.label
-        ?? plan.scope_value;
+        ?? (plan.scope_value || "Chưa có nhóm");
     }
     if (plan.scope_type === "TYPE") {
       return assetTypes.find((item) => item.value === plan.scope_value)?.label
@@ -394,13 +450,12 @@ export function MaintenanceForms({
         <label>
           Kế hoạch liên quan
           <select
-            name="plan_batch_id"
             onChange={(event) => selectLogPlanBatch(event.target.value)}
             value={logPlanBatch}
           >
             <option value="">Không gắn kế hoạch · chọn một thiết bị</option>
             {planBatches.map((plan) => (
-              <option key={plan.batch_id} value={plan.batch_id}>
+              <option key={plan.key} value={plan.key}>
                 {plan.title} · {maintenanceScopeLabel(plan)} · {plan.assetIds.length} thiết bị · hạn {plan.next_due_date}
               </option>
             ))}
@@ -472,6 +527,12 @@ export function MaintenanceForms({
           </div>
           {logPlanBatch ? (
             <div className="maintenance-bulk-assets">
+              {selectedPlanBatch?.batch_id ? (
+                <input name="plan_batch_id" type="hidden" value={selectedPlanBatch.batch_id} />
+              ) : null}
+              {selectedPlanBatch?.planIds.map((planId) => (
+                <input key={planId} name="plan_ids" type="hidden" value={planId} />
+              ))}
               {[...logAssetIds].map((assetId) => (
                 <input key={assetId} name="asset_ids" type="hidden" value={assetId} />
               ))}

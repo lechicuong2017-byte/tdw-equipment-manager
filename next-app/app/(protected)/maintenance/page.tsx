@@ -106,17 +106,24 @@ export default async function MaintenancePage() {
     .map((item) => ({ value: item.setting_value, label: item.display_name }));
   const maintenanceTypes = settingRows
     .filter((item) => item.setting_type === "maintenance_type");
+  const assetOptionById = new Map(assetOptions.map((asset) => [asset.id, asset]));
   const planOptions = (plans ?? [])
     .filter((plan) => plan.active)
-    .map((plan) => ({
-      id: plan.id,
-      batch_id: plan.batch_id,
-      asset_id: plan.asset_id,
-      title: plan.title,
-      scope_type: plan.scope_type,
-      scope_value: plan.scope_value,
-      next_due_date: plan.next_due_date,
-    }));
+    .map((plan) => {
+      const asset = assetOptionById.get(plan.asset_id);
+      return {
+        id: plan.id,
+        batch_id: plan.batch_id,
+        asset_id: plan.asset_id,
+        asset_group: asset?.asset_group ?? "",
+        asset_group_label: asset?.asset_group_label ?? "",
+        title: plan.title,
+        frequency: plan.frequency,
+        scope_type: plan.scope_type,
+        scope_value: plan.scope_value,
+        next_due_date: plan.next_due_date,
+      };
+    });
   const editPlanOptions = (plans ?? []).map((plan) => ({
     id: plan.id,
     asset_id: plan.asset_id,

@@ -53,13 +53,17 @@ const logSchema = z.object({
 });
 
 const logCreateSchema = logSchema.omit({ asset_id: true, plan_id: true }).extend({
-  plan_batch_id: z.preprocess(emptyToNull, z.uuid().nullable()),
+  plan_batch_id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
 });
 
 const logAssetIdsSchema = z
   .array(z.uuid("Thiết bị không hợp lệ"))
   .min(1, "Hãy chọn ít nhất một thiết bị")
   .max(200, "Chỉ được ghi nhận tối đa 200 thiết bị mỗi lần");
+
+const logPlanIdsSchema = z
+  .array(z.uuid("Kế hoạch không hợp lệ"))
+  .max(200, "Chỉ được ghi nhận tối đa 200 kế hoạch mỗi lần");
 
 const logUpdateSchema = logSchema.extend({
   id: z.uuid("Nhật ký bảo trì không hợp lệ"),
@@ -351,6 +355,16 @@ export async function createMaintenanceLog(
   if (!parsedAssetIds.success) {
     return { error: parsedAssetIds.error.issues[0]?.message ?? "Thiết bị chưa hợp lệ" };
   }
+  const parsedPlanIds = logPlanIdsSchema.safeParse([
+    ...new Set(
+      formData
+        .getAll("plan_ids")
+        .filter((value): value is string => typeof value === "string" && value !== ""),
+    ),
+  ]);
+  if (!parsedPlanIds.success) {
+    return { error: parsedPlanIds.error.issues[0]?.message ?? "Kế hoạch chưa hợp lệ" };
+  }
   const mediaFiles = getMaintenanceMediaFiles(formData);
   if (mediaFiles.error) return { error: mediaFiles.error };
   if (parsedAssetIds.data.length > 1 && mediaFiles.files.length) {
@@ -365,7 +379,24 @@ export async function createMaintenanceLog(
   }
 
   const planByAssetId = new Map<string, string>();
-  if (parsed.data.plan_batch_id) {
+  if (parsedPlanIds.data.length) {
+    if (parsedPlanIds.data.length !== parsedAssetIds.data.length) {
+      return { error: "Danh sách thiết bị và kế hoạch không khớp." };
+    }
+    const { data: matchingPlans, error: planError } = await supabase
+      .from("maintenance_plans")
+      .select("id,asset_id")
+      .in("id", parsedPlanIds.data)
+      .eq("active", true)
+      .in("asset_id", parsedAssetIds.data);
+    if (planError || matchingPlans?.length !== parsedPlanIds.data.length) {
+      return { error: "Một hoặc nhiều thiết bị không thuộc kế hoạch đang áp dụng." };
+    }
+    matchingPlans.forEach((plan) => planByAssetId.set(plan.asset_id, plan.id));
+    if (planByAssetId.size !== parsedAssetIds.data.length) {
+      return { error: "Mỗi thiết bị phải tương ứng với đúng một kế hoạch." };
+    }
+  } else if (parsed.data.plan_batch_id) {
     const { data: matchingPlans, error: planError } = await supabase
       .from("maintenance_plans")
       .select("id,asset_id")
