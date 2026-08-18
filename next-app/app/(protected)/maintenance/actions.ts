@@ -52,6 +52,15 @@ const logSchema = z.object({
   note: z.string().trim().max(3000),
 });
 
+const logCreateSchema = logSchema.omit({ asset_id: true, plan_id: true }).extend({
+  plan_batch_id: z.preprocess(emptyToNull, z.uuid().nullable()),
+});
+
+const logAssetIdsSchema = z
+  .array(z.uuid("Thiết bị không hợp lệ"))
+  .min(1, "Hãy chọn ít nhất một thiết bị")
+  .max(200, "Chỉ được ghi nhận tối đa 200 thiết bị mỗi lần");
+
 const logUpdateSchema = logSchema.extend({
   id: z.uuid("Nhật ký bảo trì không hợp lệ"),
 });
@@ -328,54 +337,80 @@ export async function createMaintenanceLog(
   _previousState: MaintenanceFormState,
   formData: FormData,
 ): Promise<MaintenanceFormState> {
-  const parsed = logSchema.safeParse(Object.fromEntries(formData.entries()));
+  const parsed = logCreateSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
   }
+  const parsedAssetIds = logAssetIdsSchema.safeParse([
+    ...new Set(
+      formData
+        .getAll("asset_ids")
+        .filter((value): value is string => typeof value === "string" && value !== ""),
+    ),
+  ]);
+  if (!parsedAssetIds.success) {
+    return { error: parsedAssetIds.error.issues[0]?.message ?? "Thiết bị chưa hợp lệ" };
+  }
   const mediaFiles = getMaintenanceMediaFiles(formData);
   if (mediaFiles.error) return { error: mediaFiles.error };
+  if (parsedAssetIds.data.length > 1 && mediaFiles.files.length) {
+    return {
+      error: "Chưa hỗ trợ dùng chung ảnh khi ghi nhận nhiều thiết bị. Hãy bỏ ảnh hoặc ghi từng thiết bị.",
+    };
+  }
 
   const { supabase, access } = await requireAccess();
   if (!can(access, "maintenance.manage")) {
     return { error: "Bạn không có quyền ghi nhận bảo trì." };
   }
 
-  if (parsed.data.plan_id) {
-    const { data: matchingPlan } = await supabase
+  const planByAssetId = new Map<string, string>();
+  if (parsed.data.plan_batch_id) {
+    const { data: matchingPlans, error: planError } = await supabase
       .from("maintenance_plans")
-      .select("id")
-      .eq("id", parsed.data.plan_id)
-      .eq("asset_id", parsed.data.asset_id)
+      .select("id,asset_id")
+      .eq("batch_id", parsed.data.plan_batch_id)
       .eq("active", true)
-      .maybeSingle();
-    if (!matchingPlan) {
-      return { error: "Kế hoạch đã chọn không thuộc thiết bị này." };
+      .in("asset_id", parsedAssetIds.data);
+    if (planError || matchingPlans?.length !== parsedAssetIds.data.length) {
+      return { error: "Một hoặc nhiều thiết bị không thuộc kế hoạch đang áp dụng." };
     }
+    matchingPlans.forEach((plan) => planByAssetId.set(plan.asset_id, plan.id));
+  } else if (parsedAssetIds.data.length > 1) {
+    return { error: "Chỉ có thể ghi nhận nhiều thiết bị khi chọn một kế hoạch định kỳ." };
   }
 
-  const { data: createdLog, error } = await supabase
+  const { plan_batch_id: _planBatchId, ...sharedLogFields } = parsed.data;
+  const logRows = parsedAssetIds.data.map((assetId) => ({
+    ...sharedLogFields,
+    asset_id: assetId,
+    plan_id: planByAssetId.get(assetId) ?? null,
+  }));
+  const { data: createdLogs, error } = await supabase
     .from("maintenance_logs")
-    .insert(parsed.data)
-    .select("id")
-    .single();
-  if (error || !createdLog) {
+    .insert(logRows)
+    .select("id,asset_id");
+  if (error || !createdLogs || createdLogs.length !== logRows.length) {
     return { error: "Không thể lưu nhật ký. Hãy kiểm tra quyền và dữ liệu." };
   }
 
   let uploadedMedia = 0;
-  for (const file of mediaFiles.files) {
-    const result = await storeMaintenanceMedia({
-      access,
-      assetId: parsed.data.asset_id,
-      file,
-      logId: createdLog.id,
-      supabase,
-    });
-    if (!result.error) uploadedMedia += 1;
+  const createdLog = createdLogs[0];
+  if (createdLog) {
+    for (const file of mediaFiles.files) {
+      const result = await storeMaintenanceMedia({
+        access,
+        assetId: createdLog.asset_id,
+        file,
+        logId: createdLog.id,
+        supabase,
+      });
+      if (!result.error) uploadedMedia += 1;
+    }
   }
 
   revalidatePath("/maintenance");
-  revalidatePath(`/assets/${parsed.data.asset_id}`);
+  parsedAssetIds.data.forEach((assetId) => revalidatePath(`/assets/${assetId}`));
   const mediaMessage = mediaFiles.files.length
     ? ` Đã tải ${uploadedMedia}/${mediaFiles.files.length} ảnh.`
     : "";
@@ -383,8 +418,8 @@ export async function createMaintenanceLog(
     ? " Hãy mở nút Ảnh của nhật ký để tải lại ảnh chưa thành công."
     : "";
   return {
-    logId: createdLog.id,
-    success: `Đã ghi nhận lần bảo trì.${mediaMessage}${retryMessage}`,
+    logId: createdLog?.id,
+    success: `Đã ghi nhận bảo trì cho ${createdLogs.length} thiết bị.${mediaMessage}${retryMessage}`,
   };
 }
 

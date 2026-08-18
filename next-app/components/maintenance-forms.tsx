@@ -23,8 +23,16 @@ type AssetOption = {
 
 type PlanOption = {
   id: string;
+  batch_id: string;
   asset_id: string;
   title: string;
+  scope_type: "ASSET" | "GROUP" | "TYPE";
+  scope_value: string;
+  next_due_date: string;
+};
+
+type PlanBatchOption = Omit<PlanOption, "id" | "asset_id"> & {
+  assetIds: string[];
 };
 
 type SettingOption = {
@@ -80,6 +88,38 @@ export function MaintenanceForms({
   const [logType, setLogType] = useState("");
   const [logDepartment, setLogDepartment] = useState("");
   const [logSearch, setLogSearch] = useState("");
+  const [logPlanBatch, setLogPlanBatch] = useState("");
+  const [logAssetIds, setLogAssetIds] = useState<Set<string>>(() => new Set());
+
+  const planBatches = useMemo(() => {
+    const batches = new Map<string, PlanBatchOption>();
+    plans.forEach((plan) => {
+      const existing = batches.get(plan.batch_id);
+      if (existing) {
+        existing.assetIds.push(plan.asset_id);
+        return;
+      }
+      batches.set(plan.batch_id, {
+        batch_id: plan.batch_id,
+        title: plan.title,
+        scope_type: plan.scope_type,
+        scope_value: plan.scope_value,
+        next_due_date: plan.next_due_date,
+        assetIds: [plan.asset_id],
+      });
+    });
+    return [...batches.values()];
+  }, [plans]);
+
+  const selectedPlanBatch = useMemo(
+    () => planBatches.find((plan) => plan.batch_id === logPlanBatch),
+    [logPlanBatch, planBatches],
+  );
+
+  const selectedPlanAssetIds = useMemo(
+    () => new Set(selectedPlanBatch?.assetIds ?? []),
+    [selectedPlanBatch],
+  );
 
   const logGroupOptions = useMemo(() => {
     const labels = new Map<string, string>();
@@ -120,6 +160,7 @@ export function MaintenanceForms({
   const filteredLogAssets = useMemo(() => {
     const keyword = searchable(logSearch);
     return assets.filter((asset) => {
+      if (logPlanBatch && !selectedPlanAssetIds.has(asset.id)) return false;
       if (logGroup && (asset.asset_group || ungroupedValue) !== logGroup) return false;
       if (logType && (asset.asset_type || untypedValue) !== logType) return false;
       if (
@@ -129,7 +170,15 @@ export function MaintenanceForms({
       if (!keyword) return true;
       return searchable(`${asset.asset_code} ${asset.asset_name}`).includes(keyword);
     });
-  }, [assets, logDepartment, logGroup, logSearch, logType]);
+  }, [
+    assets,
+    logDepartment,
+    logGroup,
+    logPlanBatch,
+    logSearch,
+    logType,
+    selectedPlanAssetIds,
+  ]);
 
   const targetCount = useMemo(() => {
     if (scopeType === "ASSET") return selectedAsset ? 1 : 0;
@@ -143,9 +192,54 @@ export function MaintenanceForms({
       : 0;
   }, [assets, scopeType, selectedAsset, selectedGroup, selectedType]);
 
-  const availablePlans = logAsset
-    ? plans.filter((plan) => plan.asset_id === logAsset)
-    : [];
+  const selectedLogAssetCount = logPlanBatch ? logAssetIds.size : (logAsset ? 1 : 0);
+  const allVisibleLogAssetsSelected = Boolean(
+    filteredLogAssets.length
+    && filteredLogAssets.every((asset) => logAssetIds.has(asset.id)),
+  );
+
+  function selectLogPlanBatch(batchId: string) {
+    setLogPlanBatch(batchId);
+    setLogAsset("");
+    setLogSearch("");
+    setLogDepartment("");
+    setLogGroup("");
+    setLogType("");
+    const batch = planBatches.find((plan) => plan.batch_id === batchId);
+    setLogAssetIds(new Set(batch?.assetIds ?? []));
+  }
+
+  function setLogAssetSelected(assetId: string, selected: boolean) {
+    setLogAssetIds((current) => {
+      const next = new Set(current);
+      if (selected) next.add(assetId);
+      else next.delete(assetId);
+      return next;
+    });
+  }
+
+  function toggleVisibleLogAssets() {
+    setLogAssetIds((current) => {
+      const next = new Set(current);
+      filteredLogAssets.forEach((asset) => {
+        if (allVisibleLogAssetsSelected) next.delete(asset.id);
+        else next.add(asset.id);
+      });
+      return next;
+    });
+  }
+
+  function maintenanceScopeLabel(plan: PlanBatchOption) {
+    if (plan.scope_type === "GROUP") {
+      return assetGroups.find((item) => item.value === plan.scope_value)?.label
+        ?? plan.scope_value;
+    }
+    if (plan.scope_type === "TYPE") {
+      return assetTypes.find((item) => item.value === plan.scope_value)?.label
+        ?? plan.scope_value;
+    }
+    return "Một thiết bị";
+  }
 
   return (
     <div className="module-action-bar">
@@ -297,6 +391,21 @@ export function MaintenanceForms({
             <h2>Ghi nhận bảo trì</h2>
           </div>
         </div>
+        <label>
+          Kế hoạch liên quan
+          <select
+            name="plan_batch_id"
+            onChange={(event) => selectLogPlanBatch(event.target.value)}
+            value={logPlanBatch}
+          >
+            <option value="">Không gắn kế hoạch · chọn một thiết bị</option>
+            {planBatches.map((plan) => (
+              <option key={plan.batch_id} value={plan.batch_id}>
+                {plan.title} · {maintenanceScopeLabel(plan)} · {plan.assetIds.length} thiết bị · hạn {plan.next_due_date}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="maintenance-asset-picker">
           <div className="maintenance-asset-filters">
             <label>
@@ -361,38 +470,85 @@ export function MaintenanceForms({
               </select>
             </label>
           </div>
-          <label className="maintenance-asset-select">
-            Thiết bị *
-            <select
-              disabled={!filteredLogAssets.length}
-              name="asset_id"
-              onChange={(event) => setLogAsset(event.target.value)}
-              required
-              value={logAsset}
-            >
-              <option value="">
-                {filteredLogAssets.length ? "Chọn thiết bị" : "Không có thiết bị phù hợp"}
-              </option>
-              {filteredLogAssets.map((asset) => (
-                <option key={asset.id} value={asset.id}>
-                  {asset.asset_code} — {asset.asset_name}
-                </option>
+          {logPlanBatch ? (
+            <div className="maintenance-bulk-assets">
+              {[...logAssetIds].map((assetId) => (
+                <input key={assetId} name="asset_ids" type="hidden" value={assetId} />
               ))}
-            </select>
-          </label>
+              <div className="software-asset-selection-summary">
+                <button
+                  className="software-select-all-button"
+                  disabled={!filteredLogAssets.length}
+                  onClick={toggleVisibleLogAssets}
+                  type="button"
+                >
+                  {allVisibleLogAssetsSelected
+                    ? "Bỏ chọn danh sách đang lọc"
+                    : "Chọn tất cả đang lọc"}
+                </button>
+                <div aria-live="polite" className="software-selection-count">
+                  <strong>{logAssetIds.size}</strong>
+                  <span>thiết bị đã chọn</span>
+                  <small>{selectedPlanAssetIds.size} thiết bị trong kế hoạch</small>
+                </div>
+              </div>
+              <div className="software-asset-checklist maintenance-asset-checklist">
+                {filteredLogAssets.map((asset) => (
+                  <label className="software-asset-option" key={asset.id}>
+                    <input
+                      checked={logAssetIds.has(asset.id)}
+                      className="software-asset-checkbox"
+                      onChange={(event) => setLogAssetSelected(asset.id, event.target.checked)}
+                      type="checkbox"
+                      value={asset.id}
+                    />
+                    <span aria-hidden="true" className="software-asset-checkmark">✓</span>
+                    <span className="software-asset-copy">
+                      <strong>{asset.asset_name}</strong>
+                      <small className="software-asset-code">{asset.asset_code}</small>
+                      <small className="software-asset-meta">
+                        {asset.asset_group_label || asset.asset_group || "Chưa có nhóm"}
+                        <i aria-hidden="true" />
+                        {asset.asset_type || "Chưa có loại"}
+                        <i aria-hidden="true" />
+                        {departmentName(asset) || "Chưa phân phòng"}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+                {!filteredLogAssets.length ? (
+                  <p className="empty-state">Không có thiết bị phù hợp với bộ lọc.</p>
+                ) : null}
+              </div>
+              <p className="form-help">
+                Mặc định chọn toàn bộ thiết bị trong kế hoạch; có thể bỏ tick thiết bị chưa thực hiện.
+              </p>
+            </div>
+          ) : (
+            <label className="maintenance-asset-select">
+              Thiết bị *
+              <select
+                disabled={!filteredLogAssets.length}
+                name="asset_ids"
+                onChange={(event) => setLogAsset(event.target.value)}
+                required
+                value={logAsset}
+              >
+                <option value="">
+                  {filteredLogAssets.length ? "Chọn thiết bị" : "Không có thiết bị phù hợp"}
+                </option>
+                {filteredLogAssets.map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    {asset.asset_code} — {asset.asset_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <p className="maintenance-asset-filter-count" aria-live="polite">
-            Hiển thị <strong>{filteredLogAssets.length}</strong> / {assets.length} thiết bị.
+            Hiển thị <strong>{filteredLogAssets.length}</strong> / {logPlanBatch ? selectedPlanAssetIds.size : assets.length} thiết bị.
           </p>
         </div>
-        <label>
-          Kế hoạch liên quan
-          <select name="plan_id">
-            <option value="">Không gắn kế hoạch</option>
-            {availablePlans.map((plan) => (
-              <option key={plan.id} value={plan.id}>{plan.title}</option>
-            ))}
-          </select>
-        </label>
         <div className="inline-fields">
           <label>
             Ngày bảo trì *
@@ -418,7 +574,7 @@ export function MaintenanceForms({
         </label>
         <div className="inline-fields">
           <label>
-            Chi phí
+            {selectedLogAssetCount > 1 ? "Chi phí mỗi thiết bị" : "Chi phí"}
             <input defaultValue={0} min={0} name="cost" step={1000} type="number" />
           </label>
           <label>
@@ -440,18 +596,33 @@ export function MaintenanceForms({
           Ghi chú
           <textarea maxLength={3000} name="note" rows={2} />
         </label>
-        <ImageFilePicker
-          dropClassName="maintenance-log-upload"
-          help="JPEG, PNG hoặc WebP · tổng tối đa 5 MB/lần · chọn tối đa 5 ảnh"
-          inputName="files"
-          label="Thêm hình ảnh bảo trì"
-          maxFiles={5}
-          multiple
-          tone="maintenance"
-        />
+        {selectedLogAssetCount > 1 ? (
+          <p className="maintenance-bulk-media-note">
+            Ảnh không áp dụng cho ghi nhận nhiều thiết bị để tránh tạo bản sao ngoài ý muốn.
+            Nếu cần ảnh, hãy ghi riêng cho từng thiết bị.
+          </p>
+        ) : (
+          <ImageFilePicker
+            dropClassName="maintenance-log-upload"
+            help="JPEG, PNG hoặc WebP · tổng tối đa 5 MB/lần · chọn tối đa 5 ảnh"
+            inputName="files"
+            label="Thêm hình ảnh bảo trì"
+            maxFiles={5}
+            multiple
+            tone="maintenance"
+          />
+        )}
         <ActionMessage state={logState} />
-        <button className="primary-button" disabled={logPending || !assets.length} type="submit">
-          {logPending ? "Đang lưu…" : "Lưu nhật ký"}
+        <button
+          className="primary-button"
+          disabled={logPending || !selectedLogAssetCount}
+          type="submit"
+        >
+          {logPending
+            ? "Đang lưu…"
+            : selectedLogAssetCount > 1
+              ? `Ghi nhận ${selectedLogAssetCount} thiết bị`
+              : "Lưu nhật ký"}
         </button>
       </form>
       </ModalTrigger>

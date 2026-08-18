@@ -1811,6 +1811,30 @@ tbody tr.asset-row:hover > td {
   color: var(--brand);
 }
 
+.maintenance-bulk-assets {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.maintenance-bulk-assets .software-asset-selection-summary {
+  margin: 0;
+}
+
+.maintenance-asset-checklist {
+  border-radius: 13px;
+  max-height: 280px;
+}
+
+.maintenance-bulk-media-note {
+  background: #fff8e7;
+  border: 1px solid #ead9a8;
+  border-radius: 10px;
+  color: #725b17;
+  font-size: 0.74rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+}
+
 .software-asset-filters {
   display: grid;
   gap: 0.8rem;

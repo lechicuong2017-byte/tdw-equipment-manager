@@ -110,8 +110,12 @@ export default async function MaintenancePage() {
     .filter((plan) => plan.active)
     .map((plan) => ({
       id: plan.id,
+      batch_id: plan.batch_id,
       asset_id: plan.asset_id,
-      title: `${getRelatedAsset(plan.assets)?.asset_code ?? ""} — ${plan.title}`,
+      title: plan.title,
+      scope_type: plan.scope_type,
+      scope_value: plan.scope_value,
+      next_due_date: plan.next_due_date,
     }));
   const editPlanOptions = (plans ?? []).map((plan) => ({
     id: plan.id,
