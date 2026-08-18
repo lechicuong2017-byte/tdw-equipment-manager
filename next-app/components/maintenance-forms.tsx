@@ -144,12 +144,14 @@ export function MaintenanceForms({
       current.push(plan);
       legacyGroups.set(signature, current);
     });
-    legacyGroups.forEach((matchingPlans, signature) => {
+    legacyGroups.forEach((matchingPlans) => {
       const first = matchingPlans[0];
       if (!first) return;
       const isLegacyGroup = matchingPlans.length > 1;
       grouped.push({
-        key: isLegacyGroup ? `legacy:${signature}` : `batch:${first.batch_id}`,
+        key: isLegacyGroup
+          ? `legacy:${matchingPlans.map((plan) => plan.id).sort().join(",")}`
+          : `batch:${first.batch_id}`,
         batch_id: isLegacyGroup ? null : first.batch_id,
         title: first.title,
         frequency: first.frequency,
