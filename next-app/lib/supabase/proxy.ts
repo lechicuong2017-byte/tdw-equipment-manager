@@ -14,6 +14,22 @@ export async function updateSession(
   };
   const redirectResponse = (url: URL) => {
     const redirect = NextResponse.redirect(url);
+    // `getClaims()` can refresh or clear the Supabase session. Preserve those
+    // cookie mutations when this request is redirected, otherwise the browser
+    // keeps a stale refresh token and the next login in the same session fails.
+    response.cookies.getAll().forEach((cookie) => {
+      redirect.cookies.set(cookie);
+    });
+    ["cache-control", "expires", "pragma"].forEach((name) => {
+      const value = response.headers.get(name);
+      if (value) redirect.headers.set(name, value);
+    });
+    if (!redirect.headers.has("cache-control")) {
+      redirect.headers.set(
+        "Cache-Control",
+        "private, no-cache, no-store, must-revalidate, max-age=0",
+      );
+    }
     redirect.headers.set("Content-Security-Policy", contentSecurityPolicy);
     return redirect;
   };

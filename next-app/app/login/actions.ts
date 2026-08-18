@@ -29,13 +29,47 @@ export async function login(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
-    password: parsed.data.password,
-  });
+  let signInError: { status?: number } | null = null;
 
-  if (error) {
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: parsed.data.email,
+      password: parsed.data.password,
+    });
+    signInError = error;
+  } catch {
+    return {
+      error: "Không thể kết nối dịch vụ đăng nhập. Vui lòng thử lại.",
+    };
+  }
+
+  if (signInError?.status === 429) {
+    return {
+      error: "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng chờ một lúc rồi thử lại.",
+    };
+  }
+
+  if (signInError) {
     return { error: "Email hoặc mật khẩu không đúng." };
+  }
+
+  // Let a possible token refresh finish before the access RPC uses the token.
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+
+  if (claimsError || !claimsData?.claims?.sub) {
+    await supabase.auth.signOut({ scope: "local" });
+    return {
+      error: "Không thể tạo phiên đăng nhập an toàn. Vui lòng thử lại.",
+    };
+  }
+
+  const accessResult = await supabase.rpc("get_my_access");
+  if (accessResult.error || !accessResult.data) {
+    await supabase.auth.signOut({ scope: "local" });
+    return {
+      error: "Tài khoản chưa được kích hoạt hoặc đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
+    };
   }
 
   const destination =

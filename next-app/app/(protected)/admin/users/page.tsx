@@ -23,11 +23,11 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
 
   const params = await searchParams;
   const [
-    { data: profiles },
-    { data: roles },
-    { data: userRoles },
-    { data: scopes },
-    { data: departments },
+    profilesResult,
+    rolesResult,
+    userRolesResult,
+    scopesResult,
+    departmentsResult,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -40,6 +40,19 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       .select("user_id,module,scope_type,department_id"),
     supabase.from("departments").select("id,name").order("name"),
   ]);
+
+  const queryError = [
+    profilesResult.error,
+    rolesResult.error,
+    userRolesResult.error,
+    scopesResult.error,
+    departmentsResult.error,
+  ].find(Boolean);
+  const profiles = profilesResult.data;
+  const roles = rolesResult.data;
+  const userRoles = userRolesResult.data;
+  const scopes = scopesResult.data;
+  const departments = departmentsResult.data;
 
   const roleCodeById = new Map((roles ?? []).map((role) => [role.id, role.code]));
   const roleByUser = new Map(
@@ -81,6 +94,12 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       />
 
       {params.error ? <p className="form-error" role="alert">{params.error}</p> : null}
+      {params.ok ? <p className="form-success" role="status">{params.ok}</p> : null}
+      {queryError ? (
+        <p className="form-error" role="alert">
+          Không thể tải đầy đủ dữ liệu người dùng. Vui lòng tải lại trang.
+        </p>
+      ) : null}
 
       <section className="user-access-grid">
         {(profiles ?? []).map((profile) => {
@@ -95,6 +114,11 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                   <p className="eyebrow">{roleCode.toUpperCase()}</p>
                   <h2>{profile.full_name || profile.email}</h2>
                   <small>{profile.email}</small>
+                  <p>
+                    <span className={`status-pill ${profile.active ? "" : "status-muted"}`}>
+                      {profile.active ? "Đang hoạt động" : "Đã vô hiệu hóa"}
+                    </span>
+                  </p>
                 </div>
               </div>
               <ModalTrigger
