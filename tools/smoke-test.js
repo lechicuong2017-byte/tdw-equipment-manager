@@ -99,6 +99,9 @@ async function run() {
   const googleExportRoute = read(
     "next-app/app/api/integrations/google-export/route.ts",
   );
+  const vehicleActions = read(
+    "next-app/app/(protected)/vehicles/actions.ts",
+  );
   const recordScopeMigration = read(
     "supabase/migrations/202607290002_record_scopes_and_storage_rls.sql",
   );
@@ -398,7 +401,11 @@ async function run() {
   assert.ok(appsScript.includes("const TDW_REPORT_LOGO_JPEG_BASE64"));
   assert.ok(appsScript.includes("function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, summaryText)"));
   assert.ok(appsScript.includes("setSpreadsheetLocale(\"vi_VN\")"));
-  assert.ok(googleExportRoute.includes("Tổng số tiền: ${formatVndSummary(totalAmount)}"));
+  assert.ok(appsScript.includes("Math.max(sheet.getColumnWidth(sheetColumn), 135)"));
+  assert.ok(appsScript.includes('setNumberFormat("dd/MM/yyyy")'));
+  assert.ok(googleExportRoute.includes("Tổng số lít: ${formatViNumber(totalLiters)} lít · Tổng số tiền: ${formatVndSummary(totalAmount)}"));
+  assert.ok(vehicleActions.includes("findNestedColumn(worksheet, headerRow, [\"SO KM\"], [\"TU\"])"));
+  assert.ok(vehicleActions.includes('onConflict: "source_file,source_sheet,source_row"'));
   assert.ok(appsScript.includes("function insertTdwReportLogo_(sheet)"));
   assert.ok(appsScript.includes("CÔNG TY CỔ PHẦN NƯỚC THỦ ĐỨC — TDW"));
   assert.ok(appsScript.includes('setBackground("#176da5")'));

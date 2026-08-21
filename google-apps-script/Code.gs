@@ -997,6 +997,10 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
         sheet.getRange(firstDataRow, index + 2, rows.length, 1)
           .setNumberFormat('#,##0 "VNĐ"')
           .setHorizontalAlignment("right");
+      } else if (/date|_on$/i.test(column.key)) {
+        sheet.getRange(firstDataRow, index + 2, rows.length, 1)
+          .setNumberFormat("dd/MM/yyyy")
+          .setHorizontalAlignment("center");
       } else if (/quantity|total/i.test(column.key)) {
         sheet.getRange(firstDataRow, index + 2, rows.length, 1)
           .setNumberFormat("#,##0")
@@ -1018,6 +1022,13 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
 
   sheet.setColumnWidth(1, 55);
   sheet.autoResizeColumns(2, columns.length);
+  columns.forEach((column, index) => {
+    if (/price|cost|amount|vat/i.test(column.key)) {
+      const sheetColumn = index + 2;
+      sheet.getRange(firstDataRow, sheetColumn, Math.max(rows.length, 1), 1).setWrap(false);
+      sheet.setColumnWidth(sheetColumn, Math.max(sheet.getColumnWidth(sheetColumn), 135));
+    }
+  });
 }
 
 function insertTdwReportLogo_(sheet) {
@@ -1115,6 +1126,10 @@ function safeSpreadsheetValue_(value) {
   if (value === null || value === undefined) return "";
   if (typeof value === "number" || typeof value === "boolean") return value;
   const text = String(value).slice(0, 50000);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const parts = text.split("-").map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
   return /^[=+\-@]/.test(text) ? `'${text}` : text;
 }
 

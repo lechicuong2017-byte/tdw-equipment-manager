@@ -245,6 +245,10 @@ function formatVndSummary(value: number) {
   return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)} VNĐ`;
 }
 
+function formatViNumber(value: number, maximumFractionDigits = 3) {
+  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits }).format(value);
+}
+
 async function buildReportPayload(
   supabase: Awaited<ReturnType<typeof createClient>>,
   reportType: ReportType,
@@ -640,11 +644,12 @@ async function buildReportPayload(
     const { data, error } = await query.order("payment_date", { ascending: false }).limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu nhiên liệu xe");
     const rows = (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = relatedVehicle(vehicles); return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "", fuel_norm_l_per_100km: vehicle?.fuel_norm_l_per_100km ?? "" }; });
+    const totalLiters = rows.reduce((sum, item) => sum + Number(item.liters || 0), 0);
     const totalAmount = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     return {
       report_type: reportType, title: `TDW - Nhiên liệu xe - ${reportScope} - ${dateLabel}`,
       report_name: "SỔ THEO DÕI MUA NHIÊN LIỆU XE Ô TÔ", requested_by: requestedBy,
-      summary: `Tổng số tiền: ${formatVndSummary(totalAmount)}`,
+      summary: `Tổng số lít: ${formatViNumber(totalLiters)} lít · Tổng số tiền: ${formatVndSummary(totalAmount)}`,
       columns: [
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" }, { key: "license_plate", label: "Biển số" },
         { key: "fuel_norm_l_per_100km", label: "Định mức (lít/100 km)" }, { key: "liters", label: "Số lít nhiên liệu" },
