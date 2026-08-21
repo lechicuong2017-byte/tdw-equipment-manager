@@ -3,6 +3,7 @@ import { ConfirmAction } from "@/components/app-modal";
 import { AppIcon } from "@/components/app-icon";
 import { PageHeader } from "@/components/page-header";
 import { VehicleActions } from "@/components/vehicle-forms";
+import { VehicleModuleNav } from "@/components/vehicle-module-nav";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
 import { deleteVehicleRecord } from "./actions";
@@ -29,8 +30,39 @@ function dueTone(days: number) {
   return { className: "status-pill--active", label: "Còn hiệu lực" };
 }
 
-export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
-  const requestedSection = (await searchParams).section;
+const vehiclePageSize = 10;
+
+function boundedPage(requestedPage: number, totalRows: number) {
+  const totalPages = Math.max(1, Math.ceil(totalRows / vehiclePageSize));
+  return Math.min(Math.max(1, requestedPage), totalPages);
+}
+
+function pageRows<T>(rows: T[], page: number) {
+  const offset = (page - 1) * vehiclePageSize;
+  return rows.slice(offset, offset + vehiclePageSize);
+}
+
+function VehiclePagination({ section, page, totalRows }: { section: "inspections" | "repairs" | "fuel"; page: number; totalRows: number }) {
+  if (totalRows <= vehiclePageSize) return null;
+  const totalPages = Math.max(1, Math.ceil(totalRows / vehiclePageSize));
+  const from = totalRows ? (page - 1) * vehiclePageSize + 1 : 0;
+  const to = Math.min(page * vehiclePageSize, totalRows);
+  return (
+    <nav className="vehicle-pagination" aria-label="Phân trang dữ liệu xe">
+      <span>Hiển thị {from}–{to} / {totalRows} bản ghi</span>
+      <div>
+        {page > 1 ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page - 1}`}>← Trước</Link> : <span className="secondary-button disabled">← Trước</span>}
+        <strong>Trang {page} / {totalPages}</strong>
+        {page < totalPages ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page + 1}`}>Sau →</Link> : <span className="secondary-button disabled">Sau →</span>}
+      </div>
+    </nav>
+  );
+}
+
+export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string }> }) {
+  const params = await searchParams;
+  const requestedSection = params.section;
+  const requestedPage = Number.isFinite(Number(params.page)) ? Math.max(1, Math.trunc(Number(params.page))) : 1;
   const section: VehicleSection = ["fleet", "inspections", "repairs", "fuel"].includes(requestedSection ?? "")
     ? requestedSection as VehicleSection
     : "overview";
@@ -49,6 +81,12 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const inspections = inspectionsResult.data ?? [];
   const repairs = repairsResult.data ?? [];
   const fuelLogs = fuelResult.data ?? [];
+  const inspectionsPage = boundedPage(requestedPage, inspections.length);
+  const repairsPage = boundedPage(requestedPage, repairs.length);
+  const fuelPage = boundedPage(requestedPage, fuelLogs.length);
+  const visibleInspections = pageRows(inspections, inspectionsPage);
+  const visibleRepairs = pageRows(repairs, repairsPage);
+  const visibleFuelLogs = pageRows(fuelLogs, fuelPage);
   const today = vietnamToday();
   const latestInspectionByVehicle = new Map<string, (typeof inspections)[number]>();
   inspections.forEach((item) => { if (!latestInspectionByVehicle.has(item.vehicle_id)) latestInspectionByVehicle.set(item.vehicle_id, item); });
@@ -73,9 +111,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       <div className="vehicle-page-header">
         <PageHeader eyebrow="PHƯƠNG TIỆN" title="Quản lý xe" description="Theo dõi tập trung hồ sơ xe, đăng kiểm, bảo dưỡng sửa chữa và nhiên liệu." />
       </div>
-      <nav className="vehicle-tabs" aria-label="Mục quản lý xe">
-        {sections.map((item) => <Link className={section === item.key ? "active" : ""} href={item.key === "overview" ? "/vehicles" : `/vehicles?section=${item.key}`} key={item.key}><span className="vehicle-tab-icon"><AppIcon name={item.icon} size={18} /></span><span>{item.label}</span></Link>)}
-      </nav>
+      <VehicleModuleNav active={section} />
       <section className={`vehicle-command-bar vehicle-command-bar--${section}`}>
         <div className="vehicle-command-context">
           <span className="vehicle-command-icon"><AppIcon name={activeSection.icon} size={22} /></span>
@@ -121,17 +157,20 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
 
       {section === "inspections" ? <section className="panel vehicle-section-panel vehicle-section-panel--inspections">
         <div className="panel-heading"><div><p className="eyebrow">ĐĂNG KIỂM</p><h2>Lịch sử và hạn sắp tới</h2></div><small>{inspections.length} lần</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Chi phí</th><th>Thông tin</th>{canDelete ? <th /> : null}</tr></thead><tbody>{inspections.map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); return <tr key={item.id}><td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td><td>{formatDate(item.inspection_date)}</td><td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td><td>{formatMoney(Number(item.cost))}</td><td>{item.certificate_number || "—"}<small>{item.inspection_center || `Nhắc trước ${item.reminder_days} ngày`}</small></td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi đăng kiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "inspection" }} title="Xóa đăng kiểm?" /></td> : null}</tr>; })}{!inspections.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử đăng kiểm.</td></tr> : null}</tbody></table></div>
+        <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Chi phí</th><th>Thông tin</th>{canDelete ? <th /> : null}</tr></thead><tbody>{visibleInspections.map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); return <tr key={item.id}><td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td><td>{formatDate(item.inspection_date)}</td><td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td><td>{formatMoney(Number(item.cost))}</td><td>{item.certificate_number || "—"}<small>{item.inspection_center || `Nhắc trước ${item.reminder_days} ngày`}</small></td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi đăng kiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "inspection" }} title="Xóa đăng kiểm?" /></td> : null}</tr>; })}{!inspections.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử đăng kiểm.</td></tr> : null}</tbody></table></div>
+        <VehiclePagination page={inspectionsPage} section="inspections" totalRows={inspections.length} />
       </section> : null}
 
       {section === "repairs" ? <section className="panel vehicle-section-panel vehicle-section-panel--repairs">
         <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><small>{repairs.length} bản ghi</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí VAT</th>{canDelete ? <th /> : null}</tr></thead><tbody>{repairs.map((item) => { const vehicle = relatedVehicle(item.vehicles); return <tr key={item.id}><td><strong>{formatDate(item.service_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td><strong>{item.description}</strong><small>{item.service_type.replaceAll("_", " ")}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td><td>{item.vendor || "—"}<small>{item.invoice_number}</small></td><td>{item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : "—"}</td><td>{formatMoney(Number(item.vat_amount))}</td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi bảo dưỡng sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "repair" }} title="Xóa bảo dưỡng?" /></td> : null}</tr>; })}{!repairs.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử bảo dưỡng.</td></tr> : null}</tbody></table></div>
+        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí VAT</th>{canDelete ? <th /> : null}</tr></thead><tbody>{visibleRepairs.map((item) => { const vehicle = relatedVehicle(item.vehicles); return <tr key={item.id}><td><strong>{formatDate(item.service_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td><strong>{item.description}</strong><small>{item.service_type.replaceAll("_", " ")}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td><td>{item.vendor || "—"}<small>{item.invoice_number}</small></td><td>{item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : "—"}</td><td>{formatMoney(Number(item.vat_amount))}</td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi bảo dưỡng sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "repair" }} title="Xóa bảo dưỡng?" /></td> : null}</tr>; })}{!repairs.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử bảo dưỡng.</td></tr> : null}</tbody></table></div>
+        <VehiclePagination page={repairsPage} section="repairs" totalRows={repairs.length} />
       </section> : null}
 
       {section === "fuel" ? <section className="panel vehicle-section-panel vehicle-section-panel--fuel">
         <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><small>{fuelLogs.length} bản ghi</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Số tiền</th>{canDelete ? <th /> : null}</tr></thead><tbody>{fuelLogs.map((item) => { const vehicle = relatedVehicle(item.vehicles); return <tr key={item.id}><td><strong>{formatDate(item.payment_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td>{Number(item.liters).toLocaleString("vi-VN")} lít</td><td>{item.odometer_from ?? "—"} → {item.odometer_to ?? "—"}<small>{item.odometer_from != null && item.odometer_to != null ? `${Number(item.odometer_to) - Number(item.odometer_from)} km` : ""}</small></td><td>{item.purchaser || "—"}<small>{item.source_file ? `Nhập từ ${item.source_file}` : item.note}</small></td><td>{formatMoney(Number(item.amount))}</td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi nhiên liệu sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "fuel" }} title="Xóa nhiên liệu?" /></td> : null}</tr>; })}{!fuelLogs.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử nhiên liệu.</td></tr> : null}</tbody></table></div>
+        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Số tiền</th>{canDelete ? <th /> : null}</tr></thead><tbody>{visibleFuelLogs.map((item) => { const vehicle = relatedVehicle(item.vehicles); return <tr key={item.id}><td><strong>{formatDate(item.payment_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td>{Number(item.liters).toLocaleString("vi-VN")} lít</td><td>{item.odometer_from ?? "—"} → {item.odometer_to ?? "—"}<small>{item.odometer_from != null && item.odometer_to != null ? `${Number(item.odometer_to) - Number(item.odometer_from)} km` : ""}</small></td><td>{item.purchaser || "—"}<small>{item.source_file ? `Nhập từ ${item.source_file}` : item.note}</small></td><td>{formatMoney(Number(item.amount))}</td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi nhiên liệu sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "fuel" }} title="Xóa nhiên liệu?" /></td> : null}</tr>; })}{!fuelLogs.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử nhiên liệu.</td></tr> : null}</tbody></table></div>
+        <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelLogs.length} />
       </section> : null}
     </>
   );

@@ -1,7 +1,6 @@
 import { ExportReportButton } from "@/components/export-assets-button";
 import { AssetQrLabels } from "@/components/asset-qr-labels";
 import { PageHeader } from "@/components/page-header";
-import { VehicleReportSection } from "@/components/vehicle-report-section";
 import { can, requireAccess } from "@/lib/auth";
 import type { AssetQrData } from "@/lib/asset-qr";
 
@@ -10,7 +9,6 @@ export const metadata = { title: "Báo cáo" };
 export default async function ReportsPage() {
   const { supabase, access } = await requireAccess();
   const canExportAssets = can(access, "reports.assets.export");
-  const canExportVehicles = can(access, "reports.vehicles.export");
   const { data: qrAssetData } = canExportAssets
     ? await supabase
         .from("assets")
@@ -18,13 +16,6 @@ export default async function ReportsPage() {
         .is("deleted_at", null)
         .neq("status", "DA_THANH_LY")
         .order("asset_code")
-    : { data: [] };
-  const { data: vehicleData } = canExportVehicles
-    ? await supabase
-        .from("vehicles")
-        .select("id,vehicle_code,vehicle_name,license_plate")
-        .is("deleted_at", null)
-        .order("license_plate")
     : { data: [] };
   const reports = [
     {
@@ -108,7 +99,6 @@ export default async function ReportsPage() {
           ))}
         </div>
       </section>
-      {canExportVehicles ? <VehicleReportSection vehicles={vehicleData ?? []} /> : null}
       {canExportAssets ? <AssetQrLabels assets={(qrAssetData ?? []) as AssetQrData[]} /> : null}
     </>
   );

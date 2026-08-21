@@ -25,7 +25,7 @@ const vehicleReports: {
   { type: "vehicle_fuel", eyebrow: "NHIÊN LIỆU", title: "Theo dõi mua nhiên liệu", description: "Số lít, hành trình, số tiền và người mua theo từng xe.", icon: "fuel", tone: "green" },
 ];
 
-export function VehicleReportSection({ vehicles }: { vehicles: VehicleOption[] }) {
+export function VehicleReportSection({ vehicles, showHeading = true }: { vehicles: VehicleOption[]; showHeading?: boolean }) {
   const currentYear = new Date().getFullYear();
   const years = useMemo(() => Array.from({ length: currentYear - 1999 }, (_, index) => currentYear - index), [currentYear]);
   const [year, setYear] = useState("");
@@ -43,11 +43,11 @@ export function VehicleReportSection({ vehicles }: { vehicles: VehicleOption[] }
   ].join(" · ");
 
   return (
-    <section className="vehicle-report-workspace">
-      <div className="report-section-heading">
+    <section className={`vehicle-report-workspace${showHeading ? "" : " vehicle-report-workspace--standalone"}`}>
+      {showHeading ? <div className="report-section-heading">
         <div><p className="eyebrow">PHƯƠNG TIỆN</p><h2>Báo cáo quản lý xe</h2><p>Lọc dữ liệu trước khi tạo file XLSX hoặc PDF.</p></div>
         <span><AppIcon name="reports" size={20} />4 mẫu báo cáo</span>
-      </div>
+      </div> : null}
       <div className="panel vehicle-report-filter">
         <div className="vehicle-report-filter-title"><span><AppIcon name="settings" size={19} /></span><div><strong>Bộ lọc báo cáo</strong><small>{filterSummary}</small></div></div>
         <div className="vehicle-report-filter-fields">
