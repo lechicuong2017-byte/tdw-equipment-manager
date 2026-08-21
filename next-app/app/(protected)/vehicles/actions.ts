@@ -17,6 +17,7 @@ const vehicleSchema = z.object({
   brand: z.string().trim().max(100),
   model: z.string().trim().max(120),
   production_year: z.preprocess(emptyToNull, z.coerce.number().int().min(1950).max(2200).nullable().optional()),
+  seat_count: z.preprocess(emptyToNull, z.coerce.number().int().min(1).max(100).nullable().optional()),
   fuel_norm_l_per_100km: z.preprocess(emptyToNull, z.coerce.number().min(0).max(1000).nullable().optional()),
   assigned_driver: z.string().trim().max(160),
   department_id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
@@ -34,6 +35,7 @@ const inspectionSchema = z.object({
   reminder_days: z.coerce.number().int().min(1).max(180),
   certificate_number: z.string().trim().max(100),
   inspection_center: z.string().trim().max(200),
+  seat_count: z.preprocess(emptyToNull, z.coerce.number().int().min(1).max(100).nullable().optional()),
   odometer_km: z.preprocess(emptyToNull, z.coerce.number().int().min(0).nullable().optional()),
   note: z.string().trim().max(3000),
 }).refine((value) => value.expires_on >= value.inspection_date, {

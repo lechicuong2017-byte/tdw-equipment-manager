@@ -29,6 +29,7 @@ export type VehicleFormInitial = {
   brand?: string | null;
   model?: string | null;
   production_year?: number | null;
+  seat_count?: number | null;
   fuel_norm_l_per_100km?: number | string | null;
   assigned_driver?: string | null;
   department_id?: string | null;
@@ -46,6 +47,7 @@ export type InspectionFormInitial = {
   reminder_days?: number | null;
   certificate_number?: string | null;
   inspection_center?: string | null;
+  seat_count?: number | null;
   odometer_km?: number | null;
   note?: string | null;
 };
@@ -103,6 +105,7 @@ export function VehicleForm({ departments, users, initial }: { departments: Depa
         <label>Thương hiệu<input defaultValue={initial?.brand ?? ""} name="brand" maxLength={100} /></label>
         <label>Model<input defaultValue={initial?.model ?? ""} name="model" maxLength={120} /></label>
         <label>Năm sản xuất<input defaultValue={initial?.production_year ?? ""} name="production_year" type="number" min={1950} max={2200} /></label>
+        <label>Số chỗ ngồi<input defaultValue={initial?.seat_count ?? ""} name="seat_count" type="number" min={1} max={100} placeholder="Ví dụ: 5" /></label>
         <label>Định mức lít/100 km<input defaultValue={initial?.fuel_norm_l_per_100km ?? ""} name="fuel_norm_l_per_100km" type="number" min={0} step="0.01" /></label>
         <label>Tài xế / người sử dụng<input defaultValue={initial?.assigned_driver ?? ""} name="assigned_driver" maxLength={160} /></label>
         <label>Phòng ban<select name="department_id" defaultValue={initial?.department_id ?? ""}><option value="">Chưa phân phòng</option>{departments.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
@@ -130,6 +133,7 @@ export function InspectionForm({ vehicles, initial }: { vehicles: VehicleOption[
         <label>Nhắc trước (ngày)<input name="reminder_days" type="number" min={1} max={180} defaultValue={initial?.reminder_days ?? 30} /></label>
         <label>Số giấy chứng nhận<input defaultValue={initial?.certificate_number ?? ""} name="certificate_number" maxLength={100} /></label>
         <label>Trung tâm đăng kiểm<input defaultValue={initial?.inspection_center ?? ""} name="inspection_center" maxLength={200} /></label>
+        <label>Số chỗ ngồi<input defaultValue={initial?.seat_count ?? ""} name="seat_count" type="number" min={1} max={100} placeholder="Theo giấy đăng kiểm" /></label>
         <label>Số km<input defaultValue={initial?.odometer_km ?? ""} name="odometer_km" type="number" min={0} /></label>
         <label className="span-3">Ghi chú<textarea defaultValue={initial?.note ?? ""} name="note" rows={3} maxLength={3000} /></label>
       </div>

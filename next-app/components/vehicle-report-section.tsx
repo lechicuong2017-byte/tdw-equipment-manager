@@ -19,8 +19,8 @@ const vehicleReports: {
   icon: AppIconName;
   tone: string;
 }[] = [
-  { type: "vehicles", eyebrow: "HỒ SƠ XE", title: "Danh sách phương tiện", description: "Thông tin xe, biển số, tài xế, định mức và trạng thái sử dụng.", icon: "vehicle", tone: "cyan" },
-  { type: "vehicle_inspections", eyebrow: "ĐĂNG KIỂM", title: "Lịch sử đăng kiểm", description: "Ngày đăng kiểm, hạn tiếp theo, chi phí và thông tin giấy chứng nhận.", icon: "inspection", tone: "amber" },
+  { type: "vehicles", eyebrow: "HỒ SƠ XE", title: "Danh sách phương tiện", description: "Thông tin xe, biển số, số chỗ ngồi, tài xế, định mức và trạng thái sử dụng.", icon: "vehicle", tone: "cyan" },
+  { type: "vehicle_inspections", eyebrow: "ĐĂNG KIỂM", title: "Lịch sử đăng kiểm", description: "Ngày đăng kiểm, hạn tiếp theo, số chỗ ngồi, chi phí và giấy chứng nhận.", icon: "inspection", tone: "amber" },
   { type: "vehicle_repairs", eyebrow: "BẢO DƯỠNG", title: "Bảo dưỡng và sửa chữa", description: "Nhật ký thực hiện, số km, đơn vị sửa chữa và chi phí có VAT.", icon: "maintenance", tone: "violet" },
   { type: "vehicle_fuel", eyebrow: "NHIÊN LIỆU", title: "Theo dõi mua nhiên liệu", description: "Số lít, hành trình, số tiền và người mua theo từng xe.", icon: "fuel", tone: "green" },
 ];

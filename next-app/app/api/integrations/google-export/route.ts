@@ -532,7 +532,7 @@ async function buildReportPayload(
 
   if (reportType === "vehicles") {
     let query = supabase.from("vehicles")
-      .select("vehicle_code,vehicle_name,license_plate,brand,model,production_year,fuel_norm_l_per_100km,assigned_driver,status,note,departments(name)")
+      .select("vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,departments(name)")
       .is("deleted_at", null);
     if (filters.vehicle_id) query = query.eq("id", filters.vehicle_id);
     const { data, error } = await query.order("vehicle_code").limit(5000);
@@ -546,6 +546,7 @@ async function buildReportPayload(
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" },
         { key: "license_plate", label: "Biển số" }, { key: "brand", label: "Thương hiệu" },
         { key: "model", label: "Model" }, { key: "production_year", label: "Năm sản xuất" },
+        { key: "seat_count", label: "Số chỗ ngồi" },
         { key: "fuel_norm_l_per_100km", label: "Định mức lít/100 km" },
         { key: "assigned_driver", label: "Tài xế / người sử dụng" },
         { key: "department", label: "Phòng ban" }, { key: "status", label: "Trạng thái" },
@@ -557,7 +558,7 @@ async function buildReportPayload(
 
   if (reportType === "vehicle_inspections") {
     let query = supabase.from("vehicle_inspections")
-      .select("inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,odometer_km,note,vehicles(vehicle_code,vehicle_name,license_plate)");
+      .select("inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(vehicle_code,vehicle_name,license_plate)");
     if (filters.vehicle_id) query = query.eq("vehicle_id", filters.vehicle_id);
     const dateRange = vehicleReportDateRange(filters);
     if (dateRange) query = query.gte("inspection_date", dateRange.start).lte("inspection_date", dateRange.end);
@@ -569,7 +570,8 @@ async function buildReportPayload(
       columns: [
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" },
         { key: "license_plate", label: "Biển số" }, { key: "inspection_date", label: "Ngày đăng kiểm" },
-        { key: "expires_on", label: "Ngày hết hạn" }, { key: "cost", label: "Chi phí" },
+        { key: "expires_on", label: "Ngày hết hạn" }, { key: "seat_count", label: "Số chỗ ngồi" },
+        { key: "cost", label: "Chi phí" },
         { key: "certificate_number", label: "Số giấy chứng nhận" }, { key: "inspection_center", label: "Trung tâm đăng kiểm" },
         { key: "odometer_km", label: "Số km" }, { key: "reminder_days", label: "Nhắc trước (ngày)" }, { key: "note", label: "Ghi chú" },
       ],
