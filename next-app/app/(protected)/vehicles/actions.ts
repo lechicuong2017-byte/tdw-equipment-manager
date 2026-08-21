@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
@@ -122,11 +123,38 @@ export async function deleteVehicleRecord(formData: FormData): Promise<VehicleAc
   const { access, supabase } = await requireAccess();
   if (!can(access, "vehicles.delete")) return { error: "Bạn không có quyền xóa dữ liệu xe." };
   if (kind.data === "vehicle") {
-    const { error } = await supabase
-      .from("vehicles")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id.data);
-    if (error) return { error: "Không thể xóa hồ sơ xe." };
+    const archiveResult = await supabase.rpc("archive_vehicle", {
+      target_vehicle_id: id.data,
+    });
+    if (archiveResult.error) {
+      const rpcUnavailable = ["42883", "PGRST202"].includes(archiveResult.error.code);
+      if (!rpcUnavailable) return { error: "Không thể xóa hồ sơ xe." };
+
+      const permissionResult = await supabase.rpc("can_access_vehicle", {
+        target_vehicle_id: id.data,
+        required_permission: "vehicles.delete",
+      });
+      if (permissionResult.error || permissionResult.data !== true) {
+        return { error: "Bạn không có quyền xóa hồ sơ xe này." };
+      }
+
+      try {
+        const adminClient = createAdminClient();
+        const { data: archivedVehicle, error: archiveError } = await adminClient
+          .from("vehicles")
+          .update({
+            deleted_at: new Date().toISOString(),
+            updated_by: access.user_id,
+          })
+          .eq("id", id.data)
+          .is("deleted_at", null)
+          .select("id")
+          .maybeSingle();
+        if (archiveError || !archivedVehicle) return { error: "Không thể xóa hồ sơ xe." };
+      } catch {
+        return { error: "Không thể xóa hồ sơ xe do máy chủ chưa đủ cấu hình." };
+      }
+    }
     revalidatePath("/vehicles");
     revalidatePath("/vehicles/reports");
     return { success: "Đã ẩn hồ sơ xe; toàn bộ lịch sử vẫn được giữ nguyên." };
