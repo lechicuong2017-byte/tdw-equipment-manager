@@ -15,7 +15,7 @@ function safeNextPath(value: string | null, type: EmailOtpType) {
   if (value?.startsWith("/") && !value.startsWith("//")) return value;
   return type === "invite" || type === "recovery"
     ? "/set-password"
-    : "/dashboard";
+    : "/modules";
 }
 
 export async function GET(request: NextRequest) {

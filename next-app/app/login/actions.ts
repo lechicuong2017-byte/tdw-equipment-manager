@@ -75,6 +75,6 @@ export async function login(
   const destination =
     parsed.data.next?.startsWith("/") && !parsed.data.next.startsWith("//")
       ? parsed.data.next
-      : "/dashboard";
+      : "/modules";
   redirect(destination);
 }

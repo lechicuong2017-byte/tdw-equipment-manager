@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const destination =
-        next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+        next?.startsWith("/") && !next.startsWith("//") ? next : "/modules";
       return NextResponse.redirect(new URL(destination, url.origin));
     }
   }

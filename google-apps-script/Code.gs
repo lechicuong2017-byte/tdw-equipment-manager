@@ -525,6 +525,10 @@ function doPost(event) {
       const payload = requireSignedIntegrationRequest_(body);
       return jsonResponse_(sendSupabaseMaintenanceReminders_(payload));
     }
+    if (action === "sendSupabaseVehicleInspectionReminders") {
+      const payload = requireSignedIntegrationRequest_(body);
+      return jsonResponse_(sendSupabaseVehicleInspectionReminders_(payload));
+    }
     if (action === "integrationHealthCheck") {
       requireSignedIntegrationRequest_(body);
       return jsonResponse_(integrationHealthCheck_());
@@ -786,7 +790,7 @@ function exportSupabaseReport_(payload) {
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
   const requestedBy = String(payload.requested_by || "").trim().slice(0, 200);
 
-  if (["assets", "maintenance", "software", "movement"].indexOf(reportType) === -1) {
+  if (["assets", "maintenance", "software", "movement", "vehicles", "vehicle_inspections", "vehicle_repairs", "vehicle_fuel"].indexOf(reportType) === -1) {
     throw new Error("Loại báo cáo không được hỗ trợ");
   }
   if (!columns.length || columns.length > 50) throw new Error("Cấu trúc cột không hợp lệ");
@@ -844,7 +848,7 @@ function exportSupabaseReportFile_(payload) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId)) {
     throw new Error("Mã tác vụ xuất file không hợp lệ");
   }
-  if (["assets", "maintenance", "software", "movement"].indexOf(reportType) === -1) {
+  if (["assets", "maintenance", "software", "movement", "vehicles", "vehicle_inspections", "vehicle_repairs", "vehicle_fuel"].indexOf(reportType) === -1) {
     throw new Error("Loại báo cáo không được hỗ trợ");
   }
   if (["xlsx", "pdf"].indexOf(outputFormat) === -1) {
@@ -1187,6 +1191,38 @@ function sendSupabaseMaintenanceReminders_(payload) {
     failed: results.filter((item) => item.status === "FAILED").length,
     results,
   };
+}
+
+function sendSupabaseVehicleInspectionReminders_(payload) {
+  const notifications = Array.isArray(payload.notifications) ? payload.notifications : [];
+  if (!notifications.length || notifications.length > 200) throw new Error("Danh sách email phải có từ 1 đến 200 mục");
+  const results = notifications.map((item) => {
+    const notificationId = String(item.notification_id || "").trim();
+    const recipientEmail = normalizeEmail_(item.recipient_email || "");
+    const recipientName = String(item.recipient_name || recipientEmail).trim().slice(0, 160);
+    const vehicleName = String(item.vehicle_name || "Xe TDW").trim().slice(0, 200);
+    const vehicleCode = String(item.vehicle_code || "").trim().slice(0, 80);
+    const licensePlate = String(item.license_plate || "").trim().slice(0, 30);
+    const dueDate = normalizeIsoDate_(item.due_date || "");
+    const notificationType = String(item.notification_type || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationId)) throw new Error("Mã email nhắc không hợp lệ");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) throw new Error("Ngày hết hạn không hợp lệ");
+    if (!/^(DUE_(30|7|0)|OVERDUE_[0-9]+)$/.test(notificationType)) throw new Error("Loại nhắc đăng kiểm không hợp lệ");
+    const status = maintenanceReminderStatus_(notificationType);
+    try {
+      MailApp.sendEmail({
+        to: recipientEmail,
+        subject: `[TDW] Nhắc đăng kiểm: ${licensePlate || vehicleName}`.slice(0, 240),
+        body: `TDW Vehicle Manager\n\nXe: ${vehicleName}\nMã xe: ${vehicleCode || "Chưa có"}\nBiển số: ${licensePlate || "Chưa có"}\nHết hạn đăng kiểm: ${formatIsoDate_(dueDate)}\nTrạng thái: ${status}\n\nVui lòng chuẩn bị hồ sơ và thực hiện đăng kiểm đúng hạn.`,
+        htmlBody: `<div style="font-family:Arial,sans-serif;color:#17202a;line-height:1.55"><h2 style="color:#176fa6">Nhắc hạn đăng kiểm xe TDW</h2><p>Chào ${escapeHtml_(recipientName)},</p><table style="border-collapse:collapse"><tr><td style="padding:4px 12px 4px 0;color:#64748b">Xe</td><td><strong>${escapeHtml_(vehicleName)}</strong></td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b">Biển số</td><td>${escapeHtml_(licensePlate || "Chưa có")}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b">Ngày hết hạn</td><td><strong>${escapeHtml_(formatIsoDate_(dueDate))}</strong></td></tr><tr><td style="padding:4px 12px 4px 0;color:#64748b">Trạng thái</td><td>${escapeHtml_(status)}</td></tr></table><p>Vui lòng chuẩn bị hồ sơ và thực hiện đăng kiểm đúng hạn.</p></div>`,
+        name: "TDW Vehicle Manager",
+      });
+      return { notification_id: notificationId, status: "SENT", error: "" };
+    } catch (error) {
+      return { notification_id: notificationId, status: "FAILED", error: String(error && error.message ? error.message : error).slice(0, 500) };
+    }
+  });
+  return { ok: true, processed: results.length, sent: results.filter((item) => item.status === "SENT").length, failed: results.filter((item) => item.status === "FAILED").length, results };
 }
 
 function supabaseMaintenanceReminderText_(item) {

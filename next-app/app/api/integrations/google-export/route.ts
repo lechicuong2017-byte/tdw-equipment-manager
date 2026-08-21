@@ -9,7 +9,7 @@ import type { AccessProfile } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-const reportTypes = ["assets", "liquidations", "maintenance", "movement", "software"] as const;
+const reportTypes = ["assets", "liquidations", "maintenance", "movement", "software", "vehicles", "vehicle_inspections", "vehicle_repairs", "vehicle_fuel"] as const;
 type ReportType = (typeof reportTypes)[number];
 const outputFormats = ["xlsx", "pdf"] as const;
 type OutputFormat = (typeof outputFormats)[number];
@@ -26,6 +26,10 @@ const permissionByReport: Record<ReportType, string> = {
   maintenance: "reports.maintenance.export",
   movement: "reports.movement.export",
   software: "reports.software.export",
+  vehicles: "reports.vehicles.export",
+  vehicle_inspections: "reports.vehicles.export",
+  vehicle_repairs: "reports.vehicles.export",
+  vehicle_fuel: "reports.vehicles.export",
 };
 
 type ReportColumn = { key: string; label: string };
@@ -497,6 +501,86 @@ async function buildReportPayload(
           asset_name: asset?.asset_name ?? "",
         };
       }),
+    };
+  }
+
+  if (reportType === "vehicles") {
+    const { data, error } = await supabase.from("vehicles")
+      .select("vehicle_code,vehicle_name,license_plate,brand,model,production_year,fuel_norm_l_per_100km,assigned_driver,status,note,departments(name)")
+      .is("deleted_at", null).order("vehicle_code").limit(5000);
+    if (error) throw new Error("Không thể đọc dữ liệu xe");
+    return {
+      report_type: reportType,
+      title: `TDW - Danh sách xe - ${dateLabel}`,
+      report_name: "BÁO CÁO DANH SÁCH XE",
+      requested_by: requestedBy,
+      columns: [
+        { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" },
+        { key: "license_plate", label: "Biển số" }, { key: "brand", label: "Thương hiệu" },
+        { key: "model", label: "Model" }, { key: "production_year", label: "Năm sản xuất" },
+        { key: "fuel_norm_l_per_100km", label: "Định mức lít/100 km" },
+        { key: "assigned_driver", label: "Tài xế / người sử dụng" },
+        { key: "department", label: "Phòng ban" }, { key: "status", label: "Trạng thái" },
+        { key: "note", label: "Ghi chú" },
+      ],
+      rows: (data ?? []).map((item) => { const { departments, ...row } = item; return { ...row, department: departments?.[0]?.name ?? "" }; }),
+    };
+  }
+
+  if (reportType === "vehicle_inspections") {
+    const { data, error } = await supabase.from("vehicle_inspections")
+      .select("inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,odometer_km,note,vehicles(vehicle_code,vehicle_name,license_plate)")
+      .order("inspection_date", { ascending: false }).limit(5000);
+    if (error) throw new Error("Không thể đọc dữ liệu đăng kiểm");
+    return {
+      report_type: reportType, title: `TDW - Đăng kiểm xe - ${dateLabel}`,
+      report_name: "BÁO CÁO ĐĂNG KIỂM XE", requested_by: requestedBy,
+      columns: [
+        { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" },
+        { key: "license_plate", label: "Biển số" }, { key: "inspection_date", label: "Ngày đăng kiểm" },
+        { key: "expires_on", label: "Ngày hết hạn" }, { key: "cost", label: "Chi phí" },
+        { key: "certificate_number", label: "Số giấy chứng nhận" }, { key: "inspection_center", label: "Trung tâm đăng kiểm" },
+        { key: "odometer_km", label: "Số km" }, { key: "reminder_days", label: "Nhắc trước (ngày)" }, { key: "note", label: "Ghi chú" },
+      ],
+      rows: (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = vehicles?.[0]; return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "" }; }),
+    };
+  }
+
+  if (reportType === "vehicle_repairs") {
+    const { data, error } = await supabase.from("vehicle_repairs")
+      .select("service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,vehicles(vehicle_code,vehicle_name,license_plate)")
+      .order("service_date", { ascending: false }).limit(5000);
+    if (error) throw new Error("Không thể đọc dữ liệu bảo dưỡng xe");
+    return {
+      report_type: reportType, title: `TDW - Bảo dưỡng xe - ${dateLabel}`,
+      report_name: "NHẬT KÝ BẢO TRÌ BẢO DƯỠNG SỬA CHỮA XE Ô TÔ", requested_by: requestedBy,
+      columns: [
+        { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" }, { key: "license_plate", label: "Biển số" },
+        { key: "service_date", label: "Ngày sửa chữa / bảo dưỡng" }, { key: "service_type", label: "Hình thức" },
+        { key: "description", label: "Nội dung sửa chữa" }, { key: "odometer_km", label: "Số km" },
+        { key: "vat_amount", label: "Số tiền VAT" }, { key: "vendor", label: "Đơn vị thực hiện" },
+        { key: "invoice_number", label: "Số hóa đơn" }, { key: "note", label: "Ghi chú" },
+      ],
+      rows: (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = vehicles?.[0]; return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "" }; }),
+    };
+  }
+
+  if (reportType === "vehicle_fuel") {
+    const { data, error } = await supabase.from("vehicle_fuel_logs")
+      .select("payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,vehicles(vehicle_code,vehicle_name,license_plate,fuel_norm_l_per_100km)")
+      .order("payment_date", { ascending: false }).limit(5000);
+    if (error) throw new Error("Không thể đọc dữ liệu nhiên liệu xe");
+    return {
+      report_type: reportType, title: `TDW - Nhiên liệu xe - ${dateLabel}`,
+      report_name: "SỔ THEO DÕI MUA NHIÊN LIỆU XE Ô TÔ", requested_by: requestedBy,
+      columns: [
+        { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" }, { key: "license_plate", label: "Biển số" },
+        { key: "fuel_norm_l_per_100km", label: "Định mức (lít/100 km)" }, { key: "liters", label: "Số lít nhiên liệu" },
+        { key: "odometer_from", label: "Số km từ" }, { key: "odometer_to", label: "Số km đến" },
+        { key: "payment_date", label: "Ngày thanh toán" }, { key: "amount", label: "Số tiền" },
+        { key: "purchaser", label: "Người mua / tài xế" }, { key: "note", label: "Ghi chú" },
+      ],
+      rows: (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = vehicles?.[0]; return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "", fuel_norm_l_per_100km: vehicle?.fuel_norm_l_per_100km ?? "" }; }),
     };
   }
 

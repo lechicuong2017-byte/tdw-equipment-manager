@@ -98,7 +98,7 @@ export function MfaForm() {
       return;
     }
 
-    window.location.assign("/dashboard");
+    window.location.assign("/modules");
   }
 
   if (mode.kind === "loading") {

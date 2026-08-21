@@ -1,11 +1,17 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import type { AccessProfile } from "@/lib/types";
-import { can } from "@/lib/auth";
 import { logout } from "@/app/(protected)/actions";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 
-const navItems: ReadonlyArray<{
+function can(access: AccessProfile, permission: string) {
+  return access.roles.includes("admin") || access.permissions.includes(permission);
+}
+
+const equipmentNavItems: ReadonlyArray<{
   href: string;
   icon: AppIconName;
   label: string;
@@ -20,7 +26,23 @@ const navItems: ReadonlyArray<{
   { href: "/reports", label: "Báo cáo", icon: "reports", permission: "reports.view", tone: "rose" },
 ];
 
+const vehicleNavItems: ReadonlyArray<{
+  href: string;
+  icon: AppIconName;
+  label: string;
+  permission: string;
+  tone: string;
+}> = [
+  { href: "/vehicles", label: "Tổng quan xe", icon: "vehicle", permission: "vehicles.view", tone: "cyan" },
+  { href: "/vehicles?section=inspections", label: "Đăng kiểm", icon: "inspection", permission: "vehicles.view", tone: "amber" },
+  { href: "/vehicles?section=repairs", label: "Bảo dưỡng", icon: "maintenance", permission: "vehicles.view", tone: "violet" },
+  { href: "/vehicles?section=fuel", label: "Nhiên liệu", icon: "fuel", permission: "vehicles.view", tone: "green" },
+];
+
 export function Sidebar({ access }: { access: AccessProfile }) {
+  const pathname = usePathname();
+  const isVehicleModule = pathname.startsWith("/vehicles");
+  const navItems = isVehicleModule ? vehicleNavItems : equipmentNavItems;
   const initials = (access.full_name || access.email)
     .split(/\s+/)
     .filter(Boolean)
@@ -39,10 +61,14 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           src="/tdw-logo.webp"
           width={126}
         />
-        <small>Equipment Manager</small>
+        <small>{isVehicleModule ? "Vehicle Manager" : "Equipment Manager"}</small>
       </div>
 
       <nav aria-label="Điều hướng chính">
+        <Link className="module-switch-link" href="/modules">
+          <span className="nav-icon nav-icon-rose"><AppIcon name="dashboard" /></span>
+          Đổi phân hệ
+        </Link>
         <p className="nav-label">QUẢN LÝ</p>
         {navItems
           .filter((item) => can(access, item.permission))
@@ -53,7 +79,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
             </Link>
           ))}
 
-        {access.roles.includes("admin") ? (
+        {!isVehicleModule && access.roles.includes("admin") ? (
           <>
             <p className="nav-label nav-label-spaced">HỆ THỐNG</p>
             <Link href="/admin/users"><span className="nav-icon nav-icon-cyan"><AppIcon name="users" /></span>Người dùng</Link>

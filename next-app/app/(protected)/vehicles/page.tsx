@@ -1,0 +1,100 @@
+import Link from "next/link";
+import { ConfirmAction } from "@/components/app-modal";
+import { AppIcon } from "@/components/app-icon";
+import { PageHeader } from "@/components/page-header";
+import { VehicleActions } from "@/components/vehicle-forms";
+import { can, requireAccess } from "@/lib/auth";
+import { formatDate, formatMoney } from "@/lib/format";
+import { deleteVehicleRecord } from "./actions";
+
+export const metadata = { title: "Quản lý xe" };
+
+type VehicleRelation = { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string } | { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string }[] | null;
+function relatedVehicle(value: VehicleRelation) { return Array.isArray(value) ? value[0] : value; }
+
+function vietnamToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+}
+
+function daysUntil(date: string, today: string) {
+  return Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+}
+
+function dueTone(days: number) {
+  if (days < 0) return { className: "status-pill--retiring", label: `Quá hạn ${Math.abs(days)} ngày` };
+  if (days <= 7) return { className: "status-pill--attention", label: `Còn ${days} ngày` };
+  if (days <= 30) return { className: "status-pill--new", label: `Còn ${days} ngày` };
+  return { className: "status-pill--active", label: "Còn hiệu lực" };
+}
+
+export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
+  const { section = "overview" } = await searchParams;
+  const { access, supabase } = await requireAccess();
+  const canManage = can(access, "vehicles.manage");
+  const canDelete = can(access, "vehicles.delete");
+  const canExport = can(access, "reports.vehicles.export");
+  const [vehiclesResult, inspectionsResult, repairsResult, fuelResult, departmentsResult, usersResult] = await Promise.all([
+    supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500),
+    supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("inspection_date", { ascending: false }).limit(500),
+    supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("service_date", { ascending: false }).limit(500),
+    supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("payment_date", { ascending: false }).limit(500),
+    supabase.from("departments").select("id,name").order("name").limit(500),
+    supabase.from("profiles").select("id,full_name,email").eq("active", true).order("full_name").limit(500),
+  ]);
+  const vehicles = vehiclesResult.data ?? [];
+  const inspections = inspectionsResult.data ?? [];
+  const repairs = repairsResult.data ?? [];
+  const fuelLogs = fuelResult.data ?? [];
+  const today = vietnamToday();
+  const latestInspectionByVehicle = new Map<string, (typeof inspections)[number]>();
+  inspections.forEach((item) => { if (!latestInspectionByVehicle.has(item.vehicle_id)) latestInspectionByVehicle.set(item.vehicle_id, item); });
+  const upcoming = [...latestInspectionByVehicle.values()].filter((item) => daysUntil(item.expires_on, today) <= item.reminder_days).sort((a, b) => a.expires_on.localeCompare(b.expires_on));
+  const totalRepairCost = repairs.reduce((sum, item) => sum + Number(item.vat_amount || 0), 0);
+  const totalFuelCost = fuelLogs.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const vehicleOptions = vehicles.map(({ id, vehicle_code, vehicle_name, license_plate }) => ({ id, vehicle_code, vehicle_name, license_plate }));
+  const sections = [
+    { key: "overview", label: "Hồ sơ xe", icon: "vehicle" as const },
+    { key: "inspections", label: "Đăng kiểm", icon: "inspection" as const },
+    { key: "repairs", label: "Bảo dưỡng", icon: "maintenance" as const },
+    { key: "fuel", label: "Nhiên liệu", icon: "fuel" as const },
+  ];
+  const reportType = section === "inspections" ? "vehicle_inspections" : section === "repairs" ? "vehicle_repairs" : section === "fuel" ? "vehicle_fuel" : "vehicles";
+
+  return (
+    <>
+      <PageHeader eyebrow="PHƯƠNG TIỆN" title="Quản lý xe" description="Đăng kiểm, bảo dưỡng sửa chữa và nhiên liệu được lưu tại PostgreSQL, giới hạn bằng RLS." actions={(canManage || canExport) ? <VehicleActions vehicles={vehicleOptions} departments={departmentsResult.data ?? []} users={usersResult.data ?? []} canManage={canManage} canExport={canExport} reportType={reportType} /> : null} />
+      <nav className="vehicle-tabs" aria-label="Mục quản lý xe">
+        {sections.map((item) => <Link className={section === item.key ? "active" : ""} href={item.key === "overview" ? "/vehicles" : `/vehicles?section=${item.key}`} key={item.key}><AppIcon name={item.icon} size={18} />{item.label}</Link>)}
+      </nav>
+      <section className="stats-grid vehicle-stats-grid">
+        <article className="stat-card stat-card-blue"><span className="stat-icon"><AppIcon name="vehicle" /></span><small>Tổng số xe</small><strong>{vehicles.length}</strong><p>Hồ sơ đang quản lý</p></article>
+        <article className="stat-card stat-card-amber"><span className="stat-icon"><AppIcon name="inspection" /></span><small>Đăng kiểm cần chú ý</small><strong>{upcoming.length}</strong><p>Trong hạn nhắc hoặc đã quá hạn</p></article>
+        <article className="stat-card stat-card-violet"><span className="stat-icon"><AppIcon name="maintenance" /></span><small>Chi phí bảo dưỡng</small><strong>{formatMoney(totalRepairCost)}</strong><p>{repairs.length} lần ghi nhận</p></article>
+        <article className="stat-card stat-card-green"><span className="stat-icon"><AppIcon name="fuel" /></span><small>Chi phí nhiên liệu</small><strong>{formatMoney(totalFuelCost)}</strong><p>{fuelLogs.length} lần mua</p></article>
+      </section>
+
+      {section === "overview" ? <section className="panel">
+        <div className="panel-heading"><div><p className="eyebrow">DANH SÁCH XE</p><h2>Hồ sơ phương tiện</h2></div><small>{vehicles.length} xe</small></div>
+        <div className="table-wrap"><table><thead><tr><th>Mã / xe</th><th>Biển số</th><th>Tài xế</th><th>Định mức</th><th>Đăng kiểm gần nhất</th><th>Trạng thái</th></tr></thead><tbody>
+          {vehicles.map((vehicle) => { const inspection = latestInspectionByVehicle.get(vehicle.id); const due = inspection ? dueTone(daysUntil(inspection.expires_on, today)) : null; return <tr key={vehicle.id}><td><strong>{vehicle.vehicle_name}</strong><small>{vehicle.vehicle_code} · {[vehicle.brand, vehicle.model].filter(Boolean).join(" ") || "Chưa có hãng/model"}</small></td><td><strong>{vehicle.license_plate}</strong><small>{vehicle.production_year || "Chưa có năm SX"}</small></td><td>{vehicle.assigned_driver || "—"}<small>{vehicle.departments?.[0]?.name}</small></td><td>{vehicle.fuel_norm_l_per_100km ? `${vehicle.fuel_norm_l_per_100km} l/100 km` : "—"}</td><td>{inspection ? <><strong>{formatDate(inspection.expires_on)}</strong><small><span className={`status-pill ${due?.className}`}>{due?.label}</span></small></> : <span className="text-danger">Chưa có đăng kiểm</span>}</td><td><span className={`status-pill ${vehicle.status === "ACTIVE" ? "status-pill--active" : vehicle.status === "MAINTENANCE" ? "status-pill--attention" : "status-pill--inactive"}`}>{vehicle.status === "ACTIVE" ? "Đang sử dụng" : vehicle.status === "MAINTENANCE" ? "Đang sửa chữa" : vehicle.status === "LIQUIDATED" ? "Đã thanh lý" : "Ngừng sử dụng"}</span></td></tr>; })}
+          {!vehicles.length ? <tr><td className="empty-cell" colSpan={6}>Chưa có hồ sơ xe. Bạn có thể thêm thủ công hoặc nhập từ file XLSX mẫu.</td></tr> : null}
+        </tbody></table></div>
+      </section> : null}
+
+      {section === "inspections" ? <section className="panel">
+        <div className="panel-heading"><div><p className="eyebrow">ĐĂNG KIỂM</p><h2>Lịch sử và hạn sắp tới</h2></div><small>{inspections.length} lần</small></div>
+        <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Chi phí</th><th>Thông tin</th>{canDelete ? <th /> : null}</tr></thead><tbody>{inspections.map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); return <tr key={item.id}><td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td><td>{formatDate(item.inspection_date)}</td><td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td><td>{formatMoney(Number(item.cost))}</td><td>{item.certificate_number || "—"}<small>{item.inspection_center || `Nhắc trước ${item.reminder_days} ngày`}</small></td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi đăng kiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "inspection" }} title="Xóa đăng kiểm?" /></td> : null}</tr>; })}{!inspections.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử đăng kiểm.</td></tr> : null}</tbody></table></div>
+      </section> : null}
+
+      {section === "repairs" ? <section className="panel">
+        <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><small>{repairs.length} bản ghi</small></div>
+        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí VAT</th>{canDelete ? <th /> : null}</tr></thead><tbody>{repairs.map((item) => { const vehicle = relatedVehicle(item.vehicles); return <tr key={item.id}><td><strong>{formatDate(item.service_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td><strong>{item.description}</strong><small>{item.service_type.replaceAll("_", " ")}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td><td>{item.vendor || "—"}<small>{item.invoice_number}</small></td><td>{item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : "—"}</td><td>{formatMoney(Number(item.vat_amount))}</td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi bảo dưỡng sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "repair" }} title="Xóa bảo dưỡng?" /></td> : null}</tr>; })}{!repairs.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử bảo dưỡng.</td></tr> : null}</tbody></table></div>
+      </section> : null}
+
+      {section === "fuel" ? <section className="panel">
+        <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><small>{fuelLogs.length} bản ghi</small></div>
+        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Số tiền</th>{canDelete ? <th /> : null}</tr></thead><tbody>{fuelLogs.map((item) => { const vehicle = relatedVehicle(item.vehicles); return <tr key={item.id}><td><strong>{formatDate(item.payment_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td>{Number(item.liters).toLocaleString("vi-VN")} lít</td><td>{item.odometer_from ?? "—"} → {item.odometer_to ?? "—"}<small>{item.odometer_from != null && item.odometer_to != null ? `${Number(item.odometer_to) - Number(item.odometer_from)} km` : ""}</small></td><td>{item.purchaser || "—"}<small>{item.source_file ? `Nhập từ ${item.source_file}` : item.note}</small></td><td>{formatMoney(Number(item.amount))}</td>{canDelete ? <td><ConfirmAction action={deleteVehicleRecord} description="Bản ghi nhiên liệu sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "fuel" }} title="Xóa nhiên liệu?" /></td> : null}</tr>; })}{!fuelLogs.length ? <tr><td className="empty-cell" colSpan={canDelete ? 6 : 5}>Chưa có lịch sử nhiên liệu.</td></tr> : null}</tbody></table></div>
+      </section> : null}
+    </>
+  );
+}

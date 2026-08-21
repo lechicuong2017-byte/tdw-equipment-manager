@@ -19,6 +19,38 @@
   --radius: 18px;
 }
 
+.module-switch-link { border: 1px solid rgba(255, 255, 255, 0.13); margin-bottom: 0.9rem; }
+.module-picker-page { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 5rem); }
+.module-picker-heading { margin-bottom: 2rem; max-width: 720px; text-align: center; }
+.module-picker-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 960px; width: 100%; }
+.module-picker-card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow); min-height: 300px; overflow: hidden; padding: 2rem; position: relative; transition: transform 160ms ease, box-shadow 160ms ease; }
+.module-picker-card::before { background: currentColor; content: ""; height: 5px; inset: 0 0 auto; position: absolute; }
+.module-picker-card:hover { box-shadow: 0 24px 56px rgba(15, 37, 55, 0.14); transform: translateY(-4px); }
+.module-picker-card > p:not(.eyebrow) { color: var(--ink-soft); min-height: 54px; }
+.module-picker-card > strong { color: var(--brand); display: block; margin-top: 1.8rem; }
+.module-picker-blue { color: #3379d4; }
+.module-picker-green { color: #15845d; }
+.module-picker-icon { align-items: center; background: color-mix(in srgb, currentColor 12%, white); border-radius: 18px; display: flex; height: 68px; justify-content: center; margin-bottom: 1.8rem; width: 68px; }
+.vehicle-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.65rem; justify-content: flex-end; }
+.vehicle-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; display: flex; gap: 0.35rem; margin-bottom: 1rem; padding: 0.35rem; }
+.vehicle-tabs a { align-items: center; border-radius: 10px; color: var(--ink-soft); display: flex; font-size: 0.84rem; font-weight: 750; gap: 0.45rem; justify-content: center; min-height: 42px; padding: 0 1rem; }
+.vehicle-tabs a.active { background: var(--brand-soft); color: var(--brand-dark); }
+.vehicle-stats-grid { margin-bottom: 1rem; }
+.vehicle-stats-grid .stat-card strong { font-size: clamp(1.25rem, 2vw, 1.8rem); }
+.vehicle-form { padding: 0.3rem; }
+.import-upload-form { align-items: end; display: grid; gap: 0.8rem; grid-template-columns: 1fr auto; margin-bottom: 1rem; }
+.import-preview-form { display: grid; gap: 0.9rem; }
+.import-preview-summary { align-items: center; background: var(--green-soft); border: 1px solid #b9e3ce; border-radius: 10px; color: var(--green); display: flex; justify-content: space-between; padding: 0.75rem 0.9rem; }
+.import-preview-table { border: 1px solid var(--line); border-radius: 12px; max-height: 48vh; }
+.import-preview-table table { min-width: 980px; }
+
+@media (max-width: 900px) {
+  .module-picker-grid { grid-template-columns: 1fr; }
+  .vehicle-tabs { overflow-x: auto; }
+  .vehicle-tabs a { white-space: nowrap; }
+  .import-upload-form { grid-template-columns: 1fr; }
+}
+
 * {
   box-sizing: border-box;
 }

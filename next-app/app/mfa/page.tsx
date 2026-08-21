@@ -8,10 +8,10 @@ export const metadata = { title: "Xác thực hai lớp" };
 export default async function MfaPage() {
   const { supabase, access } = await requireAccess({ allowAal1: true });
   const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (data?.currentLevel === "aal2") redirect("/dashboard");
+  if (data?.currentLevel === "aal2") redirect("/modules");
 
   const required = access.roles.includes("admin") || access.must_enroll_mfa;
-  if (!required) redirect("/dashboard");
+  if (!required) redirect("/modules");
 
   return (
     <main className="auth-shell">

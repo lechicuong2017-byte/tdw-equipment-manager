@@ -18,6 +18,9 @@ export type AppIconName =
   | "settings"
   | "software"
   | "timeline"
+  | "vehicle"
+  | "inspection"
+  | "fuel"
   | "users"
   | "value"
   | "warningTriangle";
@@ -45,6 +48,9 @@ const iconPaths: Record<AppIconName, ReactNode> = {
   settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" /></>,
   software: <><rect height="16" rx="2" width="18" x="3" y="4" /><path d="M3 8h18M7 6h.01M10 6h.01M8 13l2 2-2 2M13 17h3" /></>,
   timeline: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+  vehicle: <><path d="M5 16h14l-1.3-6.2A2.3 2.3 0 0 0 15.5 8h-7a2.3 2.3 0 0 0-2.2 1.8z" /><path d="M3 16v2h2M21 16v2h-2M7 13h.01M17 13h.01M8 8l1-3h6l1 3" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></>,
+  inspection: <><path d="M7 3h10v3H7zM5 5h14v16H5z" /><path d="m8 13 2.2 2.2L16 9.5M8 18h8" /></>,
+  fuel: <><path d="M6 4h8v16H6zM8 7h4M14 8h2l2 2v7a1.5 1.5 0 0 0 3 0v-6l-2-2" /></>,
   users: <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.5-4 2.5-6 5.5-6s5 2 5.5 6M16 5.5a3 3 0 0 1 0 5.5M16 13c2.5.4 4 2.4 4.5 5" /></>,
   value: <><path d="M4 7h16v11H4zM7 7V5h10v2" /><circle cx="12" cy="12.5" r="2.5" /><path d="M7 10h.01M17 15h.01" /></>,
   warningTriangle: <><path d="M10.2 4.5 2.8 18a2 2 0 0 0 1.8 3h14.8a2 2 0 0 0 1.8-3L13.8 4.5a2 2 0 0 0-3.6 0Z" /><path d="M12 9v4M12 17h.01" /></>,
