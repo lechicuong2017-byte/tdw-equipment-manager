@@ -4,6 +4,12 @@ import { useRef, useState } from "react";
 
 type OutputFormat = "xlsx" | "pdf";
 
+export type ReportExportFilters = {
+  year?: number;
+  month?: number;
+  vehicle_id?: string;
+};
+
 const loadingLabel: Record<OutputFormat, string> = {
   xlsx: "Đang tạo XLSX…",
   pdf: "Đang tạo PDF…",
@@ -13,10 +19,12 @@ export function ExportReportButton({
   reportType,
   outputFormat = "xlsx",
   buttonLabel = "Xuất XLSX",
+  filters,
 }: {
   reportType: "assets" | "liquidations" | "maintenance" | "movement" | "software" | "vehicles" | "vehicle_inspections" | "vehicle_repairs" | "vehicle_fuel";
   outputFormat?: OutputFormat;
   buttonLabel?: string;
+  filters?: ReportExportFilters;
 }) {
   const idempotencyToken = useRef<string | null>(null);
   const [state, setState] = useState<
@@ -44,6 +52,7 @@ export function ExportReportButton({
           report_type: reportType,
           output_format: outputFormat,
           idempotency_token: requestToken,
+          filters: filters ?? {},
         }),
       });
       const result = await response.json();

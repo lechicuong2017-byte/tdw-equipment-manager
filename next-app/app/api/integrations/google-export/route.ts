@@ -14,10 +14,20 @@ type ReportType = (typeof reportTypes)[number];
 const outputFormats = ["xlsx", "pdf"] as const;
 type OutputFormat = (typeof outputFormats)[number];
 
+const reportFiltersSchema = z.object({
+  year: z.number().int().min(2000).max(2100).optional(),
+  month: z.number().int().min(1).max(12).optional(),
+  vehicle_id: z.uuid().optional(),
+}).default({}).refine((filters) => !filters.month || Boolean(filters.year), {
+  message: "Phải chọn năm trước khi chọn tháng",
+});
+type ReportFilters = z.infer<typeof reportFiltersSchema>;
+
 const requestSchema = z.object({
   report_type: z.enum(reportTypes),
   output_format: z.enum(outputFormats).default("xlsx"),
   idempotency_token: z.uuid(),
+  filters: reportFiltersSchema,
 });
 
 const permissionByReport: Record<ReportType, string> = {
@@ -93,12 +103,13 @@ export async function POST(request: Request) {
 
   const reportType = parsed.data.report_type;
   const outputFormat = parsed.data.output_format;
+  const filters = parsed.data.filters;
   if (!access || !can(access, permissionByReport[reportType])) {
     return NextResponse.json({ error: "Không có quyền xuất báo cáo" }, { status: 403 });
   }
   const idempotencyKey = createHash("sha256")
     .update(
-      `${access.user_id}:${reportType}:${outputFormat}:${parsed.data.idempotency_token}`,
+      `${access.user_id}:${reportType}:${outputFormat}:${JSON.stringify(filters)}:${parsed.data.idempotency_token}`,
     )
     .digest("hex");
   const { data: claimData, error: jobError } = await supabase.rpc(
@@ -107,7 +118,7 @@ export async function POST(request: Request) {
       target_export_type: reportType,
       target_output_format: outputFormat,
       target_idempotency_key: idempotencyKey,
-      target_filters: {},
+      target_filters: filters,
     },
   );
   const job = (claimData?.[0] ?? null) as ExportJobClaim | null;
@@ -136,7 +147,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const payload = await buildReportPayload(supabase, reportType, access.email);
+    const payload = await buildReportPayload(supabase, reportType, access.email, filters);
     const result = await callAppsScript<{
       ok: true;
       result_url?: string;
@@ -199,14 +210,29 @@ function buildGoogleReportDownloadUrl(
   return `${baseUrl}?format=pdf&size=A4&portrait=false&fitw=true&sheetnames=false&printtitle=false&pagenumbers=true&gridlines=false&fzr=true`;
 }
 
+function vehicleReportDateRange(filters: ReportFilters) {
+  if (!filters.year) return null;
+  const startMonth = filters.month ?? 1;
+  const endMonth = filters.month ?? 12;
+  const endDay = new Date(Date.UTC(filters.year, endMonth, 0)).getUTCDate();
+  return {
+    start: `${filters.year}-${String(startMonth).padStart(2, "0")}-01`,
+    end: `${filters.year}-${String(endMonth).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`,
+  };
+}
+
 async function buildReportPayload(
   supabase: Awaited<ReturnType<typeof createClient>>,
   reportType: ReportType,
   requestedBy: string,
+  filters: ReportFilters,
 ): Promise<ReportPayload> {
   const dateLabel = new Date().toLocaleDateString("vi-VN", {
     timeZone: "Asia/Ho_Chi_Minh",
   });
+  const reportScope = filters.month && filters.year
+    ? `Tháng ${filters.month}/${filters.year}`
+    : filters.year ? `Năm ${filters.year}` : "Tất cả thời gian";
 
   if (reportType === "assets") {
     const { data, error } = await supabase
@@ -505,9 +531,11 @@ async function buildReportPayload(
   }
 
   if (reportType === "vehicles") {
-    const { data, error } = await supabase.from("vehicles")
+    let query = supabase.from("vehicles")
       .select("vehicle_code,vehicle_name,license_plate,brand,model,production_year,fuel_norm_l_per_100km,assigned_driver,status,note,departments(name)")
-      .is("deleted_at", null).order("vehicle_code").limit(5000);
+      .is("deleted_at", null);
+    if (filters.vehicle_id) query = query.eq("id", filters.vehicle_id);
+    const { data, error } = await query.order("vehicle_code").limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu xe");
     return {
       report_type: reportType,
@@ -528,12 +556,15 @@ async function buildReportPayload(
   }
 
   if (reportType === "vehicle_inspections") {
-    const { data, error } = await supabase.from("vehicle_inspections")
-      .select("inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,odometer_km,note,vehicles(vehicle_code,vehicle_name,license_plate)")
-      .order("inspection_date", { ascending: false }).limit(5000);
+    let query = supabase.from("vehicle_inspections")
+      .select("inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,odometer_km,note,vehicles(vehicle_code,vehicle_name,license_plate)");
+    if (filters.vehicle_id) query = query.eq("vehicle_id", filters.vehicle_id);
+    const dateRange = vehicleReportDateRange(filters);
+    if (dateRange) query = query.gte("inspection_date", dateRange.start).lte("inspection_date", dateRange.end);
+    const { data, error } = await query.order("inspection_date", { ascending: false }).limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu đăng kiểm");
     return {
-      report_type: reportType, title: `TDW - Đăng kiểm xe - ${dateLabel}`,
+      report_type: reportType, title: `TDW - Đăng kiểm xe - ${reportScope} - ${dateLabel}`,
       report_name: "BÁO CÁO ĐĂNG KIỂM XE", requested_by: requestedBy,
       columns: [
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" },
@@ -547,12 +578,15 @@ async function buildReportPayload(
   }
 
   if (reportType === "vehicle_repairs") {
-    const { data, error } = await supabase.from("vehicle_repairs")
-      .select("service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,vehicles(vehicle_code,vehicle_name,license_plate)")
-      .order("service_date", { ascending: false }).limit(5000);
+    let query = supabase.from("vehicle_repairs")
+      .select("service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,vehicles(vehicle_code,vehicle_name,license_plate)");
+    if (filters.vehicle_id) query = query.eq("vehicle_id", filters.vehicle_id);
+    const dateRange = vehicleReportDateRange(filters);
+    if (dateRange) query = query.gte("service_date", dateRange.start).lte("service_date", dateRange.end);
+    const { data, error } = await query.order("service_date", { ascending: false }).limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu bảo dưỡng xe");
     return {
-      report_type: reportType, title: `TDW - Bảo dưỡng xe - ${dateLabel}`,
+      report_type: reportType, title: `TDW - Bảo dưỡng xe - ${reportScope} - ${dateLabel}`,
       report_name: "NHẬT KÝ BẢO TRÌ BẢO DƯỠNG SỬA CHỮA XE Ô TÔ", requested_by: requestedBy,
       columns: [
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" }, { key: "license_plate", label: "Biển số" },
@@ -566,12 +600,15 @@ async function buildReportPayload(
   }
 
   if (reportType === "vehicle_fuel") {
-    const { data, error } = await supabase.from("vehicle_fuel_logs")
-      .select("payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,vehicles(vehicle_code,vehicle_name,license_plate,fuel_norm_l_per_100km)")
-      .order("payment_date", { ascending: false }).limit(5000);
+    let query = supabase.from("vehicle_fuel_logs")
+      .select("payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,vehicles(vehicle_code,vehicle_name,license_plate,fuel_norm_l_per_100km)");
+    if (filters.vehicle_id) query = query.eq("vehicle_id", filters.vehicle_id);
+    const dateRange = vehicleReportDateRange(filters);
+    if (dateRange) query = query.gte("payment_date", dateRange.start).lte("payment_date", dateRange.end);
+    const { data, error } = await query.order("payment_date", { ascending: false }).limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu nhiên liệu xe");
     return {
-      report_type: reportType, title: `TDW - Nhiên liệu xe - ${dateLabel}`,
+      report_type: reportType, title: `TDW - Nhiên liệu xe - ${reportScope} - ${dateLabel}`,
       report_name: "SỔ THEO DÕI MUA NHIÊN LIỆU XE Ô TÔ", requested_by: requestedBy,
       columns: [
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" }, { key: "license_plate", label: "Biển số" },

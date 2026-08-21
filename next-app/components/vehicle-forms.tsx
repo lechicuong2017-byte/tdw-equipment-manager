@@ -13,7 +13,6 @@ import {
 } from "@/app/(protected)/vehicles/actions";
 import { AppModal, ModalTrigger } from "@/components/app-modal";
 import { ActionStateToast } from "@/components/action-toast";
-import { ExportReportButton } from "@/components/export-assets-button";
 
 const initialState: VehicleActionState = {};
 const initialImportState: VehicleImportState = {};
@@ -162,17 +161,19 @@ function ImportWorkbook() {
   );
 }
 
-export function VehicleActions({ vehicles, departments, users, canManage, canExport, reportType }: { vehicles: VehicleOption[]; departments: DepartmentOption[]; users: UserOption[]; canManage: boolean; canExport: boolean; reportType: "vehicles" | "vehicle_inspections" | "vehicle_repairs" | "vehicle_fuel" }) {
+export function VehicleActions({ vehicles, departments, users, canManage, section }: { vehicles: VehicleOption[]; departments: DepartmentOption[]; users: UserOption[]; canManage: boolean; section: "overview" | "fleet" | "inspections" | "repairs" | "fuel" }) {
+  const canImport = canManage && ["overview", "repairs", "fuel"].includes(section);
   return (
     <div className="vehicle-actions">
-      {canExport ? <><ExportReportButton reportType={reportType} /><ExportReportButton reportType={reportType} outputFormat="pdf" buttonLabel="Xuất PDF" /></> : null}
-      {canManage ? <>
-        <ImportWorkbook />
-        <ModalTrigger eyebrow="HỒ SƠ XE" title="Thêm xe" description="Khai báo xe để theo dõi đăng kiểm, bảo dưỡng và nhiên liệu." size="large" triggerLabel="+ Thêm xe"><VehicleForm departments={departments} users={users} /></ModalTrigger>
-        <ModalTrigger eyebrow="ĐĂNG KIỂM" title="Ghi nhận đăng kiểm" description="Theo dõi hạn và tự động cảnh báo trước 30 ngày." size="large" triggerLabel="+ Đăng kiểm"><InspectionForm vehicles={vehicles} /></ModalTrigger>
-        <ModalTrigger eyebrow="BẢO DƯỠNG" title="Ghi nhận bảo dưỡng / sửa chữa" size="large" triggerClassName="secondary-button" triggerLabel="+ Bảo dưỡng"><RepairForm vehicles={vehicles} /></ModalTrigger>
-        <ModalTrigger eyebrow="NHIÊN LIỆU" title="Ghi nhận mua nhiên liệu" size="large" triggerClassName="secondary-button" triggerLabel="+ Nhiên liệu"><FuelForm vehicles={vehicles} /></ModalTrigger>
-      </> : null}
+      {canImport ? <div className="vehicle-action-group"><small>NHẬP DỮ LIỆU</small><div>
+        {canImport ? <ImportWorkbook /> : null}
+      </div></div> : null}
+      {canManage ? <div className="vehicle-action-group vehicle-action-group--primary"><small>GHI NHẬN MỚI</small><div>
+        {["overview", "fleet"].includes(section) ? <ModalTrigger eyebrow="HỒ SƠ XE" title="Thêm xe" description="Khai báo xe để theo dõi đăng kiểm, bảo dưỡng và nhiên liệu." size="large" triggerLabel="+ Thêm xe"><VehicleForm departments={departments} users={users} /></ModalTrigger> : null}
+        {section === "inspections" ? <ModalTrigger eyebrow="ĐĂNG KIỂM" title="Ghi nhận đăng kiểm" description="Theo dõi hạn và tự động cảnh báo trước 30 ngày." size="large" triggerLabel="+ Đăng kiểm"><InspectionForm vehicles={vehicles} /></ModalTrigger> : null}
+        {section === "repairs" ? <ModalTrigger eyebrow="BẢO DƯỠNG" title="Ghi nhận bảo dưỡng / sửa chữa" size="large" triggerLabel="+ Bảo dưỡng"><RepairForm vehicles={vehicles} /></ModalTrigger> : null}
+        {section === "fuel" ? <ModalTrigger eyebrow="NHIÊN LIỆU" title="Ghi nhận mua nhiên liệu" size="large" triggerLabel="+ Nhiên liệu"><FuelForm vehicles={vehicles} /></ModalTrigger> : null}
+      </div></div> : null}
     </div>
   );
 }

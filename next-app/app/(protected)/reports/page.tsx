@@ -1,6 +1,7 @@
 import { ExportReportButton } from "@/components/export-assets-button";
 import { AssetQrLabels } from "@/components/asset-qr-labels";
 import { PageHeader } from "@/components/page-header";
+import { VehicleReportSection } from "@/components/vehicle-report-section";
 import { can, requireAccess } from "@/lib/auth";
 import type { AssetQrData } from "@/lib/asset-qr";
 
@@ -9,6 +10,7 @@ export const metadata = { title: "Báo cáo" };
 export default async function ReportsPage() {
   const { supabase, access } = await requireAccess();
   const canExportAssets = can(access, "reports.assets.export");
+  const canExportVehicles = can(access, "reports.vehicles.export");
   const { data: qrAssetData } = canExportAssets
     ? await supabase
         .from("assets")
@@ -16,6 +18,13 @@ export default async function ReportsPage() {
         .is("deleted_at", null)
         .neq("status", "DA_THANH_LY")
         .order("asset_code")
+    : { data: [] };
+  const { data: vehicleData } = canExportVehicles
+    ? await supabase
+        .from("vehicles")
+        .select("id,vehicle_code,vehicle_name,license_plate")
+        .is("deleted_at", null)
+        .order("license_plate")
     : { data: [] };
   const reports = [
     {
@@ -72,30 +81,34 @@ export default async function ReportsPage() {
         title="Báo cáo và xuất dữ liệu"
         description="Dữ liệu được đọc từ Supabase; Apps Script chỉ đảm nhiệm tạo liên kết tải XLSX và PDF từ Google Drive."
       />
-      <section className="report-grid">
-        {reports.map((report) => (
-          <article className="panel report-card" key={report.type}>
-            <div className="report-icon" aria-hidden="true">{report.icon}</div>
-            <div>
-              <p className="eyebrow">{report.eyebrow}</p>
-              <h2>{report.title}</h2>
-              <p>{report.description}</p>
-            </div>
-            {can(access, report.permission) ? (
-              <div className="report-actions">
-                <ExportReportButton reportType={report.type} />
-                <ExportReportButton
-                  buttonLabel="Xuất PDF"
-                  outputFormat="pdf"
-                  reportType={report.type}
-                />
+      <section className="report-workspace-section">
+        <div className="report-section-heading"><div><p className="eyebrow">THIẾT BỊ & HỆ THỐNG</p><h2>Báo cáo quản lý tài sản</h2><p>Thiết bị, thanh lý, bảo trì, luân chuyển và bản quyền phần mềm.</p></div></div>
+        <div className="report-grid">
+          {reports.map((report) => (
+            <article className="panel report-card" key={report.type}>
+              <div className="report-icon" aria-hidden="true">{report.icon}</div>
+              <div>
+                <p className="eyebrow">{report.eyebrow}</p>
+                <h2>{report.title}</h2>
+                <p>{report.description}</p>
               </div>
-            ) : (
-              <small>Bạn không có quyền xuất báo cáo này.</small>
-            )}
-          </article>
-        ))}
+              {can(access, report.permission) ? (
+                <div className="report-actions">
+                  <ExportReportButton reportType={report.type} />
+                  <ExportReportButton
+                    buttonLabel="Xuất PDF"
+                    outputFormat="pdf"
+                    reportType={report.type}
+                  />
+                </div>
+              ) : (
+                <small>Bạn không có quyền xuất báo cáo này.</small>
+              )}
+            </article>
+          ))}
+        </div>
       </section>
+      {canExportVehicles ? <VehicleReportSection vehicles={vehicleData ?? []} /> : null}
       {canExportAssets ? <AssetQrLabels assets={(qrAssetData ?? []) as AssetQrData[]} /> : null}
     </>
   );
