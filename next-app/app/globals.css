@@ -91,7 +91,7 @@
 .vehicle-section-panel--repairs { border-top-color: #7559c7; }
 .vehicle-section-panel--fuel { border-top-color: #178361; }
 .vehicle-section-panel table { min-width: 1180px; }
-.vehicle-section-panel--fleet table { min-width: 1420px; }
+.vehicle-section-panel--fleet table { min-width: 1260px; }
 .vehicle-section-panel th,
 .vehicle-section-panel td { font-family: inherit; vertical-align: middle; white-space: nowrap; }
 .vehicle-section-panel td { font-size: 0.76rem; font-variant-numeric: tabular-nums; line-height: 1.35; }
@@ -100,6 +100,8 @@
 .vehicle-section-panel td > strong { color: var(--ink); font-size: 0.78rem; font-weight: 760; }
 .vehicle-section-panel td > small { color: var(--ink-soft); font-size: 0.68rem; margin-top: 0.2rem; }
 .vehicle-section-panel .row-actions { justify-content: flex-start; min-width: 82px; }
+.vehicle-section-panel .vehicle-actions-column { background: var(--surface); box-shadow: -8px 0 14px -14px rgba(15, 39, 58, 0.55); position: sticky; right: 0; z-index: 2; }
+.vehicle-section-panel tbody tr:hover .vehicle-actions-column { background: #fbfcfd; }
 .vehicle-pagination { align-items: center; border-top: 1px solid var(--line); display: flex; justify-content: space-between; margin-top: 0.8rem; padding-top: 1rem; }
 .vehicle-pagination > span { color: var(--ink-soft); font-size: 0.7rem; }
 .vehicle-pagination > div { align-items: center; display: flex; gap: 0.65rem; }
