@@ -85,6 +85,7 @@ async function saveRow(
     return { error: "Không thể lưu dữ liệu. Hãy kiểm tra quyền và thông tin đã nhập." };
   }
   revalidatePath("/vehicles");
+  revalidatePath("/vehicles/reports");
   return { success };
 }
 
@@ -113,15 +114,26 @@ export async function saveVehicleFuel(_state: VehicleActionState, formData: Form
 }
 
 export async function deleteVehicleRecord(formData: FormData): Promise<VehicleActionState> {
-  const kind = z.enum(["inspection", "repair", "fuel"]).safeParse(formData.get("kind"));
+  const kind = z.enum(["vehicle", "inspection", "repair", "fuel"]).safeParse(formData.get("kind"));
   const id = z.uuid().safeParse(formData.get("id"));
   if (!kind.success || !id.success) return { error: "Bản ghi không hợp lệ." };
   const { access, supabase } = await requireAccess();
   if (!can(access, "vehicles.delete")) return { error: "Bạn không có quyền xóa dữ liệu xe." };
+  if (kind.data === "vehicle") {
+    const { error } = await supabase
+      .from("vehicles")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id.data);
+    if (error) return { error: "Không thể xóa hồ sơ xe." };
+    revalidatePath("/vehicles");
+    revalidatePath("/vehicles/reports");
+    return { success: "Đã ẩn hồ sơ xe; toàn bộ lịch sử vẫn được giữ nguyên." };
+  }
   const table = kind.data === "inspection" ? "vehicle_inspections" : kind.data === "repair" ? "vehicle_repairs" : "vehicle_fuel_logs";
   const { error } = await supabase.from(table).delete().eq("id", id.data);
   if (error) return { error: "Không thể xóa bản ghi." };
   revalidatePath("/vehicles");
+  revalidatePath("/vehicles/reports");
   return { success: "Đã xóa bản ghi." };
 }
 
