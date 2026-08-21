@@ -396,7 +396,9 @@ async function run() {
   assert.ok(appsScript.includes('"exportSupabaseReportFile"'));
   assert.ok(appsScript.includes("function exportSupabaseReportFile_(payload)"));
   assert.ok(appsScript.includes("const TDW_REPORT_LOGO_JPEG_BASE64"));
-  assert.ok(appsScript.includes("function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat)"));
+  assert.ok(appsScript.includes("function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, summaryText)"));
+  assert.ok(appsScript.includes("setSpreadsheetLocale(\"vi_VN\")"));
+  assert.ok(googleExportRoute.includes("Tổng số tiền: ${formatVndSummary(totalAmount)}"));
   assert.ok(appsScript.includes("function insertTdwReportLogo_(sheet)"));
   assert.ok(appsScript.includes("CÔNG TY CỔ PHẦN NƯỚC THỦ ĐỨC — TDW"));
   assert.ok(appsScript.includes('setBackground("#176da5")'));

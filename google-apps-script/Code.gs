@@ -841,6 +841,7 @@ function exportSupabaseReportFile_(payload) {
   const outputFormat = String(payload.output_format || "").trim();
   const title = safeDocumentText_(payload.title || "TDW Export", 120);
   const reportName = safeDocumentText_(payload.report_name || title, 160).toUpperCase();
+  const summaryText = safeDocumentText_(payload.summary || "", 200);
   const requestedBy = safeDocumentText_(payload.requested_by || "", 200);
   const columns = Array.isArray(payload.columns) ? payload.columns : [];
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
@@ -848,7 +849,7 @@ function exportSupabaseReportFile_(payload) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId)) {
     throw new Error("Mã tác vụ xuất file không hợp lệ");
   }
-  if (["assets", "maintenance", "software", "movement", "vehicles", "vehicle_inspections", "vehicle_repairs", "vehicle_fuel"].indexOf(reportType) === -1) {
+  if (["assets", "liquidations", "maintenance", "software", "movement", "vehicles", "vehicle_inspections", "vehicle_repairs", "vehicle_fuel"].indexOf(reportType) === -1) {
     throw new Error("Loại báo cáo không được hỗ trợ");
   }
   if (["xlsx", "pdf"].indexOf(outputFormat) === -1) {
@@ -880,9 +881,11 @@ function exportSupabaseReportFile_(payload) {
   );
   const spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
   try {
+    spreadsheet.setSpreadsheetLocale("vi_VN");
+    spreadsheet.setSpreadsheetTimeZone("Asia/Ho_Chi_Minh");
     const sheet = spreadsheet.getSheets()[0];
     sheet.setName("Báo cáo");
-    formatTdwReportSheet_(sheet, reportName, normalizedColumns, rows, outputFormat);
+    formatTdwReportSheet_(sheet, reportName, normalizedColumns, rows, outputFormat, summaryText);
     for (let columnIndex = 2; columnIndex <= normalizedColumns.length + 1; columnIndex += 1) {
       const currentWidth = sheet.getColumnWidth(columnIndex);
       sheet.setColumnWidth(columnIndex, Math.min(Math.max(currentWidth, 80), 220));
@@ -913,7 +916,7 @@ function exportSupabaseReportFile_(payload) {
   }
 }
 
-function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat) {
+function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, summaryText) {
   const totalColumns = columns.length + 1;
   const titleStartColumn = Math.min(3, totalColumns);
   const titleColumnCount = Math.max(totalColumns - titleStartColumn + 1, 1);
@@ -990,7 +993,11 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat) {
     ));
     sheet.getRange(firstDataRow, 1, rows.length, 1).setHorizontalAlignment("center");
     columns.forEach((column, index) => {
-      if (/quantity|price|cost|total/i.test(column.key)) {
+      if (/price|cost|amount|vat/i.test(column.key)) {
+        sheet.getRange(firstDataRow, index + 2, rows.length, 1)
+          .setNumberFormat('#,##0 "VNĐ"')
+          .setHorizontalAlignment("right");
+      } else if (/quantity|total/i.test(column.key)) {
         sheet.getRange(firstDataRow, index + 2, rows.length, 1)
           .setNumberFormat("#,##0")
           .setHorizontalAlignment("right");
@@ -999,7 +1006,7 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat) {
   }
 
   sheet.getRange(summaryRow, 1, 1, totalColumns).merge()
-    .setValue(`TỔNG CỘNG · ${rows.length} dòng · Ngày xuất: ${dateText}`)
+    .setValue(`TỔNG CỘNG · ${rows.length} dòng${summaryText ? ` · ${summaryText}` : ""} · Ngày xuất: ${dateText}`)
     .setFontFamily("Arial")
     .setFontSize(outputFormat === "pdf" ? 8 : 10)
     .setFontWeight("bold")

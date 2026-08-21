@@ -51,6 +51,7 @@ type ReportPayload = {
   requested_by: string;
   columns: ReportColumn[];
   rows: ReportRow[];
+  summary?: string;
 };
 
 type ExportJobClaim = {
@@ -76,6 +77,25 @@ type RelatedAsset =
   | null;
 
 function relatedAsset(value: RelatedAsset) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+type RelatedVehicle =
+  | {
+      vehicle_code?: string;
+      vehicle_name?: string;
+      license_plate?: string;
+      fuel_norm_l_per_100km?: number | null;
+    }
+  | {
+      vehicle_code?: string;
+      vehicle_name?: string;
+      license_plate?: string;
+      fuel_norm_l_per_100km?: number | null;
+    }[]
+  | null;
+
+function relatedVehicle(value: RelatedVehicle) {
   return Array.isArray(value) ? value[0] : value;
 }
 
@@ -219,6 +239,10 @@ function vehicleReportDateRange(filters: ReportFilters) {
     start: `${filters.year}-${String(startMonth).padStart(2, "0")}-01`,
     end: `${filters.year}-${String(endMonth).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`,
   };
+}
+
+function formatVndSummary(value: number) {
+  return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)} VNĐ`;
 }
 
 async function buildReportPayload(
@@ -564,9 +588,12 @@ async function buildReportPayload(
     if (dateRange) query = query.gte("inspection_date", dateRange.start).lte("inspection_date", dateRange.end);
     const { data, error } = await query.order("inspection_date", { ascending: false }).limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu đăng kiểm");
+    const rows = (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = relatedVehicle(vehicles); return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "" }; });
+    const totalCost = rows.reduce((sum, item) => sum + Number(item.cost || 0), 0);
     return {
       report_type: reportType, title: `TDW - Đăng kiểm xe - ${reportScope} - ${dateLabel}`,
       report_name: "BÁO CÁO ĐĂNG KIỂM XE", requested_by: requestedBy,
+      summary: `Tổng chi phí: ${formatVndSummary(totalCost)}`,
       columns: [
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" },
         { key: "license_plate", label: "Biển số" }, { key: "inspection_date", label: "Ngày đăng kiểm" },
@@ -575,7 +602,7 @@ async function buildReportPayload(
         { key: "certificate_number", label: "Số giấy chứng nhận" }, { key: "inspection_center", label: "Trung tâm đăng kiểm" },
         { key: "odometer_km", label: "Số km" }, { key: "reminder_days", label: "Nhắc trước (ngày)" }, { key: "note", label: "Ghi chú" },
       ],
-      rows: (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = vehicles?.[0]; return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "" }; }),
+      rows,
     };
   }
 
@@ -587,9 +614,12 @@ async function buildReportPayload(
     if (dateRange) query = query.gte("service_date", dateRange.start).lte("service_date", dateRange.end);
     const { data, error } = await query.order("service_date", { ascending: false }).limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu bảo dưỡng xe");
+    const rows = (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = relatedVehicle(vehicles); return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "" }; });
+    const totalCost = rows.reduce((sum, item) => sum + Number(item.vat_amount || 0), 0);
     return {
       report_type: reportType, title: `TDW - Bảo dưỡng xe - ${reportScope} - ${dateLabel}`,
       report_name: "NHẬT KÝ BẢO TRÌ BẢO DƯỠNG SỬA CHỮA XE Ô TÔ", requested_by: requestedBy,
+      summary: `Tổng chi phí: ${formatVndSummary(totalCost)}`,
       columns: [
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" }, { key: "license_plate", label: "Biển số" },
         { key: "service_date", label: "Ngày sửa chữa / bảo dưỡng" }, { key: "service_type", label: "Hình thức" },
@@ -597,7 +627,7 @@ async function buildReportPayload(
         { key: "vat_amount", label: "Số tiền VAT" }, { key: "vendor", label: "Đơn vị thực hiện" },
         { key: "invoice_number", label: "Số hóa đơn" }, { key: "note", label: "Ghi chú" },
       ],
-      rows: (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = vehicles?.[0]; return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "" }; }),
+      rows,
     };
   }
 
@@ -609,9 +639,12 @@ async function buildReportPayload(
     if (dateRange) query = query.gte("payment_date", dateRange.start).lte("payment_date", dateRange.end);
     const { data, error } = await query.order("payment_date", { ascending: false }).limit(5000);
     if (error) throw new Error("Không thể đọc dữ liệu nhiên liệu xe");
+    const rows = (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = relatedVehicle(vehicles); return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "", fuel_norm_l_per_100km: vehicle?.fuel_norm_l_per_100km ?? "" }; });
+    const totalAmount = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     return {
       report_type: reportType, title: `TDW - Nhiên liệu xe - ${reportScope} - ${dateLabel}`,
       report_name: "SỔ THEO DÕI MUA NHIÊN LIỆU XE Ô TÔ", requested_by: requestedBy,
+      summary: `Tổng số tiền: ${formatVndSummary(totalAmount)}`,
       columns: [
         { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" }, { key: "license_plate", label: "Biển số" },
         { key: "fuel_norm_l_per_100km", label: "Định mức (lít/100 km)" }, { key: "liters", label: "Số lít nhiên liệu" },
@@ -619,7 +652,7 @@ async function buildReportPayload(
         { key: "payment_date", label: "Ngày thanh toán" }, { key: "amount", label: "Số tiền" },
         { key: "purchaser", label: "Người mua / tài xế" }, { key: "note", label: "Ghi chú" },
       ],
-      rows: (data ?? []).map((item) => { const { vehicles, ...row } = item; const vehicle = vehicles?.[0]; return { ...row, vehicle_code: vehicle?.vehicle_code ?? "", vehicle_name: vehicle?.vehicle_name ?? "", license_plate: vehicle?.license_plate ?? "", fuel_norm_l_per_100km: vehicle?.fuel_norm_l_per_100km ?? "" }; }),
+      rows,
     };
   }
 
