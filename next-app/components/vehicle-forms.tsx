@@ -13,6 +13,7 @@ import {
 } from "@/app/(protected)/vehicles/actions";
 import { AppModal, ModalTrigger } from "@/components/app-modal";
 import { ActionStateToast } from "@/components/action-toast";
+import { PdfInvoicePicker } from "@/components/pdf-invoice-picker";
 
 const initialState: VehicleActionState = {};
 const initialImportState: VehicleImportState = {};
@@ -50,6 +51,7 @@ export type InspectionFormInitial = {
   seat_count?: number | null;
   odometer_km?: number | null;
   note?: string | null;
+  invoice_file_name?: string | null;
 };
 
 export type RepairFormInitial = {
@@ -63,6 +65,7 @@ export type RepairFormInitial = {
   vendor?: string | null;
   invoice_number?: string | null;
   note?: string | null;
+  invoice_file_name?: string | null;
 };
 
 export type FuelFormInitial = {
@@ -75,6 +78,7 @@ export type FuelFormInitial = {
   amount?: number | string | null;
   purchaser?: string | null;
   note?: string | null;
+  invoice_file_name?: string | null;
 };
 
 function VehicleSelect({ vehicles, defaultValue = "" }: { vehicles: VehicleOption[]; defaultValue?: string }) {
@@ -135,6 +139,7 @@ export function InspectionForm({ vehicles, initial }: { vehicles: VehicleOption[
         <label>Trung tâm đăng kiểm<input defaultValue={initial?.inspection_center ?? ""} name="inspection_center" maxLength={200} /></label>
         <label>Số chỗ ngồi<input defaultValue={initial?.seat_count ?? ""} name="seat_count" type="number" min={1} max={100} placeholder="Theo giấy đăng kiểm" /></label>
         <label>Số km<input defaultValue={initial?.odometer_km ?? ""} name="odometer_km" type="number" min={0} /></label>
+        <PdfInvoicePicker existingFileName={initial?.invoice_file_name} />
         <label className="span-3">Ghi chú<textarea defaultValue={initial?.note ?? ""} name="note" rows={3} maxLength={3000} /></label>
       </div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
@@ -158,6 +163,7 @@ export function RepairForm({ vehicles, initial }: { vehicles: VehicleOption[]; i
         <label>Chi phí gồm VAT<input name="vat_amount" type="number" min={0} defaultValue={initial?.vat_amount ?? 0} /></label>
         <label>Đơn vị thực hiện<input defaultValue={initial?.vendor ?? ""} name="vendor" maxLength={200} /></label>
         <label>Số hóa đơn<input defaultValue={initial?.invoice_number ?? ""} name="invoice_number" maxLength={100} /></label>
+        <PdfInvoicePicker existingFileName={initial?.invoice_file_name} />
         <label className="span-3">Ghi chú<textarea defaultValue={initial?.note ?? ""} name="note" rows={3} maxLength={3000} /></label>
       </div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
@@ -180,6 +186,7 @@ export function FuelForm({ vehicles, initial }: { vehicles: VehicleOption[]; ini
         <label>Số km đến<input defaultValue={initial?.odometer_to ?? ""} name="odometer_to" type="number" min={0} /></label>
         <label>Số tiền<input name="amount" type="number" min={0} defaultValue={initial?.amount ?? 0} /></label>
         <label>Người mua / tài xế<input defaultValue={initial?.purchaser ?? ""} name="purchaser" maxLength={160} /></label>
+        <PdfInvoicePicker existingFileName={initial?.invoice_file_name} />
         <label className="span-3">Ghi chú<textarea defaultValue={initial?.note ?? ""} name="note" rows={3} maxLength={3000} /></label>
       </div>
       {state.error ? <p className="form-error">{state.error}</p> : null}

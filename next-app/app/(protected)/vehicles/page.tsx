@@ -15,6 +15,39 @@ type VehicleSection = "overview" | "fleet" | "inspections" | "repairs" | "fuel";
 type VehicleRelation = { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string } | { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string }[] | null;
 function relatedVehicle(value: VehicleRelation) { return Array.isArray(value) ? value[0] : value; }
 
+type VehicleDocument = {
+  file_name: string;
+  id: string;
+  object_path: string;
+  record_id: string;
+  record_type: "INSPECTION" | "REPAIR" | "FUEL";
+  stored_byte_size: number | string;
+  signed_url?: string | null;
+};
+
+function formatFileSize(value: number | string) {
+  const bytes = Number(value || 0);
+  return bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function VehicleDocumentLink({ document }: { document?: VehicleDocument }) {
+  if (!document?.signed_url) return <span className="vehicle-document-empty">—</span>;
+  return (
+    <a
+      className="vehicle-document-link"
+      href={document.signed_url}
+      rel="noreferrer"
+      target="_blank"
+      title={document.file_name}
+    >
+      <AppIcon name="reports" size={14} />
+      <span>Hóa đơn PDF<small>{formatFileSize(document.stored_byte_size)}</small></span>
+    </a>
+  );
+}
+
 function vietnamToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 }
@@ -69,18 +102,33 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const { access, supabase } = await requireAccess();
   const canManage = can(access, "vehicles.manage");
   const canDelete = can(access, "vehicles.delete");
-  const [vehiclesResult, inspectionsResult, repairsResult, fuelResult, departmentsResult, usersResult] = await Promise.all([
+  const [vehiclesResult, inspectionsResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult] = await Promise.all([
     supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500),
     supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("inspection_date", { ascending: false }).limit(500),
     supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("service_date", { ascending: false }).limit(500),
     supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("payment_date", { ascending: false }).limit(500),
     supabase.from("departments").select("id,name").order("name").limit(500),
     supabase.from("profiles").select("id,full_name,email").eq("active", true).order("full_name").limit(500),
+    supabase.from("vehicle_documents").select("id,file_name,object_path,record_id,record_type,stored_byte_size").order("created_at", { ascending: false }).limit(1500),
   ]);
   const vehicles = vehiclesResult.data ?? [];
   const inspections = inspectionsResult.data ?? [];
   const repairs = repairsResult.data ?? [];
   const fuelLogs = fuelResult.data ?? [];
+  const vehicleDocuments = (documentsResult.data ?? []) as VehicleDocument[];
+  const documentPaths = vehicleDocuments.map((item) => item.object_path);
+  const { data: signedDocumentUrls } = documentPaths.length
+    ? await supabase.storage.from("vehicle-documents").createSignedUrls(documentPaths, 300)
+    : { data: [] };
+  const signedDocumentUrlByPath = new Map(
+    (signedDocumentUrls ?? []).map((item) => [item.path, item.signedUrl]),
+  );
+  const documentByRecord = new Map(
+    vehicleDocuments.map((item) => [
+      `${item.record_type}:${item.record_id}`,
+      { ...item, signed_url: signedDocumentUrlByPath.get(item.object_path) ?? null },
+    ]),
+  );
   const inspectionsPage = boundedPage(requestedPage, inspections.length);
   const repairsPage = boundedPage(requestedPage, repairs.length);
   const fuelPage = boundedPage(requestedPage, fuelLogs.length);
@@ -157,19 +205,19 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
 
       {section === "inspections" ? <section className="panel vehicle-section-panel vehicle-section-panel--inspections">
         <div className="panel-heading"><div><p className="eyebrow">ĐĂNG KIỂM</p><h2>Lịch sử và hạn sắp tới</h2></div><small>{inspections.length} lần</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Số chỗ</th><th>Chi phí</th><th>Thông tin</th>{canManage || canDelete ? <th className="vehicle-actions-column">Thao tác</th> : null}</tr></thead><tbody>{visibleInspections.map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); return <tr key={item.id}><td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td><td>{formatDate(item.inspection_date)}</td><td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td><td>{item.seat_count ? `${item.seat_count} chỗ` : "—"}</td><td>{formatMoney(Number(item.cost))}</td><td>{item.certificate_number || "—"}<small>{item.inspection_center || `Nhắc trước ${item.reminder_days} ngày`}</small></td>{canManage || canDelete ? <td className="vehicle-actions-column"><div className="row-actions">{canManage ? <ModalTrigger description="Cập nhật thời hạn, số chỗ, chi phí và thông tin đăng kiểm." eyebrow="ĐĂNG KIỂM" size="large" title="Sửa đăng kiểm" triggerClassName="text-button" triggerLabel="Sửa"><InspectionForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, inspection_date: item.inspection_date, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, certificate_number: item.certificate_number, inspection_center: item.inspection_center, seat_count: item.seat_count, odometer_km: item.odometer_km, note: item.note }} /></ModalTrigger> : null}{canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Bản ghi đăng kiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "inspection" }} title="Xóa đăng kiểm?" /> : null}</div></td> : null}</tr>; })}{!inspections.length ? <tr><td className="empty-cell" colSpan={canManage || canDelete ? 7 : 6}>Chưa có lịch sử đăng kiểm.</td></tr> : null}</tbody></table></div>
+        <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Số chỗ</th><th>Chi phí</th><th>Thông tin</th><th>Hóa đơn</th>{canManage || canDelete ? <th className="vehicle-actions-column">Thao tác</th> : null}</tr></thead><tbody>{visibleInspections.map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); const document = documentByRecord.get(`INSPECTION:${item.id}`); return <tr key={item.id}><td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td><td>{formatDate(item.inspection_date)}</td><td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td><td>{item.seat_count ? `${item.seat_count} chỗ` : "—"}</td><td>{formatMoney(Number(item.cost))}</td><td>{item.certificate_number || "—"}<small>{item.inspection_center || `Nhắc trước ${item.reminder_days} ngày`}</small></td><td><VehicleDocumentLink document={document} /></td>{canManage || canDelete ? <td className="vehicle-actions-column"><div className="row-actions">{canManage ? <ModalTrigger description="Cập nhật thời hạn, số chỗ, chi phí và thông tin đăng kiểm." eyebrow="ĐĂNG KIỂM" size="large" title="Sửa đăng kiểm" triggerClassName="text-button" triggerLabel="Sửa"><InspectionForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, inspection_date: item.inspection_date, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, certificate_number: item.certificate_number, inspection_center: item.inspection_center, seat_count: item.seat_count, odometer_km: item.odometer_km, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}{canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Bản ghi đăng kiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "inspection" }} title="Xóa đăng kiểm?" /> : null}</div></td> : null}</tr>; })}{!inspections.length ? <tr><td className="empty-cell" colSpan={canManage || canDelete ? 8 : 7}>Chưa có lịch sử đăng kiểm.</td></tr> : null}</tbody></table></div>
         <VehiclePagination page={inspectionsPage} section="inspections" totalRows={inspections.length} />
       </section> : null}
 
       {section === "repairs" ? <section className="panel vehicle-section-panel vehicle-section-panel--repairs">
         <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><small>{repairs.length} bản ghi</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí VAT</th>{canManage || canDelete ? <th className="vehicle-actions-column">Thao tác</th> : null}</tr></thead><tbody>{visibleRepairs.map((item) => { const vehicle = relatedVehicle(item.vehicles); return <tr key={item.id}><td><strong>{formatDate(item.service_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td><strong>{item.description}</strong><small>{item.service_type.replaceAll("_", " ")}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td><td>{item.vendor || "—"}<small>{item.invoice_number}</small></td><td>{item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : "—"}</td><td>{formatMoney(Number(item.vat_amount))}</td>{canManage || canDelete ? <td className="vehicle-actions-column"><div className="row-actions">{canManage ? <ModalTrigger description="Cập nhật nội dung, đơn vị thực hiện, số km và chi phí." eyebrow="BẢO DƯỠNG" size="large" title="Sửa bảo dưỡng" triggerClassName="text-button" triggerLabel="Sửa"><RepairForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, service_date: item.service_date, service_type: item.service_type, description: item.description, odometer_km: item.odometer_km, vat_amount: item.vat_amount, vendor: item.vendor, invoice_number: item.invoice_number, note: item.note }} /></ModalTrigger> : null}{canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Bản ghi bảo dưỡng sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "repair" }} title="Xóa bảo dưỡng?" /> : null}</div></td> : null}</tr>; })}{!repairs.length ? <tr><td className="empty-cell" colSpan={canManage || canDelete ? 6 : 5}>Chưa có lịch sử bảo dưỡng.</td></tr> : null}</tbody></table></div>
+        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí VAT</th><th>Hóa đơn</th>{canManage || canDelete ? <th className="vehicle-actions-column">Thao tác</th> : null}</tr></thead><tbody>{visibleRepairs.map((item) => { const vehicle = relatedVehicle(item.vehicles); const document = documentByRecord.get(`REPAIR:${item.id}`); return <tr key={item.id}><td><strong>{formatDate(item.service_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td><strong>{item.description}</strong><small>{item.service_type.replaceAll("_", " ")}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td><td>{item.vendor || "—"}<small>{item.invoice_number}</small></td><td>{item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : "—"}</td><td>{formatMoney(Number(item.vat_amount))}</td><td><VehicleDocumentLink document={document} /></td>{canManage || canDelete ? <td className="vehicle-actions-column"><div className="row-actions">{canManage ? <ModalTrigger description="Cập nhật nội dung, đơn vị thực hiện, số km và chi phí." eyebrow="BẢO DƯỠNG" size="large" title="Sửa bảo dưỡng" triggerClassName="text-button" triggerLabel="Sửa"><RepairForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, service_date: item.service_date, service_type: item.service_type, description: item.description, odometer_km: item.odometer_km, vat_amount: item.vat_amount, vendor: item.vendor, invoice_number: item.invoice_number, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}{canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Bản ghi bảo dưỡng sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "repair" }} title="Xóa bảo dưỡng?" /> : null}</div></td> : null}</tr>; })}{!repairs.length ? <tr><td className="empty-cell" colSpan={canManage || canDelete ? 7 : 6}>Chưa có lịch sử bảo dưỡng.</td></tr> : null}</tbody></table></div>
         <VehiclePagination page={repairsPage} section="repairs" totalRows={repairs.length} />
       </section> : null}
 
       {section === "fuel" ? <section className="panel vehicle-section-panel vehicle-section-panel--fuel">
         <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><small>{fuelLogs.length} bản ghi</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Số tiền</th>{canManage || canDelete ? <th className="vehicle-actions-column">Thao tác</th> : null}</tr></thead><tbody>{visibleFuelLogs.map((item) => { const vehicle = relatedVehicle(item.vehicles); return <tr key={item.id}><td><strong>{formatDate(item.payment_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td>{Number(item.liters).toLocaleString("vi-VN")} lít</td><td>{item.odometer_from ?? "—"} → {item.odometer_to ?? "—"}<small>{item.odometer_from != null && item.odometer_to != null ? `${Number(item.odometer_to) - Number(item.odometer_from)} km` : ""}</small></td><td>{item.purchaser || "—"}<small>{item.source_file ? `Nhập từ ${item.source_file}` : item.note}</small></td><td>{formatMoney(Number(item.amount))}</td>{canManage || canDelete ? <td className="vehicle-actions-column"><div className="row-actions">{canManage ? <ModalTrigger description="Cập nhật số lít, hành trình, người mua và số tiền." eyebrow="NHIÊN LIỆU" size="large" title="Sửa nhiên liệu" triggerClassName="text-button" triggerLabel="Sửa"><FuelForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, payment_date: item.payment_date, liters: item.liters, odometer_from: item.odometer_from, odometer_to: item.odometer_to, amount: item.amount, purchaser: item.purchaser, note: item.note }} /></ModalTrigger> : null}{canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Bản ghi nhiên liệu sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "fuel" }} title="Xóa nhiên liệu?" /> : null}</div></td> : null}</tr>; })}{!fuelLogs.length ? <tr><td className="empty-cell" colSpan={canManage || canDelete ? 6 : 5}>Chưa có lịch sử nhiên liệu.</td></tr> : null}</tbody></table></div>
+        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Số tiền</th><th>Hóa đơn</th>{canManage || canDelete ? <th className="vehicle-actions-column">Thao tác</th> : null}</tr></thead><tbody>{visibleFuelLogs.map((item) => { const vehicle = relatedVehicle(item.vehicles); const document = documentByRecord.get(`FUEL:${item.id}`); return <tr key={item.id}><td><strong>{formatDate(item.payment_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td><td>{Number(item.liters).toLocaleString("vi-VN")} lít</td><td>{item.odometer_from ?? "—"} → {item.odometer_to ?? "—"}<small>{item.odometer_from != null && item.odometer_to != null ? `${Number(item.odometer_to) - Number(item.odometer_from)} km` : ""}</small></td><td>{item.purchaser || "—"}<small>{item.source_file ? `Nhập từ ${item.source_file}` : item.note}</small></td><td>{formatMoney(Number(item.amount))}</td><td><VehicleDocumentLink document={document} /></td>{canManage || canDelete ? <td className="vehicle-actions-column"><div className="row-actions">{canManage ? <ModalTrigger description="Cập nhật số lít, hành trình, người mua và số tiền." eyebrow="NHIÊN LIỆU" size="large" title="Sửa nhiên liệu" triggerClassName="text-button" triggerLabel="Sửa"><FuelForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, payment_date: item.payment_date, liters: item.liters, odometer_from: item.odometer_from, odometer_to: item.odometer_to, amount: item.amount, purchaser: item.purchaser, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}{canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Bản ghi nhiên liệu sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "fuel" }} title="Xóa nhiên liệu?" /> : null}</div></td> : null}</tr>; })}{!fuelLogs.length ? <tr><td className="empty-cell" colSpan={canManage || canDelete ? 7 : 6}>Chưa có lịch sử nhiên liệu.</td></tr> : null}</tbody></table></div>
         <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelLogs.length} />
       </section> : null}
     </>
