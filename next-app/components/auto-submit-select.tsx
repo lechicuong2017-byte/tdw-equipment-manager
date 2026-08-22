@@ -1,6 +1,11 @@
 "use client";
 
-import { startTransition, type ComponentProps } from "react";
+import {
+  startTransition,
+  type ComponentProps,
+  useEffect,
+  useRef,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 export function InstantFilterForm({ onSubmit, ...props }: ComponentProps<"form">) {
@@ -41,6 +46,38 @@ export function AutoSubmitSelect({ onChange, ...props }: ComponentProps<"select"
       onChange={(event) => {
         onChange?.(event);
         event.currentTarget.form?.requestSubmit();
+      }}
+    />
+  );
+}
+
+export function AutoSubmitSearchInput({
+  onChange,
+  onKeyDown,
+  ...props
+}: ComponentProps<"input">) {
+  const submitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (submitTimer.current) clearTimeout(submitTimer.current);
+  }, []);
+
+  return (
+    <input
+      {...props}
+      type={props.type ?? "search"}
+      onChange={(event) => {
+        onChange?.(event);
+        if (submitTimer.current) clearTimeout(submitTimer.current);
+        const form = event.currentTarget.form;
+        submitTimer.current = setTimeout(() => form?.requestSubmit(), 350);
+      }}
+      onKeyDown={(event) => {
+        onKeyDown?.(event);
+        if (event.key === "Enter" && submitTimer.current) {
+          clearTimeout(submitTimer.current);
+          submitTimer.current = null;
+        }
       }}
     />
   );

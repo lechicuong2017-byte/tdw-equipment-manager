@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  AutoSubmitSearchInput,
   AutoSubmitSelect,
   InstantFilterForm,
 } from "@/components/auto-submit-select";
@@ -198,7 +199,11 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           {scope === "liquidated" ? <input name="scope" type="hidden" value="liquidated" /> : null}
           <label className="search-field">
             <span aria-hidden="true">⌕</span>
-            <input defaultValue={search} name="q" placeholder="Tìm mã, tên hoặc serial…" />
+            <AutoSubmitSearchInput
+              defaultValue={search}
+              name="q"
+              placeholder="Tìm mã, tên hoặc serial…"
+            />
           </label>
           <AutoSubmitSelect aria-label="Lọc theo phòng ban" defaultValue={department} name="department">
             <option value="">Tất cả phòng ban</option>
