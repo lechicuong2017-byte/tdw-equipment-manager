@@ -91,6 +91,14 @@ const assetReportStatusOrder = [
   "LUU_KHO_CHO_THANH_LY",
 ];
 
+function assetReportGroupRank(group: string) {
+  // This operational bucket must always be the final report section, including
+  // when administrators add new equipment categories later.
+  if (group === "LUU_KHO_KEM_PHAM_CHAT") return 10_000;
+  const configuredOrder = assetReportGroupOrder.indexOf(group);
+  return configuredOrder === -1 ? 999 : configuredOrder;
+}
+
 const reportFiltersSchema = z.object({
   year: z.number().int().min(2000).max(2100).optional(),
   month: z.number().int().min(1).max(12).optional(),
@@ -386,9 +394,8 @@ async function buildReportPayload(
       if (selectedStatuses.size && !selectedStatuses.has(asset.status)) return false;
       return true;
     }).sort((left, right) => {
-      const leftOrder = assetReportGroupOrder.indexOf(left.asset_group);
-      const rightOrder = assetReportGroupOrder.indexOf(right.asset_group);
-      const groupDifference = (leftOrder === -1 ? 999 : leftOrder) - (rightOrder === -1 ? 999 : rightOrder);
+      const groupDifference = assetReportGroupRank(left.asset_group)
+        - assetReportGroupRank(right.asset_group);
       if (groupDifference) return groupDifference;
       const labelDifference = left.report_group.localeCompare(right.report_group, "vi");
       if (labelDifference) return labelDifference;

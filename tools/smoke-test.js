@@ -418,6 +418,7 @@ async function run() {
   assert.ok(appsScript.includes('setValue(`TỔNG CỘNG · ${rows.length} dòng'));
   assert.ok(appsScript.includes('sheet.insertImage(logoBlob, 1, 1).setWidth(112).setHeight(41)'));
   assert.ok(googleExportRoute.includes('report_name: `BÁO CÁO THIẾT BỊ ĐẾN NĂM ${reportYear}`'));
+  assert.ok(googleExportRoute.includes('if (group === "LUU_KHO_KEM_PHAM_CHAT") return 10_000'));
   assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO KẾ HOẠCH VÀ LỊCH SỬ BẢO TRÌ"'));
   assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO LỊCH SỬ BÀN GIAO"'));
   assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO BẢN QUYỀN PHẦN MỀM"'));
