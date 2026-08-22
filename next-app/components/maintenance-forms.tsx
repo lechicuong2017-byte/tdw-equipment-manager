@@ -9,6 +9,7 @@ import {
 import { ActionStateToast } from "@/components/action-toast";
 import { ModalTrigger } from "@/components/app-modal";
 import { ImageFilePicker } from "@/components/image-file-picker";
+import { normalizeSearchText } from "@/lib/search";
 
 type AssetOption = {
   id: string;
@@ -57,7 +58,7 @@ const untypedValue = "__UNTYPED__";
 const unassignedDepartmentValue = "__UNASSIGNED_DEPARTMENT__";
 
 function searchable(value: string) {
-  return value.trim().toLocaleLowerCase("vi");
+  return normalizeSearchText(value);
 }
 
 function departmentName(asset: AssetOption) {

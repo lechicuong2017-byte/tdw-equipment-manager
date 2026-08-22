@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { normalizeSearchText } from "@/lib/search";
 
 export type SoftwareAssetOption = {
   id: string;
@@ -19,7 +20,7 @@ const untypedValue = "__UNTYPED__";
 const unassignedDepartmentValue = "__UNASSIGNED_DEPARTMENT__";
 
 function searchable(value: string) {
-  return value.trim().toLocaleLowerCase("vi");
+  return normalizeSearchText(value);
 }
 
 function departmentName(asset: SoftwareAssetOption) {

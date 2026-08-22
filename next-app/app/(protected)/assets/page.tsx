@@ -11,6 +11,7 @@ import {
 import { AssetLiquidationAction } from "@/components/asset-liquidation-action";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney, labelStatus, statusTone } from "@/lib/format";
+import { normalizeSearchText } from "@/lib/search";
 import { z } from "zod";
 
 export const metadata = { title: "Thiết bị" };
@@ -38,6 +39,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     .trim()
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .slice(0, 80);
+  const normalizedSearch = normalizeSearchText(search);
   const status = String(params.status ?? "")
     .trim()
     .replace(/[^A-Z0-9_]/g, "")
@@ -74,10 +76,8 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     ? query.eq("status", "DA_THANH_LY")
     : query.neq("status", "DA_THANH_LY");
 
-  if (search) {
-    query = query.or(
-      `asset_code.ilike.%${search}%,asset_name.ilike.%${search}%,serial_number.ilike.%${search}%`,
-    );
+  if (normalizedSearch) {
+    query = query.ilike("search_text", `%${normalizedSearch}%`);
   }
   if (status && scope === "active") query = query.eq("status", status);
   if (kind) query = query.eq("asset_kind", kind);
