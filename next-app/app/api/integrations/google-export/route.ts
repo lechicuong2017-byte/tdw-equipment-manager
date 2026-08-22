@@ -79,6 +79,18 @@ const assetReportGroupOrder = [
   "LUU_KHO_KEM_PHAM_CHAT",
 ];
 
+// Show active assets first and keep poor/storage assets at the bottom of each
+// equipment category. Installed components are still rendered below their host.
+const assetReportStatusOrder = [
+  "MOI_100",
+  "CON_SU_DUNG",
+  "CAN_KIEM_TRA",
+  "KHONG_SU_DUNG",
+  "KEM_PHAM_CHAT",
+  "LUU_KHO_THANH_LY",
+  "LUU_KHO_CHO_THANH_LY",
+];
+
 const reportFiltersSchema = z.object({
   year: z.number().int().min(2000).max(2100).optional(),
   month: z.number().int().min(1).max(12).optional(),
@@ -379,7 +391,12 @@ async function buildReportPayload(
       const groupDifference = (leftOrder === -1 ? 999 : leftOrder) - (rightOrder === -1 ? 999 : rightOrder);
       if (groupDifference) return groupDifference;
       const labelDifference = left.report_group.localeCompare(right.report_group, "vi");
-      return labelDifference || left.asset_code.localeCompare(right.asset_code, "vi");
+      if (labelDifference) return labelDifference;
+      const leftStatusOrder = assetReportStatusOrder.indexOf(left.status);
+      const rightStatusOrder = assetReportStatusOrder.indexOf(right.status);
+      const statusDifference = (leftStatusOrder === -1 ? 999 : leftStatusOrder)
+        - (rightStatusOrder === -1 ? 999 : rightStatusOrder);
+      return statusDifference || left.asset_code.localeCompare(right.asset_code, "vi");
     });
     const assetById = new Map(allNormalizedAssets.map((asset) => [asset.id, asset]));
     const activeComponentIds = new Set(

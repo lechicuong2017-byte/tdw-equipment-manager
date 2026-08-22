@@ -179,6 +179,8 @@ async function run() {
   );
   const autoSubmitSelect = read("next-app/components/auto-submit-select.tsx");
   const nextReportsPage = read("next-app/app/(protected)/reports/page.tsx");
+  const nextReportDetailPage = read("next-app/app/(protected)/reports/[reportType]/page.tsx");
+  const equipmentReportCatalog = read("next-app/lib/equipment-report-catalog.ts");
   const nextSoftwarePage = read(
     "next-app/app/(protected)/software/page.tsx",
   );
@@ -399,7 +401,7 @@ async function run() {
   assert.ok(appsScript.includes('"exportSupabaseReportFile"'));
   assert.ok(appsScript.includes("function exportSupabaseReportFile_(payload)"));
   assert.ok(appsScript.includes("const TDW_REPORT_LOGO_JPEG_BASE64"));
-  assert.ok(appsScript.includes("function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, summaryText)"));
+  assert.ok(appsScript.includes("function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, summaryText, groupKey)"));
   assert.ok(appsScript.includes("setSpreadsheetLocale(\"vi_VN\")"));
   assert.ok(appsScript.includes("Math.max(sheet.getColumnWidth(sheetColumn), 135)"));
   assert.ok(appsScript.includes('setNumberFormat("dd/MM/yyyy")'));
@@ -410,9 +412,12 @@ async function run() {
   assert.ok(appsScript.includes("CÔNG TY CỔ PHẦN NƯỚC THỦ ĐỨC — TDW"));
   assert.ok(appsScript.includes('setBackground("#176da5")'));
   assert.ok(appsScript.includes('setBackground("#0d4f7c")'));
+  assert.ok(appsScript.includes('CON_SU_DUNG: "#e8f7ef"'));
+  assert.ok(appsScript.includes('KEM_PHAM_CHAT: "#fff0e6"'));
+  assert.ok(appsScript.includes('LUU_KHO_THANH_LY: "#ffedf2"'));
   assert.ok(appsScript.includes('setValue(`TỔNG CỘNG · ${rows.length} dòng'));
   assert.ok(appsScript.includes('sheet.insertImage(logoBlob, 1, 1).setWidth(112).setHeight(41)'));
-  assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO DANH SÁCH THIẾT BỊ"'));
+  assert.ok(googleExportRoute.includes('report_name: `BÁO CÁO THIẾT BỊ ĐẾN NĂM ${reportYear}`'));
   assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO KẾ HOẠCH VÀ LỊCH SỬ BẢO TRÌ"'));
   assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO LỊCH SỬ BÀN GIAO"'));
   assert.ok(googleExportRoute.includes('report_name: "BÁO CÁO BẢN QUYỀN PHẦN MỀM"'));
@@ -437,7 +442,7 @@ async function run() {
   assert.ok(!nextAuditPage.includes("old_data"));
   assert.ok(!nextAuditPage.includes("new_data"));
   assert.ok(nextAssetDetailPage.includes("<AssetQrCard"));
-  assert.ok(nextReportsPage.includes("<AssetQrLabels"));
+  assert.ok(nextReportDetailPage.includes("<AssetQrLabels"));
   assert.ok(assetQrCard.includes("Tải mã QR"));
   assert.ok(assetQrCard.includes("In tem QR"));
   assert.ok(assetQrLabels.includes("In tem QR thiết bị hàng loạt"));
@@ -502,7 +507,7 @@ async function run() {
   assert.ok(nextAssetListPreviews.includes('className="asset-list-thumbnail"'));
   assert.ok(nextAssetDetailPage.includes("createSignedUrls(mediaPaths, 300)"));
   assert.ok(nextAssetDetailPage.includes("unoptimized"));
-  assert.ok(nextConfig.includes('bodySizeLimit: "6mb"'));
+  assert.ok(nextConfig.includes('bodySizeLimit: "7mb"'));
   assert.ok(mediaChecksumMigration.includes("checksum"));
   assert.ok(mediaChecksumMigration.includes("media_files_checksum_sha256"));
   assert.ok(assetQueryPerformanceMigration.includes("pg_trgm"));
@@ -531,8 +536,9 @@ async function run() {
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-logo.webp")));
   assert.ok(fs.existsSync(path.join(root, "next-app/public/tdw-icon-192.png")));
   assert.ok(fs.existsSync(path.join(root, "next-app/app/favicon.ico")));
-  assert.ok(appsScript.includes("function spreadsheetExportUrl_(spreadsheetId, sheetId, outputFormat)"));
+  assert.ok(appsScript.includes("function spreadsheetExportUrl_(spreadsheetId, sheetId, outputFormat, reportType)"));
   assert.ok(appsScript.includes('if (outputFormat === "xlsx") return `${baseUrl}?format=xlsx`'));
+  assert.ok(appsScript.includes('reportType === "assets" ? "A3" : "A4"'));
   assert.ok(appsScript.includes('"portrait=false"'));
   assert.ok(appsScript.includes('"fitw=true"'));
   assert.ok(appsScript.includes("TDW_REPORT_FILE_LEDGER"));
@@ -952,7 +958,7 @@ async function run() {
   assert.ok(assetLiquidationAction.includes('name="reason"'));
   assert.ok(googleExportRoute.includes('reportType === "liquidations"'));
   assert.ok(googleExportRoute.includes("BÁO CÁO THIẾT BỊ ĐÃ THANH LÝ"));
-  assert.ok(nextReportsPage.includes('type: "liquidations"'));
+  assert.ok(equipmentReportCatalog.includes('slug: "liquidations"'));
   assert.ok(index.includes('integrity="sha512-'));
 
   const unauthenticated = await invokeProxy({ fn: "healthCheck", args: [] });

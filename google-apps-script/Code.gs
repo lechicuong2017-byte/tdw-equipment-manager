@@ -909,7 +909,7 @@ function exportSupabaseReportFile_(payload) {
       report_type: reportType,
       output_format: outputFormat,
       row_count: rows.length,
-      result_url: spreadsheetExportUrl_(spreadsheet.getId(), sheet.getSheetId(), outputFormat),
+      result_url: spreadsheetExportUrl_(spreadsheet.getId(), sheet.getSheetId(), outputFormat, reportType),
       file_id: spreadsheet.getId(),
       created_at: new Date().toISOString(),
     };
@@ -948,7 +948,7 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
   sheet.getRange(1, titleStartColumn, 1, titleColumnCount).merge()
     .setValue("CÔNG TY CỔ PHẦN NƯỚC THỦ ĐỨC — TDW")
     .setFontFamily("Arial")
-    .setFontSize(10)
+    .setFontSize(outputFormat === "pdf" ? 12 : 13)
     .setFontWeight("bold")
     .setFontColor("#444444")
     .setHorizontalAlignment("center")
@@ -956,7 +956,7 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
   sheet.getRange(2, titleStartColumn, 1, titleColumnCount).merge()
     .setValue(reportName)
     .setFontFamily("Arial")
-    .setFontSize(outputFormat === "pdf" ? 13 : 14)
+    .setFontSize(outputFormat === "pdf" ? 18 : 20)
     .setFontWeight("bold")
     .setFontColor("#176da5")
     .setHorizontalAlignment("center")
@@ -965,15 +965,15 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
   sheet.getRange(3, titleStartColumn, 1, titleColumnCount).merge()
     .setValue(`Ngày xuất: ${dateText}  |  Tổng: ${rows.length} dòng`)
     .setFontFamily("Arial")
-    .setFontSize(9)
+    .setFontSize(outputFormat === "pdf" ? 11 : 12)
     .setFontColor("#666666")
     .setHorizontalAlignment("center")
     .setVerticalAlignment("middle");
   sheet.getRange(3, 1, 1, totalColumns)
     .setBorder(false, false, true, false, false, false, "#176da5", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-  sheet.setRowHeight(1, 28);
-  sheet.setRowHeight(2, 32);
-  sheet.setRowHeight(3, 24);
+  sheet.setRowHeight(1, 32);
+  sheet.setRowHeight(2, 40);
+  sheet.setRowHeight(3, 28);
   sheet.setRowHeight(4, 10);
   insertTdwReportLogo_(sheet);
 
@@ -981,7 +981,7 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
   headerRange
     .setValues([["STT", ...columns.map((column) => column.label)]])
     .setFontFamily("Arial")
-    .setFontSize(outputFormat === "pdf" ? 8 : 10)
+    .setFontSize(outputFormat === "pdf" ? 11 : 12)
     .setFontWeight("bold")
     .setFontColor("#ffffff")
     .setBackground("#176da5")
@@ -989,7 +989,7 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
     .setVerticalAlignment("middle")
     .setWrap(true)
     .setBorder(true, true, true, true, true, true, "#0e5080", SpreadsheetApp.BorderStyle.SOLID);
-  sheet.setRowHeight(headerRow, 30);
+  sheet.setRowHeight(headerRow, 38);
 
   if (renderedRows.length) {
     const values = renderedRows.map((item) => item.kind === "group"
@@ -999,7 +999,7 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
     bodyRange
       .setValues(values)
       .setFontFamily("Arial")
-      .setFontSize(outputFormat === "pdf" ? 8 : 10)
+      .setFontSize(outputFormat === "pdf" ? 10 : 12)
       .setFontColor("#111111")
       .setVerticalAlignment("top")
       .setWrap(true)
@@ -1007,7 +1007,8 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
     let stripeIndex = 0;
     bodyRange.setBackgrounds(renderedRows.map((item) => {
       if (item.kind === "group") return Array(totalColumns).fill("#f6c95f");
-      const background = stripeIndex % 2 === 1 ? "#f0f6fb" : "#ffffff";
+      const statusBackground = tdwEquipmentStatusBackground_(item.row && item.row.status);
+      const background = statusBackground || (stripeIndex % 2 === 1 ? "#f0f6fb" : "#ffffff");
       stripeIndex += 1;
       return Array(totalColumns).fill(background);
     }));
@@ -1043,13 +1044,13 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
   sheet.getRange(summaryRow, 1, 1, totalColumns).merge()
     .setValue(`TỔNG CỘNG · ${rows.length} dòng${summaryText ? ` · ${summaryText}` : ""} · Ngày xuất: ${dateText}`)
     .setFontFamily("Arial")
-    .setFontSize(outputFormat === "pdf" ? 8 : 10)
+    .setFontSize(outputFormat === "pdf" ? 10 : 12)
     .setFontWeight("bold")
     .setFontColor("#ffffff")
     .setBackground("#0d4f7c")
     .setVerticalAlignment("middle")
     .setBorder(true, true, true, true, false, false, "#0d4f7c", SpreadsheetApp.BorderStyle.SOLID);
-  sheet.setRowHeight(summaryRow, 28);
+  sheet.setRowHeight(summaryRow, 34);
 
   sheet.setColumnWidth(1, 55);
   sheet.autoResizeColumns(2, columns.length);
@@ -1062,6 +1063,21 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
   });
 }
 
+function tdwEquipmentStatusBackground_(status) {
+  const normalized = String(status || "").trim().toUpperCase();
+  const backgrounds = {
+    CON_SU_DUNG: "#e8f7ef",
+    MOI_100: "#eaf1ff",
+    CAN_KIEM_TRA: "#fff5df",
+    KEM_PHAM_CHAT: "#fff0e6",
+    KHONG_SU_DUNG: "#eef2f6",
+    LUU_KHO_THANH_LY: "#ffedf2",
+    LUU_KHO_CHO_THANH_LY: "#ffedf2",
+    DA_THANH_LY: "#f3f0f8",
+  };
+  return backgrounds[normalized] || "";
+}
+
 function insertTdwReportLogo_(sheet) {
   const logoBlob = Utilities.newBlob(
     Utilities.base64Decode(TDW_REPORT_LOGO_JPEG_BASE64),
@@ -1071,12 +1087,12 @@ function insertTdwReportLogo_(sheet) {
   sheet.insertImage(logoBlob, 1, 1).setWidth(112).setHeight(41);
 }
 
-function spreadsheetExportUrl_(spreadsheetId, sheetId, outputFormat) {
+function spreadsheetExportUrl_(spreadsheetId, sheetId, outputFormat, reportType) {
   const baseUrl = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/export`;
   if (outputFormat === "xlsx") return `${baseUrl}?format=xlsx`;
   const params = [
     "format=pdf",
-    "size=A4",
+    `size=${reportType === "assets" ? "A3" : "A4"}`,
     "portrait=false",
     "fitw=true",
     "sheetnames=false",
