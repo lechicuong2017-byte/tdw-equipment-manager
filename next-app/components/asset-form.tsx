@@ -251,7 +251,8 @@ export function AssetForm({
           <input defaultValue={asset?.quantity ?? 1} min={1} name="quantity" type="number" />
         </label>
         <p className="form-help span-2">
-          Linh kiện cần số lượng 1 và mã riêng để theo dõi chính xác lịch sử lắp, tháo và bảo hành.
+          Có thể khai báo một linh kiện đơn hoặc một cụm cùng được gắn vào một thiết bị. Mỗi bản ghi có
+          mã riêng để theo dõi lịch sử lắp, tháo và bảo hành.
         </p>
         <label>
           Đơn giá

@@ -103,7 +103,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
   );
   const canManageComponents = can(access, "assets.manage");
   const componentFields =
-    "id,asset_code,asset_name,asset_type,brand,model,serial_number,status,warranty_end_date";
+    "id,asset_code,asset_name,asset_type,brand,model,serial_number,quantity,status,warranty_end_date";
   const mediaPaths = media.map((item) => item.object_path);
   const [
     { data: signedUrls },
@@ -136,7 +136,6 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
             .from("assets")
             .select(componentFields)
             .eq("asset_kind", "COMPONENT")
-            .eq("quantity", 1)
             .is("deleted_at", null)
             .order("asset_code")
             .limit(2000)

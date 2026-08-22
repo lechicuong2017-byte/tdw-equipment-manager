@@ -33,6 +33,7 @@ function ComponentIdentity({ component }: { component: AssetComponentSummary }) 
         {[component.asset_type, component.brand, component.model]
           .filter(Boolean)
           .join(" · ") || "Chưa có thông tin model"}
+        {component.quantity > 1 ? ` · Số lượng ${component.quantity}` : ""}
       </small>
     </Link>
   );
@@ -123,6 +124,11 @@ export function AssetComponentManager({
     );
   }
 
+  const installedUnitCount = activeComponents.reduce(
+    (total, installation) => total + (installation.component?.quantity ?? 1),
+    0,
+  );
+
   return (
     <section className="panel component-panel">
       <div className="panel-heading">
@@ -130,7 +136,10 @@ export function AssetComponentManager({
           <p className="eyebrow">CẤU HÌNH PHẦN CỨNG</p>
           <h2>Linh kiện đang lắp</h2>
         </div>
-        <small>{activeComponents.length} linh kiện</small>
+        <small>
+          {installedUnitCount} linh kiện
+          {activeComponents.length !== installedUnitCount ? ` · ${activeComponents.length} cụm` : ""}
+        </small>
       </div>
 
       {status && statusMessages[status] ? (
@@ -326,6 +335,7 @@ export function AssetComponentManager({
                     {availableComponents.map((component) => (
                       <option key={component.id} value={component.id}>
                         {component.asset_code} — {component.asset_name}
+                        {component.quantity > 1 ? ` (cụm ${component.quantity})` : ""}
                       </option>
                     ))}
                   </select>
@@ -348,7 +358,8 @@ export function AssetComponentManager({
           ) : (
             <p className="form-help">
               Chưa có linh kiện rời phù hợp. Hãy <Link href="/assets/new?kind=component">tạo linh kiện mới</Link>,
-              chọn phân loại “Linh kiện bên trong” và đặt số lượng bằng 1.
+              chọn phân loại “Linh kiện bên trong”. Một bản ghi có thể là một linh kiện đơn hoặc một cụm
+              cùng được gắn vào thiết bị này.
             </p>
           )}
         </div>

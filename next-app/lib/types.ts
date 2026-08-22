@@ -62,6 +62,7 @@ export type AssetComponentSummary = Pick<
   | "brand"
   | "model"
   | "serial_number"
+  | "quantity"
   | "status"
   | "warranty_end_date"
 >;
