@@ -2006,6 +2006,92 @@ tbody tr.asset-row:hover > td {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.software-detail-trigger {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0;
+  text-align: left;
+}
+
+.software-detail-trigger:hover {
+  color: var(--brand);
+}
+
+.software-license-detail {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.software-license-detail-summary {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.software-license-detail-summary > div {
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem;
+}
+
+.software-license-detail-summary span {
+  color: var(--ink-soft);
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+
+.software-license-detail-summary strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.software-license-device-heading {
+  align-items: flex-end;
+  display: flex;
+  justify-content: space-between;
+}
+
+.software-license-device-heading h3 {
+  font-size: 1rem;
+  margin: 0.25rem 0 0;
+}
+
+.software-license-device-heading small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.software-license-device-table {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  max-height: 390px;
+  overflow: auto;
+}
+
+.software-license-device-table table {
+  min-width: 760px;
+}
+
+.software-license-device-table td {
+  vertical-align: top;
+}
+
+.software-license-detail-empty {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  margin: 0;
+  padding: 1.5rem;
+  text-align: center;
+}
+
 .software-asset-filters label {
   display: grid;
   gap: 0.4rem;
@@ -3468,6 +3554,10 @@ tbody tr.asset-row:hover > td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .software-license-detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .maintenance-asset-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3660,6 +3750,10 @@ tbody tr.asset-row:hover > td {
   .software-asset-filters,
   .maintenance-asset-filters,
   .software-asset-checklist {
+    grid-template-columns: 1fr;
+  }
+
+  .software-license-detail-summary {
     grid-template-columns: 1fr;
   }
 

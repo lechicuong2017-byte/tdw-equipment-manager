@@ -16,8 +16,24 @@ const softwareStatusLabels: Record<string, string> = {
 };
 
 type RelatedAsset =
-  | { asset_code?: string; asset_name?: string; asset_group_label?: string; asset_type?: string }
-  | { asset_code?: string; asset_name?: string; asset_group_label?: string; asset_type?: string }[]
+  | {
+      asset_code?: string;
+      asset_name?: string;
+      asset_group_label?: string;
+      asset_type?: string;
+      assigned_to_name?: string;
+      department_legacy_name?: string;
+      departments?: { name?: string } | { name?: string }[] | null;
+    }
+  | {
+      asset_code?: string;
+      asset_name?: string;
+      asset_group_label?: string;
+      asset_type?: string;
+      assigned_to_name?: string;
+      department_legacy_name?: string;
+      departments?: { name?: string } | { name?: string }[] | null;
+    }[]
   | null;
 
 type LicenseAssignment = {
@@ -27,6 +43,94 @@ type LicenseAssignment = {
 
 function getRelatedAsset(value: RelatedAsset) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function getDepartmentName(asset: ReturnType<typeof getRelatedAsset>) {
+  const department = Array.isArray(asset?.departments)
+    ? asset.departments[0]
+    : asset?.departments;
+  return department?.name || asset?.department_legacy_name || "Chưa phân phòng";
+}
+
+function SoftwareLicenseDetail({
+  assignments,
+  expiryDate,
+  legacyAssetId,
+  legacyAsset,
+  status,
+  version,
+}: {
+  assignments: LicenseAssignment[];
+  expiryDate: string | null;
+  legacyAssetId: string | null;
+  legacyAsset: RelatedAsset;
+  status: string;
+  version: string | null;
+}) {
+  const assignedAssets = assignments.length
+    ? assignments.map((assignment) => ({
+        id: assignment.asset_id,
+        asset: getRelatedAsset(assignment.assets),
+      }))
+    : legacyAssetId
+      ? [{ id: legacyAssetId, asset: getRelatedAsset(legacyAsset) }]
+      : [];
+
+  return (
+    <div className="software-license-detail">
+      <div className="software-license-detail-summary">
+        <div><span>Phiên bản</span><strong>{version || "Không ghi phiên bản"}</strong></div>
+        <div><span>Trạng thái</span><strong>{softwareStatusLabels[status] ?? "Chưa xác định"}</strong></div>
+        <div><span>Ngày hết hạn</span><strong>{formatDate(expiryDate)}</strong></div>
+        <div><span>Đã cấp</span><strong>{assignedAssets.length} thiết bị</strong></div>
+      </div>
+
+      <div className="software-license-device-heading">
+        <div>
+          <p className="eyebrow">THIẾT BỊ ĐƯỢC CẤP</p>
+          <h3>Danh sách máy đang sử dụng bản quyền</h3>
+        </div>
+        <small>{assignedAssets.length} máy</small>
+      </div>
+
+      {assignedAssets.length ? (
+        <div className="table-wrap software-license-device-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Thông tin máy</th>
+                <th>Nhóm / loại</th>
+                <th>Người sử dụng</th>
+                <th>Phòng ban</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignedAssets.map(({ id, asset }) => (
+                <tr key={id}>
+                  <td>
+                    <Link className="asset-name" href={`/assets/${id}`}>
+                      <strong>{asset?.asset_name || "Thiết bị"}</strong>
+                      <small>{asset?.asset_code || "Chưa có mã thiết bị"}</small>
+                    </Link>
+                  </td>
+                  <td>
+                    <strong className="table-secondary">{asset?.asset_group_label || "Chưa có nhóm"}</strong>
+                    <small className="table-note">{asset?.asset_type || "Chưa có loại"}</small>
+                  </td>
+                  <td>{asset?.assigned_to_name || "Chưa gán người sử dụng"}</td>
+                  <td>{getDepartmentName(asset)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="empty-state software-license-detail-empty">
+          Bản quyền này chưa được gán cho thiết bị nào.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default async function SoftwarePage() {
@@ -42,7 +146,7 @@ export default async function SoftwarePage() {
     supabase
       .from("software_licenses")
       .select(
-        "id, software_name, version, license_key_masked, assigned_asset_id, assigned_user_name, expiry_date, status, note, created_at, assets(asset_code, asset_name), software_license_assets(asset_id, assets(asset_code, asset_name, asset_group_label, asset_type))",
+        "id, software_name, version, license_key_masked, assigned_asset_id, assigned_user_name, expiry_date, status, note, created_at, assets(asset_code, asset_name, asset_group_label, asset_type, assigned_to_name, department_legacy_name, departments(name)), software_license_assets(asset_id, assets(asset_code, asset_name, asset_group_label, asset_type, assigned_to_name, department_legacy_name, departments(name)))",
       )
       .order("expiry_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -115,17 +219,26 @@ export default async function SoftwarePage() {
                 return (
                   <tr key={license.id}>
                     <td>
-                      {canManage ? (
-                        <Link className="asset-name" href={`/software/${license.id}/edit`}>
-                          <strong>{license.software_name}</strong>
-                          <small>{license.version || "Không ghi phiên bản"}</small>
-                        </Link>
-                      ) : (
-                        <span className="asset-name">
-                          <strong>{license.software_name}</strong>
-                          <small>{license.version || "Không ghi phiên bản"}</small>
-                        </span>
-                      )}
+                      <span className="asset-name">
+                        <ModalTrigger
+                          description="Thông tin phân bổ bản quyền theo từng máy, người sử dụng và phòng ban."
+                          eyebrow="CHI TIẾT BẢN QUYỀN"
+                          size="large"
+                          title={license.software_name}
+                          triggerClassName="software-detail-trigger"
+                          triggerLabel={license.software_name}
+                        >
+                          <SoftwareLicenseDetail
+                            assignments={assignments}
+                            expiryDate={license.expiry_date}
+                            legacyAsset={license.assets as RelatedAsset}
+                            legacyAssetId={license.assigned_asset_id}
+                            status={displayStatus}
+                            version={license.version}
+                          />
+                        </ModalTrigger>
+                        <small>{license.version || "Không ghi phiên bản"}</small>
+                      </span>
                     </td>
                     <td>
                       {assignments.length ? (
@@ -170,6 +283,23 @@ export default async function SoftwarePage() {
                     {showActions ? (
                       <td>
                         <div className="row-actions">
+                          <ModalTrigger
+                            description="Thông tin phân bổ bản quyền theo từng máy, người sử dụng và phòng ban."
+                            eyebrow="CHI TIẾT BẢN QUYỀN"
+                            size="large"
+                            title={license.software_name}
+                            triggerClassName="text-button"
+                            triggerLabel="Xem"
+                          >
+                            <SoftwareLicenseDetail
+                              assignments={assignments}
+                              expiryDate={license.expiry_date}
+                              legacyAsset={license.assets as RelatedAsset}
+                              legacyAssetId={license.assigned_asset_id}
+                              status={displayStatus}
+                              version={license.version}
+                            />
+                          </ModalTrigger>
                           {canManage ? (
                             <Link className="text-button" href={`/software/${license.id}/edit`}>
                               Sửa
