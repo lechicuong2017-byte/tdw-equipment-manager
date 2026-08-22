@@ -263,13 +263,14 @@ const componentLinkSchema = z.object({
 
 function componentRedirect(
   assetId: string,
-  state: "installed" | "removed" | "replaced" | "error",
+  state: "installed" | "updated" | "removed" | "replaced" | "error",
 ) {
   if (state === "error") {
     redirect(`/assets/${assetId}?component_status=error`);
   }
   const messages = {
     installed: "Đã gắn linh kiện vào thiết bị.",
+    updated: "Đã cập nhật ngày lắp và ghi chú linh kiện.",
     removed: "Đã tháo linh kiện và lưu lịch sử.",
     replaced: "Đã thay linh kiện và lưu lịch sử cũ/mới.",
   } as const;
@@ -301,6 +302,43 @@ export async function installAssetComponent(formData: FormData) {
   revalidatePath(`/assets/${parsed.data.host_asset_id}`);
   revalidatePath(`/assets/${parsed.data.component_asset_id}`);
   componentRedirect(parsed.data.host_asset_id, "installed");
+}
+
+const updateComponentInstallationSchema = z.object({
+  host_asset_id: z.uuid(),
+  component_asset_id: z.uuid(),
+  installation_id: z.uuid(),
+  installed_at: z.iso.date("Ngày lắp không hợp lệ"),
+  slot_name: z.string().trim().max(120),
+  note: z.string().trim().max(1000),
+});
+
+export async function updateAssetComponentInstallation(formData: FormData) {
+  const parsed = updateComponentInstallationSchema.safeParse(
+    Object.fromEntries(formData.entries()),
+  );
+  if (!parsed.success) {
+    const hostId = z.uuid().safeParse(formData.get("host_asset_id"));
+    if (hostId.success) componentRedirect(hostId.data, "error");
+    return;
+  }
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "assets.manage")) {
+    componentRedirect(parsed.data.host_asset_id, "error");
+  }
+  const { error } = await supabase.rpc("update_asset_component_installation", {
+    target_installation_id: parsed.data.installation_id,
+    target_installed_at: parsed.data.installed_at,
+    target_slot_name: parsed.data.slot_name,
+    target_note: parsed.data.note,
+  });
+  if (error) componentRedirect(parsed.data.host_asset_id, "error");
+
+  revalidatePath("/assets");
+  revalidatePath(`/assets/${parsed.data.host_asset_id}`);
+  revalidatePath(`/assets/${parsed.data.component_asset_id}`);
+  componentRedirect(parsed.data.host_asset_id, "updated");
 }
 
 const removeComponentSchema = z.object({

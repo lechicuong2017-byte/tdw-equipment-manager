@@ -3663,7 +3663,7 @@ tbody tr.asset-row:hover > td {
   border-top: 1px solid var(--line);
   display: grid;
   gap: 0.6rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding-top: 0.8rem;
 }
 

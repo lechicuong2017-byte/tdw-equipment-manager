@@ -3,6 +3,7 @@ import {
   installAssetComponent,
   removeAssetComponent,
   replaceAssetComponent,
+  updateAssetComponentInstallation,
 } from "@/app/(protected)/assets/actions";
 import { ModalTrigger } from "@/components/app-modal";
 import { formatDate, labelStatus, statusLabels, statusTone } from "@/lib/format";
@@ -165,6 +166,9 @@ export function AssetComponentManager({
                     Lắp {formatDate(installation.installed_at)}
                     {installation.slot_name ? ` · ${installation.slot_name}` : ""}
                   </small>
+                  {installation.install_note ? (
+                    <small>Ghi chú: {installation.install_note}</small>
+                  ) : null}
                   {component.serial_number ? <small>Serial: {component.serial_number}</small> : null}
                   {component.warranty_end_date ? (
                     <small>Bảo hành đến {formatDate(component.warranty_end_date)}</small>
@@ -174,6 +178,34 @@ export function AssetComponentManager({
 
               {canManage ? (
                 <div className="component-card-actions">
+                  <ModalTrigger
+                    description={`Cập nhật ngày lắp, vị trí và ghi chú của ${component.asset_code}.`}
+                    eyebrow="LINH KIỆN"
+                    size="medium"
+                    title="Sửa thông tin lắp"
+                    triggerClassName="secondary-button"
+                    triggerLabel="Sửa thông tin lắp"
+                  >
+                    <form action={updateAssetComponentInstallation} className="component-action-form">
+                      <input name="host_asset_id" type="hidden" value={asset.id} />
+                      <input name="component_asset_id" type="hidden" value={component.id} />
+                      <input name="installation_id" type="hidden" value={installation.id} />
+                      <label>
+                        Ngày lắp
+                        <input defaultValue={installation.installed_at} name="installed_at" required type="date" />
+                      </label>
+                      <label>
+                        Vị trí / khe
+                        <input defaultValue={installation.slot_name} maxLength={120} name="slot_name" />
+                      </label>
+                      <label className="span-2">
+                        Ghi chú
+                        <textarea defaultValue={installation.install_note} maxLength={1000} name="note" rows={4} />
+                      </label>
+                      <button className="primary-button" type="submit">Lưu thay đổi</button>
+                    </form>
+                  </ModalTrigger>
+
                   <ModalTrigger
                     description={`Thay ${component.asset_code} và lưu đầy đủ lịch sử linh kiện cũ/mới.`}
                     eyebrow="LINH KIỆN"
