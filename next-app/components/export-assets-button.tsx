@@ -21,7 +21,7 @@ export function ExportReportButton({
   buttonLabel = "Xuất XLSX",
   filters,
 }: {
-  reportType: "assets" | "liquidations" | "maintenance" | "movement" | "software" | "vehicles" | "vehicle_inspections" | "vehicle_repairs" | "vehicle_fuel";
+  reportType: "assets" | "liquidations" | "maintenance" | "movement" | "software" | "vehicles" | "vehicle_inspections" | "vehicle_insurance" | "vehicle_repairs" | "vehicle_fuel";
   outputFormat?: OutputFormat;
   buttonLabel?: string;
   filters?: ReportExportFilters;

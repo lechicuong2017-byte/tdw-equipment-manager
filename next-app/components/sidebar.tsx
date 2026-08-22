@@ -35,6 +35,7 @@ const vehicleNavItems: ReadonlyArray<{
 }> = [
   { href: "/vehicles", label: "Tổng quan xe", icon: "vehicle", permission: "vehicles.view", tone: "cyan" },
   { href: "/vehicles?section=inspections", label: "Đăng kiểm", icon: "inspection", permission: "vehicles.view", tone: "amber" },
+  { href: "/vehicles?section=insurance", label: "Bảo hiểm", icon: "insurance", permission: "vehicles.view", tone: "blue" },
   { href: "/vehicles?section=repairs", label: "Bảo dưỡng", icon: "maintenance", permission: "vehicles.view", tone: "violet" },
   { href: "/vehicles?section=fuel", label: "Nhiên liệu", icon: "fuel", permission: "vehicles.view", tone: "green" },
   { href: "/vehicles/reports", label: "Báo cáo xe", icon: "reports", permission: "reports.vehicles.export", tone: "rose" },

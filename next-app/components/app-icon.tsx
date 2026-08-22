@@ -20,6 +20,7 @@ export type AppIconName =
   | "timeline"
   | "vehicle"
   | "inspection"
+  | "insurance"
   | "fuel"
   | "users"
   | "value"
@@ -50,6 +51,7 @@ const iconPaths: Record<AppIconName, ReactNode> = {
   timeline: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   vehicle: <><path d="M5 16h14l-1.3-6.2A2.3 2.3 0 0 0 15.5 8h-7a2.3 2.3 0 0 0-2.2 1.8z" /><path d="M3 16v2h2M21 16v2h-2M7 13h.01M17 13h.01M8 8l1-3h6l1 3" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></>,
   inspection: <><path d="M7 3h10v3H7zM5 5h14v16H5z" /><path d="m8 13 2.2 2.2L16 9.5M8 18h8" /></>,
+  insurance: <><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z" /><path d="m8.5 12 2.2 2.2 4.8-5" /></>,
   fuel: <><path d="M6 4h8v16H6zM8 7h4M14 8h2l2 2v7a1.5 1.5 0 0 0 3 0v-6l-2-2" /></>,
   users: <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.5-4 2.5-6 5.5-6s5 2 5.5 6M16 5.5a3 3 0 0 1 0 5.5M16 13c2.5.4 4 2.4 4.5 5" /></>,
   value: <><path d="M4 7h16v11H4zM7 7V5h10v2" /><circle cx="12" cy="12.5" r="2.5" /><path d="M7 10h.01M17 15h.01" /></>,

@@ -9,7 +9,7 @@ import type { AccessProfile } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-const reportTypes = ["assets", "liquidations", "maintenance", "movement", "software", "vehicles", "vehicle_inspections", "vehicle_repairs", "vehicle_fuel"] as const;
+const reportTypes = ["assets", "liquidations", "maintenance", "movement", "software", "vehicles", "vehicle_inspections", "vehicle_insurance", "vehicle_repairs", "vehicle_fuel"] as const;
 type ReportType = (typeof reportTypes)[number];
 const outputFormats = ["xlsx", "pdf"] as const;
 type OutputFormat = (typeof outputFormats)[number];
@@ -38,6 +38,7 @@ const permissionByReport: Record<ReportType, string> = {
   software: "reports.software.export",
   vehicles: "reports.vehicles.export",
   vehicle_inspections: "reports.vehicles.export",
+  vehicle_insurance: "reports.vehicles.export",
   vehicle_repairs: "reports.vehicles.export",
   vehicle_fuel: "reports.vehicles.export",
 };
@@ -605,6 +606,43 @@ async function buildReportPayload(
         { key: "cost", label: "Chi phí" },
         { key: "certificate_number", label: "Số giấy chứng nhận" }, { key: "inspection_center", label: "Trung tâm đăng kiểm" },
         { key: "odometer_km", label: "Số km" }, { key: "reminder_days", label: "Nhắc trước (ngày)" }, { key: "note", label: "Ghi chú" },
+      ],
+      rows,
+    };
+  }
+
+  if (reportType === "vehicle_insurance") {
+    let query = supabase.from("vehicle_insurances")
+      .select("insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,vehicles(vehicle_code,vehicle_name,license_plate)");
+    if (filters.vehicle_id) query = query.eq("vehicle_id", filters.vehicle_id);
+    const dateRange = vehicleReportDateRange(filters);
+    if (dateRange) query = query.gte("starts_on", dateRange.start).lte("starts_on", dateRange.end);
+    const { data, error } = await query.order("starts_on", { ascending: false }).limit(5000);
+    if (error) throw new Error("Không thể đọc dữ liệu bảo hiểm xe");
+    const rows = (data ?? []).map((item) => {
+      const { vehicles, ...row } = item;
+      const vehicle = relatedVehicle(vehicles);
+      return {
+        ...row,
+        vehicle_code: vehicle?.vehicle_code ?? "",
+        vehicle_name: vehicle?.vehicle_name ?? "",
+        license_plate: vehicle?.license_plate ?? "",
+      };
+    });
+    const totalCost = rows.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+    return {
+      report_type: reportType,
+      title: `TDW - Bảo hiểm xe - ${reportScope} - ${dateLabel}`,
+      report_name: "BÁO CÁO BẢO HIỂM XE",
+      requested_by: requestedBy,
+      summary: `Tổng chi phí: ${formatVndSummary(totalCost)}`,
+      columns: [
+        { key: "vehicle_code", label: "Mã xe" }, { key: "vehicle_name", label: "Tên xe" },
+        { key: "license_plate", label: "Biển số" }, { key: "insurance_name", label: "Tên bảo hiểm" },
+        { key: "insurance_type", label: "Loại bảo hiểm" }, { key: "insurance_company", label: "Hãng bảo hiểm" },
+        { key: "certificate_number", label: "Số giấy chứng nhận" }, { key: "starts_on", label: "Ngày bắt đầu" },
+        { key: "expires_on", label: "Ngày kết thúc" }, { key: "cost", label: "Chi phí" },
+        { key: "reminder_days", label: "Nhắc trước (ngày)" }, { key: "note", label: "Ghi chú" },
       ],
       rows,
     };

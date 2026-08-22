@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ConfirmAction, ModalTrigger } from "@/components/app-modal";
 import { AppIcon } from "@/components/app-icon";
 import { PageHeader } from "@/components/page-header";
-import { FuelForm, InspectionForm, RepairForm, VehicleActions, VehicleForm } from "@/components/vehicle-forms";
+import { FuelForm, InspectionForm, InsuranceForm, RepairForm, VehicleActions, VehicleForm } from "@/components/vehicle-forms";
 import { VehicleModuleNav } from "@/components/vehicle-module-nav";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -11,7 +11,7 @@ import { deleteVehicleRecord } from "./actions";
 
 export const metadata = { title: "Quản lý xe" };
 
-type VehicleSection = "overview" | "fleet" | "inspections" | "repairs" | "fuel";
+type VehicleSection = "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel";
 
 type VehicleRelation = { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string } | { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string }[] | null;
 function relatedVehicle(value: VehicleRelation) { return Array.isArray(value) ? value[0] : value; }
@@ -20,7 +20,8 @@ type VehicleDocument = {
   file_name: string;
   id: string;
   record_id: string;
-  record_type: "INSPECTION" | "REPAIR" | "FUEL";
+  record_type: "INSPECTION" | "REPAIR" | "FUEL" | "INSURANCE";
+  document_kind: "INVOICE" | "CERTIFICATE";
   stored_byte_size: number | string;
 };
 
@@ -31,7 +32,7 @@ function formatFileSize(value: number | string) {
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-function VehicleDocumentLink({ document }: { document?: VehicleDocument }) {
+function VehicleDocumentLink({ document, label = "Hóa đơn PDF" }: { document?: VehicleDocument; label?: string }) {
   if (!document) return <span className="vehicle-document-empty">—</span>;
   return (
     <a
@@ -42,7 +43,7 @@ function VehicleDocumentLink({ document }: { document?: VehicleDocument }) {
       title={document.file_name}
     >
       <AppIcon name="reports" size={14} />
-      <span>Hóa đơn PDF<small>{formatFileSize(document.stored_byte_size)}</small></span>
+      <span>{label}<small>{formatFileSize(document.stored_byte_size)}</small></span>
     </a>
   );
 }
@@ -78,12 +79,12 @@ function VehicleDetailNote({ note }: { note?: string | null }) {
   );
 }
 
-function VehicleDocumentDetail({ document }: { document?: VehicleDocument }) {
+function VehicleDocumentDetail({ document, label = "Hóa đơn / chứng từ PDF" }: { document?: VehicleDocument; label?: string }) {
   return (
     <section className={`vehicle-record-document ${document ? "vehicle-record-document--ready" : ""}`}>
       <span className="vehicle-record-document-icon"><AppIcon name="reports" size={21} /></span>
       <div>
-        <strong>Hóa đơn / chứng từ PDF</strong>
+        <strong>{label}</strong>
         {document ? <p title={document.file_name}>{document.file_name} · {formatFileSize(document.stored_byte_size)}</p> : <p>Chưa có tài liệu đính kèm cho bản ghi này.</p>}
       </div>
       {document ? <div className="vehicle-record-document-actions">
@@ -131,7 +132,7 @@ function pageRows<T>(rows: T[], page: number) {
   return rows.slice(offset, offset + vehiclePageSize);
 }
 
-function VehiclePagination({ section, page, totalRows }: { section: "inspections" | "repairs" | "fuel"; page: number; totalRows: number }) {
+function VehiclePagination({ section, page, totalRows }: { section: "inspections" | "insurance" | "repairs" | "fuel"; page: number; totalRows: number }) {
   if (totalRows <= vehiclePageSize) return null;
   const totalPages = Math.max(1, Math.ceil(totalRows / vehiclePageSize));
   const from = totalRows ? (page - 1) * vehiclePageSize + 1 : 0;
@@ -152,42 +153,49 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const requestedSection = params.section;
   const requestedPage = Number.isFinite(Number(params.page)) ? Math.max(1, Math.trunc(Number(params.page))) : 1;
-  const section: VehicleSection = ["fleet", "inspections", "repairs", "fuel"].includes(requestedSection ?? "")
+  const section: VehicleSection = ["fleet", "inspections", "insurance", "repairs", "fuel"].includes(requestedSection ?? "")
     ? requestedSection as VehicleSection
     : "overview";
   const { access, supabase } = await requireAccess();
   const canManage = can(access, "vehicles.manage");
   const canDelete = can(access, "vehicles.delete");
-  const [vehiclesResult, inspectionsResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult] = await Promise.all([
+  const [vehiclesResult, inspectionsResult, insurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult] = await Promise.all([
     supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500),
     supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("inspection_date", { ascending: false }).limit(500),
+    supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("starts_on", { ascending: false }).limit(500),
     supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("service_date", { ascending: false }).limit(500),
     supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("payment_date", { ascending: false }).limit(500),
     supabase.from("departments").select("id,name").order("name").limit(500),
     supabase.from("profiles").select("id,full_name,email").eq("active", true).order("full_name").limit(500),
-    supabase.from("vehicle_documents").select("id,file_name,record_id,record_type,stored_byte_size").order("created_at", { ascending: false }).limit(1500),
+    supabase.from("vehicle_documents").select("id,file_name,record_id,record_type,document_kind,stored_byte_size").order("created_at", { ascending: false }).limit(1500),
   ]);
   const vehicles = vehiclesResult.data ?? [];
   const inspections = inspectionsResult.data ?? [];
+  const insurances = insurancesResult.data ?? [];
   const repairs = repairsResult.data ?? [];
   const fuelLogs = fuelResult.data ?? [];
   const vehicleDocuments = (documentsResult.data ?? []) as VehicleDocument[];
   const documentByRecord = new Map(
     vehicleDocuments.map((item) => [
-      `${item.record_type}:${item.record_id}`,
+      `${item.record_type}:${item.record_id}:${item.document_kind}`,
       item,
     ]),
   );
   const inspectionsPage = boundedPage(requestedPage, inspections.length);
+  const insurancePage = boundedPage(requestedPage, insurances.length);
   const repairsPage = boundedPage(requestedPage, repairs.length);
   const fuelPage = boundedPage(requestedPage, fuelLogs.length);
   const visibleInspections = pageRows(inspections, inspectionsPage);
+  const visibleInsurances = pageRows(insurances, insurancePage);
   const visibleRepairs = pageRows(repairs, repairsPage);
   const visibleFuelLogs = pageRows(fuelLogs, fuelPage);
   const today = vietnamToday();
   const latestInspectionByVehicle = new Map<string, (typeof inspections)[number]>();
   inspections.forEach((item) => { if (!latestInspectionByVehicle.has(item.vehicle_id)) latestInspectionByVehicle.set(item.vehicle_id, item); });
   const upcoming = [...latestInspectionByVehicle.values()].filter((item) => daysUntil(item.expires_on, today) <= item.reminder_days).sort((a, b) => a.expires_on.localeCompare(b.expires_on));
+  const latestInsuranceByVehicle = new Map<string, (typeof insurances)[number]>();
+  insurances.forEach((item) => { if (!latestInsuranceByVehicle.has(item.vehicle_id)) latestInsuranceByVehicle.set(item.vehicle_id, item); });
+  const upcomingInsurance = [...latestInsuranceByVehicle.values()].filter((item) => daysUntil(item.expires_on, today) <= item.reminder_days).sort((a, b) => a.expires_on.localeCompare(b.expires_on));
   const totalRepairCost = repairs.reduce((sum, item) => sum + Number(item.vat_amount || 0), 0);
   const totalFuelCost = fuelLogs.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const activeVehicles = vehicles.filter((vehicle) => vehicle.status === "ACTIVE").length;
@@ -198,6 +206,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     { key: "overview" as const, label: "Tổng quan", icon: "dashboard" as const, description: "Số liệu và việc cần chú ý" },
     { key: "fleet" as const, label: "Hồ sơ xe", icon: "vehicle" as const, description: "Danh sách phương tiện đang quản lý" },
     { key: "inspections" as const, label: "Đăng kiểm", icon: "inspection" as const, description: "Lịch sử, hạn đăng kiểm và cảnh báo" },
+    { key: "insurance" as const, label: "Bảo hiểm", icon: "insurance" as const, description: "Hợp đồng, chứng nhận và cảnh báo hết hạn" },
     { key: "repairs" as const, label: "Bảo dưỡng", icon: "maintenance" as const, description: "Bảo dưỡng và sửa chữa phương tiện" },
     { key: "fuel" as const, label: "Nhiên liệu", icon: "fuel" as const, description: "Theo dõi các lần mua nhiên liệu" },
   ];
@@ -206,7 +215,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <div className="vehicle-page-header">
-        <PageHeader eyebrow="PHƯƠNG TIỆN" title="Quản lý xe" description="Theo dõi tập trung hồ sơ xe, đăng kiểm, bảo dưỡng sửa chữa và nhiên liệu." />
+        <PageHeader eyebrow="PHƯƠNG TIỆN" title="Quản lý xe" description="Theo dõi tập trung hồ sơ xe, đăng kiểm, bảo hiểm, bảo dưỡng sửa chữa và nhiên liệu." />
       </div>
       <VehicleModuleNav active={section} />
       <section className={`vehicle-command-bar vehicle-command-bar--${section}`}>
@@ -221,6 +230,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
         <section className="metric-grid vehicle-stats-grid" aria-label="Tổng quan phương tiện">
           <article className="metric-card metric-primary"><span className="metric-icon"><AppIcon name="vehicle" /></span><p>Tổng số xe</p><strong>{vehicles.length}</strong><small>Hồ sơ đang quản lý</small></article>
           <article className="metric-card metric-tone-amber"><span className="metric-icon"><AppIcon name="inspection" /></span><p>Đăng kiểm cần chú ý</p><strong>{upcoming.length}</strong><small>Trong hạn nhắc hoặc đã quá hạn</small></article>
+          <article className="metric-card metric-tone-blue"><span className="metric-icon"><AppIcon name="insurance" /></span><p>Bảo hiểm cần chú ý</p><strong>{upcomingInsurance.length}</strong><small>Theo ngày nhắc của từng hợp đồng</small></article>
           <article className="metric-card metric-tone-violet"><span className="metric-icon"><AppIcon name="maintenance" /></span><p>Chi phí bảo dưỡng</p><strong className="metric-money">{formatMoney(totalRepairCost)}</strong><small>{repairs.length} lần ghi nhận</small></article>
           <article className="metric-card metric-tone-green"><span className="metric-icon"><AppIcon name="fuel" /></span><p>Chi phí nhiên liệu</p><strong className="metric-money">{formatMoney(totalFuelCost)}</strong><small>{fuelLogs.length} lần mua</small></article>
         </section>
@@ -230,6 +240,13 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
             <div className="vehicle-alert-list">
               {upcoming.slice(0, 5).map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); return <div className="vehicle-alert-item" key={item.id}><span className="vehicle-alert-icon"><AppIcon name="inspection" size={18} /></span><div><strong>{vehicle?.vehicle_name || "Chưa rõ xe"}</strong><small>{vehicle?.license_plate || "Chưa có biển số"} · hết hạn {formatDate(item.expires_on)}</small></div><span className={`status-pill ${due.className}`}>{due.label}</span></div>; })}
               {!upcoming.length ? <div className="vehicle-overview-empty"><span><AppIcon name="checkCircle" size={22} /></span><div><strong>Chưa có đăng kiểm cần xử lý</strong><p>Các xe trong hạn nhắc sẽ xuất hiện tại đây.</p></div></div> : null}
+            </div>
+          </article>
+          <article className="panel vehicle-overview-card vehicle-overview-card--insurance">
+            <div className="panel-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>Bảo hiểm sắp hết hạn</h2></div><Link className="text-link" href="/vehicles?section=insurance">Xem chi tiết →</Link></div>
+            <div className="vehicle-alert-list">
+              {upcomingInsurance.slice(0, 5).map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); return <div className="vehicle-alert-item" key={item.id}><span className="vehicle-alert-icon"><AppIcon name="insurance" size={18} /></span><div><strong>{vehicle?.vehicle_name || "Chưa rõ xe"}</strong><small>{vehicle?.license_plate || "Chưa có biển số"} · hết hạn {formatDate(item.expires_on)}</small></div><span className={`status-pill ${due.className}`}>{due.label}</span></div>; })}
+              {!upcomingInsurance.length ? <div className="vehicle-overview-empty"><span><AppIcon name="checkCircle" size={22} /></span><div><strong>Chưa có bảo hiểm cần xử lý</strong><p>Hợp đồng đến hạn nhắc sẽ xuất hiện tại đây.</p></div></div> : null}
             </div>
           </article>
           <article className="panel vehicle-overview-card vehicle-overview-card--fleet">
@@ -292,7 +309,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           {visibleInspections.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
             const due = dueTone(daysUntil(item.expires_on, today));
-            const document = documentByRecord.get(`INSPECTION:${item.id}`);
+            const document = documentByRecord.get(`INSPECTION:${item.id}:INVOICE`);
             return <tr key={item.id}>
               <td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td>
               <td>{formatDate(item.inspection_date)}</td>
@@ -331,12 +348,59 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
         <VehiclePagination page={inspectionsPage} section="inspections" totalRows={inspections.length} />
       </section> : null}
 
+      {section === "insurance" ? <section className="panel vehicle-section-panel vehicle-section-panel--insurance">
+        <div className="panel-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>Hợp đồng và hồ sơ bảo hiểm</h2></div><small>{insurances.length} hợp đồng</small></div>
+        <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Bảo hiểm</th><th>Hiệu lực</th><th>Hãng / chứng nhận</th><th>Chi phí</th><th>Tình trạng</th><th>Hồ sơ PDF</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
+          {visibleInsurances.map((item) => {
+            const vehicle = relatedVehicle(item.vehicles);
+            const due = dueTone(daysUntil(item.expires_on, today));
+            const invoiceDocument = documentByRecord.get(`INSURANCE:${item.id}:INVOICE`);
+            const certificateDocument = documentByRecord.get(`INSURANCE:${item.id}:CERTIFICATE`);
+            return <tr key={item.id}>
+              <td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td>
+              <td><strong>{item.insurance_name}</strong><small>{item.insurance_type}</small></td>
+              <td><strong>{formatDate(item.starts_on)} → {formatDate(item.expires_on)}</strong><small>Nhắc trước {item.reminder_days} ngày</small></td>
+              <td>{item.insurance_company}<small>{item.certificate_number || "Chưa có số chứng nhận"}</small></td>
+              <td>{formatMoney(Number(item.cost))}</td>
+              <td><span className={`status-pill ${due.className}`}>{due.label}</span></td>
+              <td><div className="vehicle-document-stack"><VehicleDocumentLink document={invoiceDocument} label="Hóa đơn" /><VehicleDocumentLink document={certificateDocument} label="Chứng nhận" /></div></td>
+              <td className="vehicle-actions-column"><div className="row-actions">
+                <ModalTrigger description={`${vehicle?.license_plate ?? "Chưa có biển số"} · ${vehicle?.vehicle_name ?? "Chưa rõ xe"}`} eyebrow="CHI TIẾT BẢO HIỂM" size="medium" title={item.insurance_name} triggerClassName="text-button" triggerLabel="Xem">
+                  <div className="vehicle-record-detail">
+                    <VehicleDetailGrid fields={[
+                      { label: "Xe", value: vehicle?.vehicle_name },
+                      { label: "Biển số", value: vehicle?.license_plate },
+                      { label: "Tên bảo hiểm", value: item.insurance_name },
+                      { label: "Loại bảo hiểm", value: item.insurance_type },
+                      { label: "Hãng bảo hiểm", value: item.insurance_company },
+                      { label: "Số giấy chứng nhận", value: item.certificate_number },
+                      { label: "Ngày bắt đầu", value: formatDate(item.starts_on) },
+                      { label: "Ngày kết thúc", value: formatDate(item.expires_on) },
+                      { label: "Tình trạng", value: due.label },
+                      { label: "Nhắc trước", value: `${item.reminder_days} ngày` },
+                      { label: "Chi phí", value: formatMoney(Number(item.cost)) },
+                    ]} />
+                    <VehicleDetailNote note={item.note} />
+                    <VehicleDocumentDetail document={invoiceDocument} label="Hóa đơn bảo hiểm PDF" />
+                    <VehicleDocumentDetail document={certificateDocument} label="Giấy chứng nhận bảo hiểm PDF" />
+                  </div>
+                </ModalTrigger>
+                {canManage ? <ModalTrigger description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="text-button" triggerLabel="Sửa"><InsuranceForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
+                {canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Hợp đồng bảo hiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "insurance" }} title="Xóa bảo hiểm?" /> : null}
+              </div></td>
+            </tr>;
+          })}
+          {!insurances.length ? <tr><td className="empty-cell" colSpan={8}>Chưa có hồ sơ bảo hiểm xe.</td></tr> : null}
+        </tbody></table></div>
+        <VehiclePagination page={insurancePage} section="insurance" totalRows={insurances.length} />
+      </section> : null}
+
       {section === "repairs" ? <section className="panel vehicle-section-panel vehicle-section-panel--repairs">
         <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><small>{repairs.length} bản ghi</small></div>
         <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí VAT</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleRepairs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
-            const document = documentByRecord.get(`REPAIR:${item.id}`);
+            const document = documentByRecord.get(`REPAIR:${item.id}:INVOICE`);
             return <tr key={item.id}>
               <td><strong>{formatDate(item.service_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td>
               <td><strong>{item.description}</strong><small>{serviceTypeLabel(item.service_type)}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td>
@@ -378,7 +442,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
         <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Số tiền</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleFuelLogs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
-            const document = documentByRecord.get(`FUEL:${item.id}`);
+            const document = documentByRecord.get(`FUEL:${item.id}:INVOICE`);
             const distance = item.odometer_from != null && item.odometer_to != null ? Number(item.odometer_to) - Number(item.odometer_from) : null;
             return <tr key={item.id}>
               <td><strong>{formatDate(item.payment_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td>

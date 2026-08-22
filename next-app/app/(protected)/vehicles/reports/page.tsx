@@ -15,7 +15,7 @@ export default async function VehicleReportsPage() {
   return (
     <>
       <div className="vehicle-page-header">
-        <PageHeader eyebrow="BÁO CÁO PHƯƠNG TIỆN" title="Báo cáo xe" description="Xuất hồ sơ xe, đăng kiểm, bảo dưỡng và nhiên liệu theo năm, tháng hoặc từng xe." />
+        <PageHeader eyebrow="BÁO CÁO PHƯƠNG TIỆN" title="Báo cáo xe" description="Xuất hồ sơ xe, đăng kiểm, bảo hiểm, bảo dưỡng và nhiên liệu theo năm, tháng hoặc từng xe." />
       </div>
       <VehicleModuleNav active="reports" />
       {canExport ? <VehicleReportSection showHeading={false} vehicles={vehicles ?? []} /> : <section className="panel"><p className="muted">Bạn không có quyền xuất báo cáo xe.</p></section>}

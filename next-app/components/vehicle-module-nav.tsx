@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 
-type VehicleNavSection = "overview" | "fleet" | "inspections" | "repairs" | "fuel" | "reports";
+type VehicleNavSection = "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" | "reports";
 
 const items: { key: VehicleNavSection; label: string; icon: AppIconName; href: string }[] = [
   { key: "overview", label: "Tổng quan", icon: "dashboard", href: "/vehicles" },
   { key: "fleet", label: "Hồ sơ xe", icon: "vehicle", href: "/vehicles?section=fleet" },
   { key: "inspections", label: "Đăng kiểm", icon: "inspection", href: "/vehicles?section=inspections" },
+  { key: "insurance", label: "Bảo hiểm", icon: "insurance", href: "/vehicles?section=insurance" },
   { key: "repairs", label: "Bảo dưỡng", icon: "maintenance", href: "/vehicles?section=repairs" },
   { key: "fuel", label: "Nhiên liệu", icon: "fuel", href: "/vehicles?section=fuel" },
   { key: "reports", label: "Báo cáo xe", icon: "reports", href: "/vehicles/reports" },

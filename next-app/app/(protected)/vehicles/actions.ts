@@ -71,33 +71,50 @@ const fuelSchema = z.object({
   message: "Số km đến phải lớn hơn hoặc bằng số km từ",
 });
 
+const insuranceSchema = z.object({
+  id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
+  vehicle_id: z.uuid("Xe không hợp lệ"),
+  insurance_name: z.string().trim().min(1, "Tên bảo hiểm là bắt buộc").max(200),
+  insurance_type: z.string().trim().min(1, "Loại bảo hiểm là bắt buộc").max(160),
+  insurance_company: z.string().trim().min(1, "Hãng bảo hiểm là bắt buộc").max(200),
+  certificate_number: z.string().trim().max(120),
+  starts_on: z.iso.date("Ngày bắt đầu không hợp lệ"),
+  expires_on: z.iso.date("Ngày kết thúc không hợp lệ"),
+  cost: z.coerce.number().min(0).max(1000000000000),
+  reminder_days: z.coerce.number().int().min(1).max(365),
+  note: z.string().trim().max(3000),
+}).refine((value) => value.expires_on >= value.starts_on, {
+  message: "Ngày kết thúc phải từ ngày bắt đầu trở đi",
+});
+
 export type VehicleActionState = { error?: string; success?: string };
 
-type VehicleDocumentType = "INSPECTION" | "REPAIR" | "FUEL";
+type VehicleDocumentType = "INSPECTION" | "REPAIR" | "FUEL" | "INSURANCE";
+type VehicleDocumentKind = "INVOICE" | "CERTIFICATE";
 type VehiclePdfCompressionMethod = "LOSSLESS" | "RASTERIZED";
 type SavedVehicleRow = VehicleActionState & { recordId?: string };
 
 const maxInvoicePdfBytes = 5 * 1024 * 1024;
 
-function getInvoicePdf(formData: FormData): {
+function getVehiclePdf(formData: FormData, fieldName = "invoice_pdf", label = "Hóa đơn"): {
   compressionMethod?: VehiclePdfCompressionMethod;
   error?: string;
   file?: File;
   originalByteSize?: number;
 } {
-  if (formData.get("invoice_pdf_optimizing") === "1") {
-    return { error: "PDF hóa đơn vẫn đang được nén. Hãy chờ hoàn tất rồi lưu lại." };
+  if (formData.get(`${fieldName}_optimizing`) === "1") {
+    return { error: `PDF ${label.toLowerCase()} vẫn đang được nén. Hãy chờ hoàn tất rồi lưu lại.` };
   }
-  const value = formData.get("invoice_pdf");
+  const value = formData.get(fieldName);
   if (!(value instanceof File) || !value.size) return {};
   if (value.type !== "application/pdf" || !value.name.toLowerCase().endsWith(".pdf")) {
-    return { error: "Hóa đơn chỉ chấp nhận tệp PDF." };
+    return { error: `${label} chỉ chấp nhận tệp PDF.` };
   }
   if (value.size > maxInvoicePdfBytes) {
     return { error: "PDF sau khi nén không được vượt quá 5 MB." };
   }
-  const methodValue = formData.get("invoice_pdf_compression_method");
-  const originalSizeValue = Number(formData.get("invoice_pdf_original_byte_size"));
+  const methodValue = formData.get(`${fieldName}_compression_method`);
+  const originalSizeValue = Number(formData.get(`${fieldName}_original_byte_size`));
   const originalByteSize = Number.isFinite(originalSizeValue)
     && originalSizeValue >= value.size
     && originalSizeValue <= 20 * 1024 * 1024
@@ -157,6 +174,7 @@ async function storeVehicleDocument({
   compressionMethod,
   file,
   originalByteSize,
+  documentKind,
   recordId,
   recordType,
   supabase,
@@ -166,6 +184,7 @@ async function storeVehicleDocument({
   compressionMethod: VehiclePdfCompressionMethod;
   file: File;
   originalByteSize: number;
+  documentKind: VehicleDocumentKind;
   recordId: string;
   recordType: VehicleDocumentType;
   supabase: Awaited<ReturnType<typeof requireAccess>>["supabase"];
@@ -183,6 +202,7 @@ async function storeVehicleDocument({
     .select("id,object_path")
     .eq("record_type", recordType)
     .eq("record_id", recordId)
+    .eq("document_kind", documentKind)
     .maybeSingle();
   const documentId = existing?.id ?? crypto.randomUUID();
   const objectPath = `${access.user_id}/${vehicleId}/${recordType}/${recordId}/${crypto.randomUUID()}.pdf`;
@@ -205,6 +225,7 @@ async function storeVehicleDocument({
     object_path: objectPath,
     original_byte_size: Math.max(originalByteSize, optimized.originalByteSize),
     page_count: optimized.pageCount,
+    document_kind: documentKind,
     record_id: recordId,
     record_type: recordType,
     stored_byte_size: optimized.storedByteSize,
@@ -233,7 +254,7 @@ async function storeVehicleDocument({
 }
 
 async function saveRow(
-  table: "vehicles" | "vehicle_inspections" | "vehicle_repairs" | "vehicle_fuel_logs",
+  table: "vehicles" | "vehicle_inspections" | "vehicle_repairs" | "vehicle_fuel_logs" | "vehicle_insurances",
   data: Record<string, unknown> & { id?: string | null },
   success: string,
 ): Promise<SavedVehicleRow> {
@@ -260,14 +281,14 @@ export async function saveVehicle(_state: VehicleActionState, formData: FormData
 }
 
 export async function saveVehicleInspection(_state: VehicleActionState, formData: FormData) {
-  const invoice = getInvoicePdf(formData);
+  const invoice = getVehiclePdf(formData);
   if (invoice.error) return { error: invoice.error };
   const parsed = inspectionSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
   const saved = await saveRow("vehicle_inspections", parsed.data, parsed.data.id ? "Đã cập nhật đăng kiểm." : "Đã ghi nhận đăng kiểm.");
   if (saved.error || !saved.recordId || !invoice.file) return saved;
   const context = await requireAccess();
-  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "INSPECTION", vehicleId: parsed.data.vehicle_id });
+  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "INSPECTION", vehicleId: parsed.data.vehicle_id });
   revalidatePath("/vehicles");
   return document.error
     ? { success: `${saved.success} ${document.error} Bạn có thể mở Sửa để tải lại.` }
@@ -275,14 +296,14 @@ export async function saveVehicleInspection(_state: VehicleActionState, formData
 }
 
 export async function saveVehicleRepair(_state: VehicleActionState, formData: FormData) {
-  const invoice = getInvoicePdf(formData);
+  const invoice = getVehiclePdf(formData);
   if (invoice.error) return { error: invoice.error };
   const parsed = repairSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
   const saved = await saveRow("vehicle_repairs", parsed.data, parsed.data.id ? "Đã cập nhật bảo dưỡng." : "Đã ghi nhận bảo dưỡng.");
   if (saved.error || !saved.recordId || !invoice.file) return saved;
   const context = await requireAccess();
-  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "REPAIR", vehicleId: parsed.data.vehicle_id });
+  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "REPAIR", vehicleId: parsed.data.vehicle_id });
   revalidatePath("/vehicles");
   return document.error
     ? { success: `${saved.success} ${document.error} Bạn có thể mở Sửa để tải lại.` }
@@ -290,22 +311,57 @@ export async function saveVehicleRepair(_state: VehicleActionState, formData: Fo
 }
 
 export async function saveVehicleFuel(_state: VehicleActionState, formData: FormData) {
-  const invoice = getInvoicePdf(formData);
+  const invoice = getVehiclePdf(formData);
   if (invoice.error) return { error: invoice.error };
   const parsed = fuelSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
   const saved = await saveRow("vehicle_fuel_logs", parsed.data, parsed.data.id ? "Đã cập nhật nhiên liệu." : "Đã ghi nhận nhiên liệu.");
   if (saved.error || !saved.recordId || !invoice.file) return saved;
   const context = await requireAccess();
-  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "FUEL", vehicleId: parsed.data.vehicle_id });
+  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "FUEL", vehicleId: parsed.data.vehicle_id });
   revalidatePath("/vehicles");
   return document.error
     ? { success: `${saved.success} ${document.error} Bạn có thể mở Sửa để tải lại.` }
     : { success: `${saved.success} ${document.success}` };
 }
 
+export async function saveVehicleInsurance(_state: VehicleActionState, formData: FormData) {
+  const invoice = getVehiclePdf(formData, "insurance_invoice_pdf", "Hóa đơn bảo hiểm");
+  if (invoice.error) return { error: invoice.error };
+  const certificate = getVehiclePdf(formData, "insurance_certificate_pdf", "Giấy chứng nhận bảo hiểm");
+  if (certificate.error) return { error: certificate.error };
+  const parsed = insuranceSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
+  const saved = await saveRow(
+    "vehicle_insurances",
+    parsed.data,
+    parsed.data.id ? "Đã cập nhật bảo hiểm xe." : "Đã ghi nhận bảo hiểm xe.",
+  );
+  if (saved.error || !saved.recordId || (!invoice.file && !certificate.file)) return saved;
+  const context = await requireAccess();
+  const messages: string[] = [];
+  for (const document of [
+    invoice.file ? { ...invoice, file: invoice.file, kind: "INVOICE" as const } : null,
+    certificate.file ? { ...certificate, file: certificate.file, kind: "CERTIFICATE" as const } : null,
+  ].filter((item): item is NonNullable<typeof item> => Boolean(item))) {
+    const result = await storeVehicleDocument({
+      ...context,
+      compressionMethod: document.compressionMethod ?? "LOSSLESS",
+      documentKind: document.kind,
+      file: document.file,
+      originalByteSize: document.originalByteSize ?? document.file.size,
+      recordId: saved.recordId,
+      recordType: "INSURANCE",
+      vehicleId: parsed.data.vehicle_id,
+    });
+    messages.push(result.error ?? result.success ?? "");
+  }
+  revalidatePath("/vehicles");
+  return { success: [saved.success, ...messages].filter(Boolean).join(" ") };
+}
+
 export async function deleteVehicleRecord(formData: FormData): Promise<VehicleActionState> {
-  const kind = z.enum(["vehicle", "inspection", "repair", "fuel"]).safeParse(formData.get("kind"));
+  const kind = z.enum(["vehicle", "inspection", "repair", "fuel", "insurance"]).safeParse(formData.get("kind"));
   const id = z.uuid().safeParse(formData.get("id"));
   if (!kind.success || !id.success) return { error: "Bản ghi không hợp lệ." };
   const { access, supabase } = await requireAccess();
@@ -347,7 +403,31 @@ export async function deleteVehicleRecord(formData: FormData): Promise<VehicleAc
     revalidatePath("/vehicles/reports");
     return { success: "Đã ẩn hồ sơ xe; toàn bộ lịch sử vẫn được giữ nguyên." };
   }
-  const table = kind.data === "inspection" ? "vehicle_inspections" : kind.data === "repair" ? "vehicle_repairs" : "vehicle_fuel_logs";
+  if (kind.data === "insurance") {
+    const { data: documents, error: documentFindError } = await supabase
+      .from("vehicle_documents")
+      .select("id,object_path")
+      .eq("record_type", "INSURANCE")
+      .eq("record_id", id.data);
+    if (documentFindError) return { error: "Không thể kiểm tra hồ sơ PDF của bảo hiểm." };
+    const objectPaths = (documents ?? []).map((item) => item.object_path);
+    if (objectPaths.length) {
+      const { error: storageError } = await supabase.storage.from("vehicle-documents").remove(objectPaths);
+      if (storageError) return { error: "Không thể xóa hồ sơ PDF của bảo hiểm." };
+      const { error: metadataError } = await supabase
+        .from("vehicle_documents")
+        .delete()
+        .in("id", (documents ?? []).map((item) => item.id));
+      if (metadataError) return { error: "Không thể dọn thông tin hồ sơ PDF của bảo hiểm." };
+    }
+  }
+  const table = kind.data === "inspection"
+    ? "vehicle_inspections"
+    : kind.data === "repair"
+      ? "vehicle_repairs"
+      : kind.data === "insurance"
+        ? "vehicle_insurances"
+        : "vehicle_fuel_logs";
   const { error } = await supabase.from(table).delete().eq("id", id.data);
   if (error) return { error: "Không thể xóa bản ghi." };
   revalidatePath("/vehicles");

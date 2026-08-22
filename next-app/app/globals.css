@@ -33,7 +33,7 @@
 .module-picker-icon { align-items: center; background: color-mix(in srgb, currentColor 12%, white); border-radius: 18px; display: flex; height: 68px; justify-content: center; margin-bottom: 1.8rem; width: 68px; }
 .vehicle-page-header .page-header { margin-bottom: 1.35rem; }
 .vehicle-page-header .muted { max-width: 760px; }
-.vehicle-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 37, 55, 0.04); display: grid; gap: 0.35rem; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 1rem; padding: 0.4rem; }
+.vehicle-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 37, 55, 0.04); display: grid; gap: 0.35rem; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-bottom: 1rem; padding: 0.4rem; }
 .vehicle-tabs a { align-items: center; border-radius: 11px; color: var(--ink-soft); display: flex; font-size: 0.8rem; font-weight: 800; gap: 0.55rem; justify-content: center; min-height: 46px; padding: 0 0.8rem; transition: background 160ms ease, color 160ms ease, transform 160ms ease; }
 .vehicle-tabs a:hover { background: var(--surface-muted); color: var(--ink); }
 .vehicle-tabs a.active { background: linear-gradient(135deg, #e2f4f8, #d8eef5); color: var(--brand-dark); }
@@ -42,6 +42,7 @@
 .vehicle-command-bar--overview { --vehicle-section-accent: #3977cf; }
 .vehicle-command-bar--fleet { --vehicle-section-accent: #128396; }
 .vehicle-command-bar--inspections { --vehicle-section-accent: #b56b0b; }
+.vehicle-command-bar--insurance { --vehicle-section-accent: #3977cf; }
 .vehicle-command-bar--repairs { --vehicle-section-accent: #7559c7; }
 .vehicle-command-bar--fuel { --vehicle-section-accent: #178361; }
 .vehicle-command-context { align-items: center; display: flex; flex: 1 1 300px; gap: 0.85rem; min-width: 0; }
@@ -64,6 +65,7 @@
 .vehicle-overview-grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr); }
 .vehicle-overview-card { border-top: 3px solid var(--brand); min-height: 290px; }
 .vehicle-overview-card--inspection { border-top-color: #b56b0b; }
+.vehicle-overview-card--insurance { border-top-color: #3977cf; }
 .vehicle-overview-card--fleet { border-top-color: #128396; }
 .vehicle-alert-list { display: grid; gap: 0.15rem; }
 .vehicle-alert-item { align-items: center; border-bottom: 1px solid var(--line); display: grid; gap: 0.75rem; grid-template-columns: auto minmax(0, 1fr) auto; padding: 0.8rem 0; }
@@ -88,8 +90,11 @@
 .vehicle-section-panel { border-top: 4px solid var(--brand); overflow: hidden; }
 .vehicle-section-panel--fleet { border-top-color: #128396; }
 .vehicle-section-panel--inspections { border-top-color: #b56b0b; }
+.vehicle-section-panel--insurance { border-top-color: #3977cf; }
 .vehicle-section-panel--repairs { border-top-color: #7559c7; }
 .vehicle-section-panel--fuel { border-top-color: #178361; }
+.vehicle-document-stack { display: grid; gap: 0.35rem; min-width: 120px; }
+.vehicle-document-stack .vehicle-document-link { width: fit-content; }
 .vehicle-section-panel table { min-width: 1180px; }
 .vehicle-section-panel--fleet table { min-width: 1260px; }
 .vehicle-section-panel th,

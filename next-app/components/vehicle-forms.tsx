@@ -6,6 +6,7 @@ import {
   previewVehicleImport,
   saveVehicle,
   saveVehicleFuel,
+  saveVehicleInsurance,
   saveVehicleInspection,
   saveVehicleRepair,
   type VehicleActionState,
@@ -79,6 +80,22 @@ export type FuelFormInitial = {
   purchaser?: string | null;
   note?: string | null;
   invoice_file_name?: string | null;
+};
+
+export type InsuranceFormInitial = {
+  id: string;
+  vehicle_id: string;
+  insurance_name: string;
+  insurance_type: string;
+  insurance_company: string;
+  certificate_number?: string | null;
+  starts_on: string;
+  expires_on: string;
+  cost?: number | string | null;
+  reminder_days?: number | null;
+  note?: string | null;
+  invoice_file_name?: string | null;
+  certificate_file_name?: string | null;
 };
 
 function VehicleSelect({ vehicles, defaultValue = "" }: { vehicles: VehicleOption[]; defaultValue?: string }) {
@@ -195,6 +212,32 @@ export function FuelForm({ vehicles, initial }: { vehicles: VehicleOption[]; ini
   );
 }
 
+export function InsuranceForm({ vehicles, initial }: { vehicles: VehicleOption[]; initial?: InsuranceFormInitial }) {
+  const [state, action, pending] = useActionState(saveVehicleInsurance, initialState);
+  return (
+    <form action={action} className="data-form vehicle-form">
+      <ActionStateToast state={state} />
+      {initial ? <input name="id" type="hidden" value={initial.id} /> : null}
+      <div className="form-grid">
+        <label className="span-2">Xe *<VehicleSelect defaultValue={initial?.vehicle_id} vehicles={vehicles} /></label>
+        <label>Tên bảo hiểm *<input defaultValue={initial?.insurance_name ?? ""} name="insurance_name" maxLength={200} required placeholder="Bảo hiểm vật chất xe" /></label>
+        <label>Loại bảo hiểm *<input defaultValue={initial?.insurance_type ?? ""} name="insurance_type" maxLength={160} required placeholder="TNDS / vật chất / tai nạn" /></label>
+        <label className="span-2">Hãng bảo hiểm *<input defaultValue={initial?.insurance_company ?? ""} name="insurance_company" maxLength={200} required placeholder="Tên doanh nghiệp bảo hiểm" /></label>
+        <label>Số giấy chứng nhận<input defaultValue={initial?.certificate_number ?? ""} name="certificate_number" maxLength={120} /></label>
+        <label>Ngày bắt đầu *<input defaultValue={initial?.starts_on ?? ""} name="starts_on" type="date" required /></label>
+        <label>Ngày kết thúc *<input defaultValue={initial?.expires_on ?? ""} name="expires_on" type="date" required /></label>
+        <label>Chi phí<input defaultValue={initial?.cost ?? 0} name="cost" type="number" min={0} /></label>
+        <label>Nhắc trước (ngày)<input defaultValue={initial?.reminder_days ?? 30} name="reminder_days" type="number" min={1} max={365} /></label>
+        <PdfInvoicePicker existingFileName={initial?.invoice_file_name} fieldName="insurance_invoice_pdf" label="Hóa đơn bảo hiểm PDF" />
+        <PdfInvoicePicker existingFileName={initial?.certificate_file_name} fieldName="insurance_certificate_pdf" label="Giấy chứng nhận bảo hiểm PDF" />
+        <label className="span-3">Ghi chú<textarea defaultValue={initial?.note ?? ""} name="note" rows={3} maxLength={3000} /></label>
+      </div>
+      {state.error ? <p className="form-error">{state.error}</p> : null}
+      <div className="form-actions"><SaveButton label="Lưu bảo hiểm" pending={pending} /></div>
+    </form>
+  );
+}
+
 function ImportWorkbook() {
   const [open, setOpen] = useState(false);
   const [preview, previewAction, previewing] = useActionState(previewVehicleImport, initialImportState);
@@ -230,7 +273,7 @@ function ImportWorkbook() {
   );
 }
 
-export function VehicleActions({ vehicles, departments, users, canManage, section }: { vehicles: VehicleOption[]; departments: DepartmentOption[]; users: UserOption[]; canManage: boolean; section: "overview" | "fleet" | "inspections" | "repairs" | "fuel" }) {
+export function VehicleActions({ vehicles, departments, users, canManage, section }: { vehicles: VehicleOption[]; departments: DepartmentOption[]; users: UserOption[]; canManage: boolean; section: "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" }) {
   const canImport = canManage && ["overview", "repairs", "fuel"].includes(section);
   return (
     <div className="vehicle-actions">
@@ -238,8 +281,9 @@ export function VehicleActions({ vehicles, departments, users, canManage, sectio
         {canImport ? <ImportWorkbook /> : null}
       </div></div> : null}
       {canManage ? <div className="vehicle-action-group vehicle-action-group--primary"><small>GHI NHẬN MỚI</small><div>
-        {["overview", "fleet"].includes(section) ? <ModalTrigger eyebrow="HỒ SƠ XE" title="Thêm xe" description="Khai báo xe để theo dõi đăng kiểm, bảo dưỡng và nhiên liệu." size="large" triggerLabel="+ Thêm xe"><VehicleForm departments={departments} users={users} /></ModalTrigger> : null}
+        {["overview", "fleet"].includes(section) ? <ModalTrigger eyebrow="HỒ SƠ XE" title="Thêm xe" description="Khai báo xe để theo dõi đăng kiểm, bảo hiểm, bảo dưỡng và nhiên liệu." size="large" triggerLabel="+ Thêm xe"><VehicleForm departments={departments} users={users} /></ModalTrigger> : null}
         {section === "inspections" ? <ModalTrigger eyebrow="ĐĂNG KIỂM" title="Ghi nhận đăng kiểm" description="Theo dõi hạn và tự động cảnh báo trước 30 ngày." size="large" triggerLabel="+ Đăng kiểm"><InspectionForm vehicles={vehicles} /></ModalTrigger> : null}
+        {section === "insurance" ? <ModalTrigger eyebrow="BẢO HIỂM XE" title="Ghi nhận bảo hiểm" description="Lưu thời hạn, chi phí, thông tin hợp đồng và hai hồ sơ PDF riêng." size="large" triggerLabel="+ Bảo hiểm"><InsuranceForm vehicles={vehicles} /></ModalTrigger> : null}
         {section === "repairs" ? <ModalTrigger eyebrow="BẢO DƯỠNG" title="Ghi nhận bảo dưỡng / sửa chữa" size="large" triggerLabel="+ Bảo dưỡng"><RepairForm vehicles={vehicles} /></ModalTrigger> : null}
         {section === "fuel" ? <ModalTrigger eyebrow="NHIÊN LIỆU" title="Ghi nhận mua nhiên liệu" size="large" triggerLabel="+ Nhiên liệu"><FuelForm vehicles={vehicles} /></ModalTrigger> : null}
       </div></div> : null}

@@ -113,7 +113,15 @@ async function optimizePdf(file: File) {
   return { ...candidates[0], originalBytes: sourceBytes.byteLength, pageCount };
 }
 
-export function PdfInvoicePicker({ existingFileName }: { existingFileName?: string | null }) {
+export function PdfInvoicePicker({
+  existingFileName,
+  fieldName = "invoice_pdf",
+  label = "Hóa đơn / chứng từ PDF",
+}: {
+  existingFileName?: string | null;
+  fieldName?: string;
+  label?: string;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -170,19 +178,19 @@ export function PdfInvoicePicker({ existingFileName }: { existingFileName?: stri
 
   return (
     <label className="span-3 vehicle-pdf-picker">
-      <span>Hóa đơn / chứng từ PDF</span>
+      <span>{label}</span>
       {existingFileName ? <small>Đang lưu: {existingFileName}. Chọn tệp mới để thay thế.</small> : null}
       <input
         accept=".pdf,application/pdf"
         disabled={optimizing}
-        name="invoice_pdf"
+        name={fieldName}
         onChange={(event) => void handleFile(event.currentTarget.files?.[0])}
         ref={inputRef}
         type="file"
       />
-      <input name="invoice_pdf_optimizing" type="hidden" value={optimizing ? "1" : "0"} />
-      <input name="invoice_pdf_compression_method" type="hidden" value={compressionMethod} />
-      <input name="invoice_pdf_original_byte_size" type="hidden" value={originalByteSize} />
+      <input name={`${fieldName}_optimizing`} type="hidden" value={optimizing ? "1" : "0"} />
+      <input name={`${fieldName}_compression_method`} type="hidden" value={compressionMethod} />
+      <input name={`${fieldName}_original_byte_size`} type="hidden" value={originalByteSize} />
       <small>Tự động chọn bản nhỏ nhất giữa PDF gốc, nén không mất chất lượng và nén mạnh hóa đơn scan. Tệp gửi lên tối đa 5 MB.</small>
       {optimizing ? <em>Đang tối ưu dung lượng PDF…</em> : null}
       {message ? <em className="vehicle-pdf-success">{message}</em> : null}

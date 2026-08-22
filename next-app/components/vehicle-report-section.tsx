@@ -12,7 +12,7 @@ type VehicleOption = {
 };
 
 const vehicleReports: {
-  type: "vehicles" | "vehicle_inspections" | "vehicle_repairs" | "vehicle_fuel";
+  type: "vehicles" | "vehicle_inspections" | "vehicle_insurance" | "vehicle_repairs" | "vehicle_fuel";
   eyebrow: string;
   title: string;
   description: string;
@@ -21,6 +21,7 @@ const vehicleReports: {
 }[] = [
   { type: "vehicles", eyebrow: "HỒ SƠ XE", title: "Danh sách phương tiện", description: "Thông tin xe, biển số, số chỗ ngồi, tài xế, định mức và trạng thái sử dụng.", icon: "vehicle", tone: "cyan" },
   { type: "vehicle_inspections", eyebrow: "ĐĂNG KIỂM", title: "Lịch sử đăng kiểm", description: "Ngày đăng kiểm, hạn tiếp theo, số chỗ ngồi, chi phí và giấy chứng nhận.", icon: "inspection", tone: "amber" },
+  { type: "vehicle_insurance", eyebrow: "BẢO HIỂM", title: "Hồ sơ bảo hiểm xe", description: "Thời hạn, loại bảo hiểm, hãng, số chứng nhận, chi phí và ngày nhắc.", icon: "insurance", tone: "blue" },
   { type: "vehicle_repairs", eyebrow: "BẢO DƯỠNG", title: "Bảo dưỡng và sửa chữa", description: "Nhật ký thực hiện, số km, đơn vị sửa chữa và chi phí có VAT.", icon: "maintenance", tone: "violet" },
   { type: "vehicle_fuel", eyebrow: "NHIÊN LIỆU", title: "Theo dõi mua nhiên liệu", description: "Số lít, hành trình, số tiền và người mua theo từng xe.", icon: "fuel", tone: "green" },
 ];
@@ -46,7 +47,7 @@ export function VehicleReportSection({ vehicles, showHeading = true }: { vehicle
     <section className={`vehicle-report-workspace${showHeading ? "" : " vehicle-report-workspace--standalone"}`}>
       {showHeading ? <div className="report-section-heading">
         <div><p className="eyebrow">PHƯƠNG TIỆN</p><h2>Báo cáo quản lý xe</h2><p>Lọc dữ liệu trước khi tạo file XLSX hoặc PDF.</p></div>
-        <span><AppIcon name="reports" size={20} />4 mẫu báo cáo</span>
+        <span><AppIcon name="reports" size={20} />5 mẫu báo cáo</span>
       </div> : null}
       <div className="panel vehicle-report-filter">
         <div className="vehicle-report-filter-title"><span><AppIcon name="settings" size={19} /></span><div><strong>Bộ lọc báo cáo</strong><small>{filterSummary}</small></div></div>
