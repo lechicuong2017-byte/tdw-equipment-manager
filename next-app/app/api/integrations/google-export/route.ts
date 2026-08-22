@@ -106,6 +106,12 @@ const reportFiltersSchema = z.object({
   asset_groups: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
   asset_statuses: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
   asset_fields: z.array(z.enum(assetReportFields)).min(1).max(assetReportFields.length).optional(),
+  asset_types: z.array(z.string().trim().min(1).max(160)).max(100).optional(),
+  departments: z.array(z.string().trim().min(1).max(200)).max(100).optional(),
+  maintenance_record_types: z.array(z.enum(["PLAN", "LOG"])).max(2).optional(),
+  maintenance_types: z.array(z.string().trim().min(1).max(160)).max(100).optional(),
+  software_names: z.array(z.string().trim().min(1).max(200)).max(200).optional(),
+  software_statuses: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
 }).default({}).refine((filters) => !filters.month || Boolean(filters.year), {
   message: "Phải chọn năm trước khi chọn tháng",
 });
@@ -155,19 +161,50 @@ type RelatedAsset =
   | {
       asset_code?: string;
       asset_name?: string;
+      asset_group?: string;
       asset_group_label?: string;
       asset_type?: string;
+      department_legacy_name?: string;
+      departments?: { name?: string } | { name?: string }[] | null;
     }
   | {
       asset_code?: string;
       asset_name?: string;
+      asset_group?: string;
       asset_group_label?: string;
       asset_type?: string;
+      department_legacy_name?: string;
+      departments?: { name?: string } | { name?: string }[] | null;
     }[]
   | null;
 
 function relatedAsset(value: RelatedAsset) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function relatedAssetDepartment(asset: ReturnType<typeof relatedAsset>) {
+  if (!asset) return "";
+  const department = Array.isArray(asset.departments)
+    ? asset.departments[0]?.name
+    : asset.departments?.name;
+  return department || asset.department_legacy_name || "";
+}
+
+function matchesDateFilter(value: string | null | undefined, filters: ReportFilters) {
+  if (!filters.year) return true;
+  if (!value) return false;
+  const [year, month] = value.split("-").map(Number);
+  return year === filters.year && (!filters.month || month === filters.month);
+}
+
+function matchesAssetFilters(row: ReportRow, filters: ReportFilters) {
+  const groupSet = new Set(filters.asset_groups ?? []);
+  const typeSet = new Set(filters.asset_types ?? []);
+  const departmentSet = new Set(filters.departments ?? []);
+  if (groupSet.size && !groupSet.has(String(row.asset_group ?? ""))) return false;
+  if (typeSet.size && !typeSet.has(String(row.asset_type ?? ""))) return false;
+  if (departmentSet.size && !departmentSet.has(String(row.department ?? ""))) return false;
+  return true;
 }
 
 type RelatedVehicle =
@@ -475,7 +512,7 @@ async function buildReportPayload(
     const { data, error } = await supabase
       .from("asset_liquidations")
       .select(
-        "liquidation_date, recovery_value, reason, note, created_at, assets(asset_code, asset_name, asset_type, brand, model, serial_number, purchase_date, total_price, department_legacy_name, departments(name))",
+        "liquidation_date, recovery_value, reason, note, created_at, assets(asset_code, asset_name, asset_group, asset_group_label, asset_type, brand, model, serial_number, purchase_date, total_price, department_legacy_name, departments(name))",
       )
       .is("voided_at", null)
       .order("liquidation_date", { ascending: false })
@@ -487,6 +524,8 @@ async function buildReportPayload(
       const asset = assetValue as {
         asset_code?: string;
         asset_name?: string;
+        asset_group?: string;
+        asset_group_label?: string;
         asset_type?: string;
         brand?: string;
         model?: string;
@@ -504,6 +543,8 @@ async function buildReportPayload(
       return {
         asset_code: asset?.asset_code ?? "",
         asset_name: asset?.asset_name ?? "",
+        asset_group: asset?.asset_group ?? "",
+        asset_group_label: asset?.asset_group_label ?? "",
         asset_type: asset?.asset_type ?? "",
         brand: asset?.brand ?? "",
         model: asset?.model ?? "",
@@ -517,7 +558,8 @@ async function buildReportPayload(
         reason: item.reason,
         note: item.note,
       };
-    });
+    }).filter((row) => matchesDateFilter(String(row.liquidation_date || ""), filters)
+      && matchesAssetFilters(row, filters));
 
     return {
       report_type: reportType,
@@ -550,14 +592,14 @@ async function buildReportPayload(
         supabase
           .from("maintenance_plans")
           .select(
-            "asset_id, title, frequency, next_due_date, note, active, assets(asset_code, asset_name)",
+            "asset_id, title, frequency, next_due_date, note, active, assets(asset_code, asset_name, asset_group, asset_group_label, asset_type, department_legacy_name, departments(name))",
           )
           .order("next_due_date")
           .limit(2500),
         supabase
           .from("maintenance_logs")
           .select(
-            "asset_id, maintenance_date, action_type, description, cost, vendor, performed_by, note, assets(asset_code, asset_name)",
+            "asset_id, maintenance_date, action_type, description, cost, vendor, performed_by, note, assets(asset_code, asset_name, asset_group, asset_group_label, asset_type, department_legacy_name, departments(name))",
           )
           .order("maintenance_date", { ascending: false })
           .limit(2500),
@@ -568,8 +610,12 @@ async function buildReportPayload(
       const asset = relatedAsset(plan.assets);
       return {
         record_type: "Kế hoạch",
+        record_type_code: "PLAN",
         asset_code: asset?.asset_code ?? "",
         asset_name: asset?.asset_name ?? "",
+        asset_group: asset?.asset_group ?? "",
+        asset_type: asset?.asset_type ?? "",
+        department: relatedAssetDepartment(asset),
         date: plan.next_due_date,
         title: plan.title,
         frequency: plan.frequency,
@@ -585,8 +631,12 @@ async function buildReportPayload(
       const asset = relatedAsset(log.assets);
       return {
         record_type: "Nhật ký",
+        record_type_code: "LOG",
         asset_code: asset?.asset_code ?? "",
         asset_name: asset?.asset_name ?? "",
+        asset_group: asset?.asset_group ?? "",
+        asset_type: asset?.asset_type ?? "",
+        department: relatedAssetDepartment(asset),
         date: log.maintenance_date,
         title: log.action_type || "Bảo trì",
         frequency: "",
@@ -618,7 +668,15 @@ async function buildReportPayload(
         { key: "performed_by", label: "Người thực hiện" },
         { key: "note", label: "Ghi chú" },
       ],
-      rows: [...planRows, ...logRows].slice(0, 5000),
+      rows: [...planRows, ...logRows].filter((row) => {
+        if (!matchesDateFilter(String(row.date || ""), filters)) return false;
+        if (!matchesAssetFilters(row, filters)) return false;
+        const recordTypes = new Set<string>(filters.maintenance_record_types ?? []);
+        if (recordTypes.size && !recordTypes.has(String(row.record_type_code))) return false;
+        const maintenanceTypes = new Set(filters.maintenance_types ?? []);
+        if (maintenanceTypes.size && !maintenanceTypes.has(String(row.title || ""))) return false;
+        return true;
+      }).slice(0, 5000),
     };
   }
 
@@ -626,7 +684,7 @@ async function buildReportPayload(
     const { data, error } = await supabase
       .from("inventory_movements")
       .select(
-        "movement_date, from_user_name, to_user_name, from_location, to_location, reason, approved_by_name, note, assets(asset_code, asset_name)",
+        "movement_date, from_user_name, to_user_name, from_location, to_location, reason, approved_by_name, note, assets(asset_code, asset_name, asset_group, asset_group_label, asset_type, department_legacy_name, departments(name))",
       )
       .order("movement_date", { ascending: false })
       .limit(5000);
@@ -656,8 +714,12 @@ async function buildReportPayload(
           ...fields,
           asset_code: asset?.asset_code ?? "",
           asset_name: asset?.asset_name ?? "",
+          asset_group: asset?.asset_group ?? "",
+          asset_type: asset?.asset_type ?? "",
+          department: relatedAssetDepartment(asset),
         };
-      }),
+      }).filter((row) => matchesDateFilter(String(row.movement_date || ""), filters)
+        && matchesAssetFilters(row, filters)),
     };
   }
 
@@ -804,7 +866,7 @@ async function buildReportPayload(
   const { data, error } = await supabase
     .from("software_licenses")
     .select(
-      "software_name, version, license_key_masked, assigned_user_name, expiry_date, status, note, assets(asset_code, asset_name), software_license_assets(asset_id, assets(asset_code, asset_name, asset_group_label, asset_type))",
+      "software_name, version, license_key_masked, assigned_user_name, expiry_date, status, note, assets(asset_code, asset_name, asset_group, asset_group_label, asset_type, department_legacy_name, departments(name)), software_license_assets(asset_id, assets(asset_code, asset_name, asset_group, asset_group_label, asset_type, department_legacy_name, departments(name)))",
     )
     .order("expiry_date", { ascending: true, nullsFirst: false })
     .limit(5000);
@@ -828,7 +890,14 @@ async function buildReportPayload(
       { key: "status", label: "Trạng thái" },
       { key: "note", label: "Ghi chú" },
     ],
-    rows: (data ?? []).flatMap((license) => {
+    rows: (data ?? []).filter((license) => {
+      const names = new Set(filters.software_names ?? []);
+      const statuses = new Set(filters.software_statuses ?? []);
+      if (names.size && !names.has(license.software_name)) return false;
+      if (statuses.size && !statuses.has(license.status)) return false;
+      if (filters.year && !matchesDateFilter(license.expiry_date, filters)) return false;
+      return true;
+    }).flatMap((license) => {
       const { assets, software_license_assets: assignments, ...fields } = license;
       const assignedAssets = (assignments ?? []).map((assignment) => ({
         asset_id: assignment.asset_id,
@@ -843,9 +912,14 @@ async function buildReportPayload(
         ...fields,
         asset_code: asset?.asset_code ?? "",
         asset_name: asset?.asset_name ?? "",
+        asset_group_code: asset?.asset_group ?? "",
         asset_group: asset?.asset_group_label ?? "",
         asset_type: asset?.asset_type ?? "",
-      }));
+        department: relatedAssetDepartment(asset),
+      })).filter((row) => matchesAssetFilters({
+        ...row,
+        asset_group: row.asset_group_code,
+      }, filters));
     }),
   };
 }

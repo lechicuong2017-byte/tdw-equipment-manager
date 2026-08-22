@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { AppIcon } from "@/components/app-icon";
 import { AssetQrLabels } from "@/components/asset-qr-labels";
 import { AssetReportExportConfigurator } from "@/components/asset-report-export-configurator";
-import { ExportReportButton } from "@/components/export-assets-button";
 import { PageHeader } from "@/components/page-header";
+import { ReportExportConfigurator } from "@/components/report-export-configurator";
 import { can, requireAccess } from "@/lib/auth";
 import type { AssetQrData } from "@/lib/asset-qr";
 import { getEquipmentReport } from "@/lib/equipment-report-catalog";
@@ -18,16 +18,68 @@ export default async function EquipmentReportPage({ params }: { params: Promise<
   const { supabase, access } = await requireAccess();
   if (!can(access, report.permission)) notFound();
 
-  const needsAssets = report.slug === "assets" || report.slug === "qr-labels";
+  const needsAssets = report.slug === "assets"
+    || report.slug === "qr-labels"
+    || Boolean(report.exportType);
+  let assetQuery = supabase
+    .from("assets")
+    .select("id,asset_code,asset_name,asset_group,asset_group_label,asset_type,purchase_year,last_maintenance_date,warranty_end_date,status,department_legacy_name,departments(name)")
+    .is("deleted_at", null);
+  if (report.slug !== "liquidations") assetQuery = assetQuery.neq("status", "DA_THANH_LY");
   const { data: assetData } = needsAssets
-    ? await supabase
-        .from("assets")
-        .select("id,asset_code,asset_name,asset_group,asset_group_label,purchase_year,last_maintenance_date,warranty_end_date,status")
-        .is("deleted_at", null)
-        .neq("status", "DA_THANH_LY")
-        .order("asset_code")
+    ? await assetQuery.order("asset_code")
     : { data: [] };
   const assets = assetData ?? [];
+  const [{ data: maintenanceTypeData }, { data: softwareData }] = await Promise.all([
+    report.slug === "maintenance"
+      ? supabase
+          .from("settings")
+          .select("setting_value,display_name")
+          .eq("setting_type", "maintenance_type")
+          .eq("is_active", true)
+          .order("sort_order")
+      : Promise.resolve({ data: [] }),
+    report.slug === "software"
+      ? supabase
+          .from("software_licenses")
+          .select("software_name,status")
+          .order("software_name")
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  function uniqueOptions(values: Array<{ value: string; label: string }>) {
+    return [...new Map(values.filter((item) => item.value).map((item) => [item.value, item])).values()]
+      .sort((left, right) => left.label.localeCompare(right.label, "vi"));
+  }
+
+  const filterOptions = {
+    assetGroups: uniqueOptions(assets.map((asset) => ({
+      value: asset.asset_group,
+      label: asset.asset_group_label || asset.asset_group,
+    }))),
+    assetTypes: uniqueOptions(assets.map((asset) => ({
+      value: asset.asset_type || "",
+      label: asset.asset_type || "",
+    }))),
+    departments: uniqueOptions(assets.map((asset) => {
+      const departments = asset.departments as { name?: string } | { name?: string }[] | null;
+      const department = Array.isArray(departments) ? departments[0]?.name : departments?.name;
+      const value = department || asset.department_legacy_name || "";
+      return { value, label: value };
+    })),
+    maintenanceTypes: uniqueOptions((maintenanceTypeData ?? []).map((item) => ({
+      value: item.setting_value,
+      label: item.display_name,
+    }))),
+    softwareNames: uniqueOptions((softwareData ?? []).map((item) => ({
+      value: item.software_name,
+      label: item.software_name,
+    }))),
+    softwareStatuses: uniqueOptions((softwareData ?? []).map((item) => ({
+      value: item.status,
+      label: item.status === "ACTIVE" ? "Đang hoạt động" : item.status === "EXPIRED" ? "Đã hết hạn" : item.status,
+    }))),
+  };
 
   return (
     <>
@@ -66,10 +118,10 @@ export default async function EquipmentReportPage({ params }: { params: Promise<
             <span><AppIcon name={report.icon} size={28} /></span>
             <div><p className="eyebrow">XUẤT BÁO CÁO</p><h2>{report.title}</h2><p>{report.description}</p></div>
           </div>
-          <div className="report-detail-actions">
-            <ExportReportButton reportType={report.exportType} />
-            <ExportReportButton buttonLabel="Xuất PDF" outputFormat="pdf" reportType={report.exportType} />
-          </div>
+          <ReportExportConfigurator
+            options={filterOptions}
+            reportType={report.exportType as "liquidations" | "maintenance" | "movement" | "software"}
+          />
         </section>
       ) : null}
     </>

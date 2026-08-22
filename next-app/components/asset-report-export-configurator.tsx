@@ -92,9 +92,9 @@ export function AssetReportExportConfigurator({ assets }: { assets: AssetReportS
       .sort((left, right) => left.label.localeCompare(right.label, "vi"));
   }, [assets]);
   const [year, setYear] = useState(Math.max(...years));
-  const [selectedGroups, setSelectedGroups] = useState(() => groups.map((group) => group.value));
-  const [selectedStatuses, setSelectedStatuses] = useState(() => statuses.map((status) => status.value));
-  const [selectedFields, setSelectedFields] = useState<AssetField[]>(sampleFields);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedFields, setSelectedFields] = useState<AssetField[]>([]);
 
   function toggleGroup(value: string) {
     setSelectedGroups((current) =>
@@ -198,14 +198,15 @@ export function AssetReportExportConfigurator({ assets }: { assets: AssetReportS
         </div>
       </fieldset>
 
-      {isReady ? (
+      <div className="asset-report-footer">
+        <p className="asset-report-validation" hidden={isReady} role="status">
+          Chọn ít nhất một danh mục, một trạng thái và một trường dữ liệu để xuất.
+        </p>
         <div className="report-actions asset-report-export-actions">
-          <ExportReportButton filters={exportFilters} reportType="assets" />
-          <ExportReportButton buttonLabel="Xuất PDF" filters={exportFilters} outputFormat="pdf" reportType="assets" />
+          <ExportReportButton disabled={!isReady} filters={exportFilters} reportType="assets" />
+          <ExportReportButton disabled={!isReady} buttonLabel="Xuất PDF" filters={exportFilters} outputFormat="pdf" reportType="assets" />
         </div>
-      ) : (
-        <p className="asset-report-validation" role="status">Chọn ít nhất một danh mục, một trạng thái và một trường dữ liệu để xuất.</p>
-      )}
+      </div>
     </div>
   );
 }

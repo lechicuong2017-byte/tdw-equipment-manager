@@ -11,6 +11,12 @@ export type ReportExportFilters = {
   asset_groups?: string[];
   asset_statuses?: string[];
   asset_fields?: string[];
+  asset_types?: string[];
+  departments?: string[];
+  maintenance_record_types?: string[];
+  maintenance_types?: string[];
+  software_names?: string[];
+  software_statuses?: string[];
 };
 
 const loadingLabel: Record<OutputFormat, string> = {
@@ -23,11 +29,13 @@ export function ExportReportButton({
   outputFormat = "xlsx",
   buttonLabel = "Xuất XLSX",
   filters,
+  disabled = false,
 }: {
   reportType: "assets" | "liquidations" | "maintenance" | "movement" | "software" | "vehicles" | "vehicle_inspections" | "vehicle_insurance" | "vehicle_repairs" | "vehicle_fuel";
   outputFormat?: OutputFormat;
   buttonLabel?: string;
   filters?: ReportExportFilters;
+  disabled?: boolean;
 }) {
   const idempotencyToken = useRef<string | null>(null);
   const [state, setState] = useState<
@@ -86,7 +94,7 @@ export function ExportReportButton({
     <div className="export-action">
       <button
         className="primary-button"
-        disabled={state.status === "loading"}
+        disabled={disabled || state.status === "loading"}
         onClick={exportReport}
         type="button"
       >

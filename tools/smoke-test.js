@@ -180,6 +180,8 @@ async function run() {
   const autoSubmitSelect = read("next-app/components/auto-submit-select.tsx");
   const nextReportsPage = read("next-app/app/(protected)/reports/page.tsx");
   const nextReportDetailPage = read("next-app/app/(protected)/reports/[reportType]/page.tsx");
+  const assetReportConfigurator = read("next-app/components/asset-report-export-configurator.tsx");
+  const reportExportConfigurator = read("next-app/components/report-export-configurator.tsx");
   const equipmentReportCatalog = read("next-app/lib/equipment-report-catalog.ts");
   const nextSoftwarePage = read(
     "next-app/app/(protected)/software/page.tsx",
@@ -287,7 +289,7 @@ async function run() {
   assert.ok(nextAssetDetailPage.includes("excludeMaintenanceDuplicates"));
   assert.ok(nextAssetPreviewRoute.includes("excludeMaintenanceDuplicates"));
   assert.ok(googleExportRoute.includes("software_license_assets: assignments"));
-  assert.ok(googleExportRoute.includes("(data ?? []).flatMap"));
+  assert.ok(googleExportRoute.includes("}).flatMap((license) =>"));
   assert.ok(softwareSecretPanel.includes('type="password"'));
   assert.ok(softwareSecretPanel.includes('name="license_key_plaintext"'));
   assert.ok(softwareSecretPanel.includes("revealSoftwareLicenseSecret"));
@@ -444,6 +446,15 @@ async function run() {
   assert.ok(!nextAuditPage.includes("new_data"));
   assert.ok(nextAssetDetailPage.includes("<AssetQrCard"));
   assert.ok(nextReportDetailPage.includes("<AssetQrLabels"));
+  assert.ok(nextReportDetailPage.includes("<ReportExportConfigurator"));
+  assert.ok(assetReportConfigurator.includes("useState<string[]>([])") );
+  assert.ok(assetReportConfigurator.includes('className="asset-report-footer"'));
+  assert.ok(assetReportConfigurator.includes("disabled={!isReady}"));
+  assert.ok(reportExportConfigurator.includes('label="Loại bản ghi"'));
+  assert.ok(reportExportConfigurator.includes('label="Hình thức bảo trì"'));
+  assert.ok(reportExportConfigurator.includes('label="Phần mềm"'));
+  assert.ok(reportExportConfigurator.includes('label="Trạng thái bản quyền"'));
+  assert.ok(reportExportConfigurator.includes('label="Phòng ban"'));
   assert.ok(assetQrCard.includes("Tải mã QR"));
   assert.ok(assetQrCard.includes("In tem QR"));
   assert.ok(assetQrLabels.includes("In tem QR thiết bị hàng loạt"));
@@ -960,6 +971,12 @@ async function run() {
   assert.ok(googleExportRoute.includes('reportType === "liquidations"'));
   assert.ok(googleExportRoute.includes("BÁO CÁO THIẾT BỊ ĐÃ THANH LÝ"));
   assert.ok(equipmentReportCatalog.includes('slug: "liquidations"'));
+  assert.ok(googleExportRoute.includes("maintenance_record_types"));
+  assert.ok(googleExportRoute.includes("maintenance_types"));
+  assert.ok(googleExportRoute.includes("software_names"));
+  assert.ok(googleExportRoute.includes("software_statuses"));
+  assert.ok(googleExportRoute.includes("matchesAssetFilters"));
+  assert.ok(googleExportRoute.includes("matchesDateFilter"));
   assert.ok(index.includes('integrity="sha512-'));
 
   const unauthenticated = await invokeProxy({ fn: "healthCheck", args: [] });
