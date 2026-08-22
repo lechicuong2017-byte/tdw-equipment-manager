@@ -1232,6 +1232,16 @@ tbody tr.asset-row:hover > td {
   min-width: 260px;
 }
 
+.asset-actions-column {
+  min-width: 76px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.asset-actions-column .row-actions {
+  justify-content: flex-end;
+}
+
 .asset-list-thumbnail,
 .asset-list-thumbnail-placeholder {
   border-radius: 9px;

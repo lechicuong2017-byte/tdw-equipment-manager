@@ -237,15 +237,25 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
           {can(access, "assets.delete") ? (
             <div className="danger-zone">
               {asset.status === "DA_THANH_LY" ? (
-                <ConfirmAction
-                  action={restoreLiquidatedAsset}
-                  confirmLabel="Khôi phục về lưu kho"
-                  description={`Thiết bị ${asset.asset_code} sẽ trở lại danh sách quản lý với trạng thái lưu kho chờ thanh lý. Bản ghi thanh lý cũ vẫn được giữ trong lịch sử.`}
-                  fields={{ id: asset.id, reason: "Khôi phục do ghi nhận nhầm" }}
-                  title="Khôi phục thiết bị thanh lý?"
-                  triggerClassName="secondary-button"
-                  triggerLabel="Khôi phục về lưu kho"
-                />
+                <>
+                  <ConfirmAction
+                    action={restoreLiquidatedAsset}
+                    confirmLabel="Khôi phục về lưu kho"
+                    description={`Thiết bị ${asset.asset_code} sẽ trở lại danh sách quản lý với trạng thái lưu kho chờ thanh lý. Bản ghi thanh lý cũ vẫn được giữ trong lịch sử.`}
+                    fields={{ id: asset.id, reason: "Khôi phục do ghi nhận nhầm" }}
+                    title="Khôi phục thiết bị thanh lý?"
+                    triggerClassName="secondary-button"
+                    triggerLabel="Khôi phục về lưu kho"
+                  />
+                  <ConfirmAction
+                    action={archiveAsset}
+                    confirmLabel="Xóa thiết bị"
+                    description={`Thiết bị ${asset.asset_code} sẽ được ẩn khỏi hệ thống. Hồ sơ thanh lý và lịch sử liên quan vẫn được giữ lại.`}
+                    fields={{ id: asset.id, return_to: returnTo ?? "/assets?scope=liquidated" }}
+                    title="Xóa thiết bị?"
+                    triggerLabel="Xóa thiết bị"
+                  />
+                </>
               ) : (
                 <>
                   <AssetLiquidationAction
@@ -259,12 +269,11 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
                   />
                   <ConfirmAction
                     action={archiveAsset}
-                    confirmLabel="Đưa vào lưu trữ"
-                    description={`Thiết bị ${asset.asset_code} sẽ không còn xuất hiện trong danh sách đang sử dụng. Lịch sử liên quan vẫn được giữ lại.`}
-                    fields={{ id: asset.id }}
-                    title="Đưa thiết bị vào lưu trữ?"
-                    triggerClassName="secondary-button"
-                    triggerLabel="Đưa vào lưu trữ"
+                    confirmLabel="Xóa thiết bị"
+                    description={`Thiết bị ${asset.asset_code} sẽ được ẩn khỏi hệ thống. Lịch sử bảo trì, luân chuyển và các hồ sơ liên quan vẫn được giữ lại.`}
+                    fields={{ id: asset.id, return_to: returnTo ?? "/assets" }}
+                    title="Xóa thiết bị?"
+                    triggerLabel="Xóa thiết bị"
                   />
                 </>
               )}

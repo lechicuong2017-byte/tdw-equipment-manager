@@ -10,10 +10,12 @@ import {
   AssetPreviewProvider,
 } from "@/components/asset-list-previews";
 import { AssetLiquidationAction } from "@/components/asset-liquidation-action";
+import { ConfirmAction } from "@/components/app-modal";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney, labelStatus, statusTone } from "@/lib/format";
 import { normalizeSearchText } from "@/lib/search";
 import { z } from "zod";
+import { archiveAsset } from "./actions";
 
 export const metadata = { title: "Thiết bị" };
 
@@ -264,6 +266,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 <th>{scope === "liquidated" ? "Ngày thanh lý / phòng ban" : "Phòng ban / vị trí"}</th>
                 <th>{scope === "liquidated" ? "Lý do" : "Trạng thái"}</th>
                 <th className="align-right">{scope === "liquidated" ? "Giá trị thu hồi" : "Giá trị"}</th>
+                {can(access, "assets.delete") ? <th className="asset-actions-column">Thao tác</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -310,11 +313,26 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                         <td className="align-right">{formatMoney(asset.total_price)}</td>
                       </>
                     )}
+                    {can(access, "assets.delete") ? (
+                      <td className="asset-actions-column">
+                        <div className="row-actions">
+                          <ConfirmAction
+                            action={archiveAsset}
+                            confirmLabel="Xóa thiết bị"
+                            description={`Thiết bị ${asset.asset_code} · ${asset.asset_name} sẽ được ẩn khỏi hệ thống. Lịch sử bảo trì, luân chuyển và các hồ sơ liên quan vẫn được giữ lại.`}
+                            fields={{ id: asset.id, return_to: pageHref(page) }}
+                            title="Xóa thiết bị?"
+                            triggerAriaLabel={`Xóa thiết bị ${asset.asset_code}`}
+                            triggerLabel="Xóa"
+                          />
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}
               {!data?.length ? (
-                <tr><td className="empty-cell" colSpan={5}>Không tìm thấy thiết bị phù hợp.</td></tr>
+                <tr><td className="empty-cell" colSpan={can(access, "assets.delete") ? 6 : 5}>Không tìm thấy thiết bị phù hợp.</td></tr>
               ) : null}
             </tbody>
             </table>

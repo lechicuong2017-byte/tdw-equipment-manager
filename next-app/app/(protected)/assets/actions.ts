@@ -144,16 +144,28 @@ export async function archiveAsset(formData: FormData) {
   const id = z.uuid().safeParse(formData.get("id"));
   if (!id.success) return { error: "Mã thiết bị không hợp lệ." };
 
-  const { supabase } = await requireAccess();
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "assets.delete")) {
+    return { error: "Bạn không có quyền xóa thiết bị." };
+  }
   const { error } = await supabase.rpc("archive_asset", {
     target_asset_id: id.data,
   });
 
-  if (error) return { error: "Không thể đưa thiết bị vào lưu trữ." };
+  if (error?.code === "23503") {
+    return { error: "Thiết bị đang có liên kết linh kiện. Hãy tháo hoặc kết thúc liên kết trước khi xóa." };
+  }
+  if (error) return { error: "Không thể xóa thiết bị. Vui lòng kiểm tra quyền và thử lại." };
 
   revalidatePath("/dashboard");
   revalidatePath("/assets");
-  redirect(`/assets?ok=${encodeURIComponent("Đã đưa thiết bị vào lưu trữ.")}`);
+  const successMessage = "Đã xóa thiết bị khỏi danh sách quản lý. Lịch sử liên quan vẫn được giữ lại.";
+  const returnTo = safeAssetsReturnTo(formData.get("return_to"));
+  if (returnTo) {
+    const separator = returnTo.includes("?") ? "&" : "?";
+    redirect(`${returnTo}${separator}ok=${encodeURIComponent(successMessage)}`);
+  }
+  redirect(`/assets?ok=${encodeURIComponent(successMessage)}`);
 }
 
 const optionalMoney = z.preprocess(
