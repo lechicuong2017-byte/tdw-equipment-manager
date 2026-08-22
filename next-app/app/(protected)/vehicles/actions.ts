@@ -7,6 +7,7 @@ import { PDFArray, PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { compactDateForFileName, normalizeUploadedFileName } from "@/lib/upload-file-name";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
@@ -179,6 +180,7 @@ async function storeVehicleDocument({
   recordType,
   supabase,
   vehicleId,
+  preferredBaseName,
 }: {
   access: Awaited<ReturnType<typeof requireAccess>>["access"];
   compressionMethod: VehiclePdfCompressionMethod;
@@ -189,6 +191,7 @@ async function storeVehicleDocument({
   recordType: VehicleDocumentType;
   supabase: Awaited<ReturnType<typeof requireAccess>>["supabase"];
   vehicleId: string;
+  preferredBaseName: string;
 }): Promise<VehicleActionState> {
   let optimized: Awaited<ReturnType<typeof optimizeInvoicePdf>>;
   try {
@@ -220,7 +223,11 @@ async function storeVehicleDocument({
     checksum: optimized.checksum,
     compression_method: compressionMethod === "RASTERIZED" ? "RASTERIZED" : optimized.compressionMethod,
     created_by: access.user_id,
-    file_name: file.name.slice(0, 200),
+    file_name: normalizeUploadedFileName({
+      fallbackExtension: "pdf",
+      originalFileName: file.name,
+      preferredBaseName,
+    }),
     mime_type: "application/pdf",
     object_path: objectPath,
     original_byte_size: Math.max(originalByteSize, optimized.originalByteSize),
@@ -274,6 +281,18 @@ async function saveRow(
   return { recordId: result.data.id, success };
 }
 
+async function vehiclePlate(
+  supabase: Awaited<ReturnType<typeof requireAccess>>["supabase"],
+  vehicleId: string,
+) {
+  const { data } = await supabase
+    .from("vehicles")
+    .select("license_plate")
+    .eq("id", vehicleId)
+    .maybeSingle();
+  return data?.license_plate || "XE";
+}
+
 export async function saveVehicle(_state: VehicleActionState, formData: FormData) {
   const parsed = vehicleSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
@@ -288,7 +307,8 @@ export async function saveVehicleInspection(_state: VehicleActionState, formData
   const saved = await saveRow("vehicle_inspections", parsed.data, parsed.data.id ? "Đã cập nhật đăng kiểm." : "Đã ghi nhận đăng kiểm.");
   if (saved.error || !saved.recordId || !invoice.file) return saved;
   const context = await requireAccess();
-  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "INSPECTION", vehicleId: parsed.data.vehicle_id });
+  const plate = await vehiclePlate(context.supabase, parsed.data.vehicle_id);
+  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, preferredBaseName: `${plate}_DANG-KIEM_${compactDateForFileName(parsed.data.expires_on)}_HOA-DON`, recordId: saved.recordId, recordType: "INSPECTION", vehicleId: parsed.data.vehicle_id });
   revalidatePath("/vehicles");
   return document.error
     ? { success: `${saved.success} ${document.error} Bạn có thể mở Sửa để tải lại.` }
@@ -303,7 +323,8 @@ export async function saveVehicleRepair(_state: VehicleActionState, formData: Fo
   const saved = await saveRow("vehicle_repairs", parsed.data, parsed.data.id ? "Đã cập nhật bảo dưỡng." : "Đã ghi nhận bảo dưỡng.");
   if (saved.error || !saved.recordId || !invoice.file) return saved;
   const context = await requireAccess();
-  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "REPAIR", vehicleId: parsed.data.vehicle_id });
+  const plate = await vehiclePlate(context.supabase, parsed.data.vehicle_id);
+  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, preferredBaseName: `${plate}_BAO-DUONG_${compactDateForFileName(parsed.data.service_date)}_HOA-DON`, recordId: saved.recordId, recordType: "REPAIR", vehicleId: parsed.data.vehicle_id });
   revalidatePath("/vehicles");
   return document.error
     ? { success: `${saved.success} ${document.error} Bạn có thể mở Sửa để tải lại.` }
@@ -318,7 +339,8 @@ export async function saveVehicleFuel(_state: VehicleActionState, formData: Form
   const saved = await saveRow("vehicle_fuel_logs", parsed.data, parsed.data.id ? "Đã cập nhật nhiên liệu." : "Đã ghi nhận nhiên liệu.");
   if (saved.error || !saved.recordId || !invoice.file) return saved;
   const context = await requireAccess();
-  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, recordId: saved.recordId, recordType: "FUEL", vehicleId: parsed.data.vehicle_id });
+  const plate = await vehiclePlate(context.supabase, parsed.data.vehicle_id);
+  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, preferredBaseName: `${plate}_NHIEN-LIEU_${compactDateForFileName(parsed.data.payment_date)}_HOA-DON`, recordId: saved.recordId, recordType: "FUEL", vehicleId: parsed.data.vehicle_id });
   revalidatePath("/vehicles");
   return document.error
     ? { success: `${saved.success} ${document.error} Bạn có thể mở Sửa để tải lại.` }
@@ -339,6 +361,7 @@ export async function saveVehicleInsurance(_state: VehicleActionState, formData:
   );
   if (saved.error || !saved.recordId || (!invoice.file && !certificate.file)) return saved;
   const context = await requireAccess();
+  const plate = await vehiclePlate(context.supabase, parsed.data.vehicle_id);
   const messages: string[] = [];
   for (const document of [
     invoice.file ? { ...invoice, file: invoice.file, kind: "INVOICE" as const } : null,
@@ -350,6 +373,7 @@ export async function saveVehicleInsurance(_state: VehicleActionState, formData:
       documentKind: document.kind,
       file: document.file,
       originalByteSize: document.originalByteSize ?? document.file.size,
+      preferredBaseName: `${plate}_BAO-HIEM_${parsed.data.insurance_name}_${compactDateForFileName(parsed.data.expires_on)}_${document.kind === "INVOICE" ? "HOA-DON" : "GIAY-CHUNG-NHAN"}`,
       recordId: saved.recordId,
       recordType: "INSURANCE",
       vehicleId: parsed.data.vehicle_id,

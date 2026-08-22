@@ -8,6 +8,7 @@ import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
 import { assetCodePrefix, currentAssetCodeYear } from "@/lib/asset-code";
 import { safeAssetsReturnTo } from "@/lib/asset-navigation";
+import { compactDateForFileName, normalizeUploadedFileName } from "@/lib/upload-file-name";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
@@ -411,7 +412,7 @@ export async function uploadAssetMedia(
   const { supabase, access } = await requireAccess();
   const { data: asset, error: assetError } = await supabase
     .from("assets")
-    .select("id")
+    .select("id,asset_code")
     .eq("id", parsed.data.asset_id)
     .single();
   if (assetError || !asset) {
@@ -472,7 +473,11 @@ export async function uploadAssetMedia(
     asset_id: asset.id,
     object_path: objectPath,
     thumbnail_path: thumbnailPath,
-    file_name: parsed.data.file.name.slice(0, 200),
+    file_name: normalizeUploadedFileName({
+      fallbackExtension: extension,
+      originalFileName: parsed.data.file.name,
+      preferredBaseName: `${asset.asset_code}_ANH-THIET-BI_${compactDateForFileName()}_${mediaId.slice(0, 8)}`,
+    }),
     mime_type: parsed.data.file.type,
     byte_size: parsed.data.file.size,
     checksum,

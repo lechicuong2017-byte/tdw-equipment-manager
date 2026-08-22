@@ -350,7 +350,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
 
       {section === "insurance" ? <section className="panel vehicle-section-panel vehicle-section-panel--insurance">
         <div className="panel-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>Hợp đồng và hồ sơ bảo hiểm</h2></div><small>{insurances.length} hợp đồng</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Bảo hiểm</th><th>Hiệu lực</th><th>Hãng / chứng nhận</th><th>Chi phí</th><th>Tình trạng</th><th>Hồ sơ PDF</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
+        <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Bảo hiểm</th><th>Ngày bắt đầu</th><th>Ngày hết hạn</th><th>Hãng / chứng nhận</th><th>Chi phí</th><th>Hồ sơ PDF</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInsurances.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
             const due = dueTone(daysUntil(item.expires_on, today));
@@ -359,10 +359,10 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
             return <tr key={item.id}>
               <td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td>
               <td><strong>{item.insurance_name}</strong><small>{item.insurance_type}</small></td>
-              <td><strong>{formatDate(item.starts_on)} → {formatDate(item.expires_on)}</strong><small>Nhắc trước {item.reminder_days} ngày</small></td>
+              <td>{formatDate(item.starts_on)}</td>
+              <td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td>
               <td>{item.insurance_company}<small>{item.certificate_number || "Chưa có số chứng nhận"}</small></td>
               <td>{formatMoney(Number(item.cost))}</td>
-              <td><span className={`status-pill ${due.className}`}>{due.label}</span></td>
               <td><div className="vehicle-document-stack"><VehicleDocumentLink document={invoiceDocument} label="Hóa đơn" /><VehicleDocumentLink document={certificateDocument} label="Chứng nhận" /></div></td>
               <td className="vehicle-actions-column"><div className="row-actions">
                 <ModalTrigger description={`${vehicle?.license_plate ?? "Chưa có biển số"} · ${vehicle?.vehicle_name ?? "Chưa rõ xe"}`} eyebrow="CHI TIẾT BẢO HIỂM" size="medium" title={item.insurance_name} triggerClassName="text-button" triggerLabel="Xem">

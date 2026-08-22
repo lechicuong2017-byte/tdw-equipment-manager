@@ -192,6 +192,7 @@ export function PdfInvoicePicker({
       <input name={`${fieldName}_compression_method`} type="hidden" value={compressionMethod} />
       <input name={`${fieldName}_original_byte_size`} type="hidden" value={originalByteSize} />
       <small>Tự động chọn bản nhỏ nhất giữa PDF gốc, nén không mất chất lượng và nén mạnh hóa đơn scan. Tệp gửi lên tối đa 5 MB.</small>
+      <small>Tên tệp sẽ được chuẩn hóa tự động theo hồ sơ khi lưu.</small>
       {optimizing ? <em>Đang tối ưu dung lượng PDF…</em> : null}
       {message ? <em className="vehicle-pdf-success">{message}</em> : null}
       {error ? <em className="vehicle-pdf-error">{error}</em> : null}

@@ -6,6 +6,7 @@ import { z } from "zod";
 import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
 import { runMaintenanceReminders } from "@/lib/maintenance-reminders";
+import { compactDateForFileName, normalizeUploadedFileName } from "@/lib/upload-file-name";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
@@ -152,12 +153,14 @@ function getMaintenanceMediaFiles(formData: FormData) {
 
 async function storeMaintenanceMedia({
   access,
+  assetCode,
   assetId,
   file,
   logId,
   supabase,
 }: {
   access: AccessContext["access"];
+  assetCode: string;
   assetId: string;
   file: File;
   logId: string;
@@ -216,7 +219,11 @@ async function storeMaintenanceMedia({
     asset_id: assetId,
     object_path: objectPath,
     thumbnail_path: thumbnailPath,
-    file_name: file.name.slice(0, 200),
+    file_name: normalizeUploadedFileName({
+      fallbackExtension: extension,
+      originalFileName: file.name,
+      preferredBaseName: `${assetCode}_ANH-BAO-TRI_${compactDateForFileName()}_${mediaId.slice(0, 8)}`,
+    }),
     mime_type: file.type,
     byte_size: file.size,
     checksum,
@@ -258,6 +265,18 @@ async function storeMaintenanceMedia({
   }
 
   return {};
+}
+
+async function assetCodeForMedia(
+  supabase: AccessContext["supabase"],
+  assetId: string,
+) {
+  const { data } = await supabase
+    .from("assets")
+    .select("asset_code")
+    .eq("id", assetId)
+    .maybeSingle();
+  return data?.asset_code || "THIET-BI";
 }
 
 export async function createMaintenancePlan(
@@ -428,9 +447,11 @@ export async function createMaintenanceLog(
   let uploadedMedia = 0;
   const createdLog = createdLogs[0];
   if (createdLog) {
+    const assetCode = await assetCodeForMedia(supabase, createdLog.asset_id);
     for (const file of mediaFiles.files) {
       const result = await storeMaintenanceMedia({
         access,
+        assetCode,
         assetId: createdLog.asset_id,
         file,
         logId: createdLog.id,
@@ -533,9 +554,11 @@ export async function uploadMaintenanceMedia(
   }
 
   let uploadedMedia = 0;
+  const assetCode = await assetCodeForMedia(supabase, log.asset_id);
   for (const file of mediaFiles.files) {
     const result = await storeMaintenanceMedia({
       access,
+      assetCode,
       assetId: log.asset_id,
       file,
       logId: log.id,
