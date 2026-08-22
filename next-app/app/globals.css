@@ -2986,6 +2986,10 @@ tbody tr.asset-row:hover > td {
   padding: 1.5rem;
 }
 
+.report-card--asset-export {
+  grid-column: 1 / -1;
+}
+
 .vehicle-report-card {
   --vehicle-report-accent: var(--brand);
   border-top: 4px solid var(--vehicle-report-accent);
@@ -3108,8 +3112,13 @@ tbody tr.asset-row:hover > td {
 
 .asset-report-option-list input {
   accent-color: #1d9853;
+  border-radius: 4px;
   flex: 0 0 auto;
+  height: 18px;
   margin-top: 0.08rem;
+  min-height: 18px;
+  padding: 0;
+  width: 18px;
 }
 
 .asset-report-field-actions {

@@ -78,7 +78,10 @@ export default async function ReportsPage() {
         <div className="report-section-heading"><div><p className="eyebrow">THIẾT BỊ & HỆ THỐNG</p><h2>Báo cáo quản lý tài sản</h2><p>Thiết bị, thanh lý, bảo trì, luân chuyển và bản quyền phần mềm.</p></div></div>
         <div className="report-grid">
           {reports.map((report) => (
-            <article className="panel report-card" key={report.type}>
+            <article
+              className={`panel report-card${report.type === "assets" ? " report-card--asset-export" : ""}`}
+              key={report.type}
+            >
               <div className="report-icon" aria-hidden="true">{report.icon}</div>
               <div>
                 <p className="eyebrow">{report.eyebrow}</p>
