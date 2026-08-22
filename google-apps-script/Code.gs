@@ -845,6 +845,7 @@ function exportSupabaseReportFile_(payload) {
   const requestedBy = safeDocumentText_(payload.requested_by || "", 200);
   const columns = Array.isArray(payload.columns) ? payload.columns : [];
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
+  const groupKey = String(payload.group_key || "").trim();
 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId)) {
     throw new Error("Mã tác vụ xuất file không hợp lệ");
@@ -857,6 +858,7 @@ function exportSupabaseReportFile_(payload) {
   }
   if (!columns.length || columns.length > 50) throw new Error("Cấu trúc cột không hợp lệ");
   if (rows.length > 5000) throw new Error("Báo cáo vượt quá 5.000 dòng");
+  if (groupKey && !/^[a-zA-Z0-9_]+$/.test(groupKey)) throw new Error("Khóa nhóm không hợp lệ");
 
   const normalizedColumns = columns.map((column) => ({
     key: String(column.key || "").trim(),
@@ -874,9 +876,12 @@ function exportSupabaseReportFile_(payload) {
     return Object.assign({ ok: true, reused: true }, previous);
   }
 
+  const groupCount = groupKey
+    ? new Set(rows.map((row) => safeDocumentText_(row[groupKey] || "CHƯA PHÂN NHÓM", 160))).size
+    : 0;
   const spreadsheet = SpreadsheetApp.create(
     title || "TDW Export",
-    Math.max(rows.length + 6, 7),
+    Math.max(rows.length + groupCount + 6, 7),
     normalizedColumns.length + 1,
   );
   const spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
@@ -885,7 +890,7 @@ function exportSupabaseReportFile_(payload) {
     spreadsheet.setSpreadsheetTimeZone("Asia/Ho_Chi_Minh");
     const sheet = spreadsheet.getSheets()[0];
     sheet.setName("Báo cáo");
-    formatTdwReportSheet_(sheet, reportName, normalizedColumns, rows, outputFormat, summaryText);
+    formatTdwReportSheet_(sheet, reportName, normalizedColumns, rows, outputFormat, summaryText, groupKey);
     for (let columnIndex = 2; columnIndex <= normalizedColumns.length + 1; columnIndex += 1) {
       const currentWidth = sheet.getColumnWidth(columnIndex);
       sheet.setColumnWidth(columnIndex, Math.min(Math.max(currentWidth, 80), 220));
@@ -916,13 +921,25 @@ function exportSupabaseReportFile_(payload) {
   }
 }
 
-function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, summaryText) {
+function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, summaryText, groupKey) {
   const totalColumns = columns.length + 1;
   const titleStartColumn = Math.min(3, totalColumns);
   const titleColumnCount = Math.max(totalColumns - titleStartColumn + 1, 1);
   const headerRow = 5;
   const firstDataRow = headerRow + 1;
-  const summaryRow = firstDataRow + rows.length;
+  const renderedRows = [];
+  let currentGroup = null;
+  let dataIndex = 0;
+  rows.forEach((row) => {
+    const groupLabel = groupKey ? safeDocumentText_(row[groupKey] || "CHƯA PHÂN NHÓM", 160).toUpperCase() : "";
+    if (groupKey && groupLabel !== currentGroup) {
+      renderedRows.push({ kind: "group", label: groupLabel });
+      currentGroup = groupLabel;
+    }
+    dataIndex += 1;
+    renderedRows.push({ kind: "data", row: row, number: dataIndex });
+  });
+  const summaryRow = firstDataRow + renderedRows.length;
   const exportedAt = new Date();
   const dateText = Utilities.formatDate(exportedAt, "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
 
@@ -974,12 +991,11 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
     .setBorder(true, true, true, true, true, true, "#0e5080", SpreadsheetApp.BorderStyle.SOLID);
   sheet.setRowHeight(headerRow, 30);
 
-  if (rows.length) {
-    const values = rows.map((row, index) => [
-      index + 1,
-      ...columns.map((column) => safeSpreadsheetValue_(row[column.key])),
-    ]);
-    const bodyRange = sheet.getRange(firstDataRow, 1, rows.length, totalColumns);
+  if (renderedRows.length) {
+    const values = renderedRows.map((item) => item.kind === "group"
+      ? [item.label].concat(Array(totalColumns - 1).fill(""))
+      : [item.number].concat(columns.map((column) => safeSpreadsheetValue_(item.row[column.key]))));
+    const bodyRange = sheet.getRange(firstDataRow, 1, renderedRows.length, totalColumns);
     bodyRange
       .setValues(values)
       .setFontFamily("Arial")
@@ -988,21 +1004,36 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
       .setVerticalAlignment("top")
       .setWrap(true)
       .setBorder(true, true, true, true, true, true, "#c8d8e8", SpreadsheetApp.BorderStyle.SOLID);
-    bodyRange.setBackgrounds(rows.map((_row, index) =>
-      Array(totalColumns).fill(index % 2 === 1 ? "#f0f6fb" : "#ffffff"),
-    ));
-    sheet.getRange(firstDataRow, 1, rows.length, 1).setHorizontalAlignment("center");
+    let stripeIndex = 0;
+    bodyRange.setBackgrounds(renderedRows.map((item) => {
+      if (item.kind === "group") return Array(totalColumns).fill("#f6c95f");
+      const background = stripeIndex % 2 === 1 ? "#f0f6fb" : "#ffffff";
+      stripeIndex += 1;
+      return Array(totalColumns).fill(background);
+    }));
+    sheet.getRange(firstDataRow, 1, renderedRows.length, 1).setHorizontalAlignment("center");
+    renderedRows.forEach((item, index) => {
+      if (item.kind !== "group") return;
+      const rowNumber = firstDataRow + index;
+      sheet.getRange(rowNumber, 1, 1, totalColumns).merge()
+        .setFontWeight("bold")
+        .setFontColor("#4c3600")
+        .setHorizontalAlignment("left")
+        .setVerticalAlignment("middle")
+        .setWrap(true);
+      sheet.setRowHeight(rowNumber, 28);
+    });
     columns.forEach((column, index) => {
       if (/price|cost|amount|vat/i.test(column.key)) {
-        sheet.getRange(firstDataRow, index + 2, rows.length, 1)
+        sheet.getRange(firstDataRow, index + 2, renderedRows.length, 1)
           .setNumberFormat('#,##0 "VNĐ"')
           .setHorizontalAlignment("right");
       } else if (/date|_on$/i.test(column.key)) {
-        sheet.getRange(firstDataRow, index + 2, rows.length, 1)
+        sheet.getRange(firstDataRow, index + 2, renderedRows.length, 1)
           .setNumberFormat("dd/MM/yyyy")
           .setHorizontalAlignment("center");
       } else if (/quantity|total/i.test(column.key)) {
-        sheet.getRange(firstDataRow, index + 2, rows.length, 1)
+        sheet.getRange(firstDataRow, index + 2, renderedRows.length, 1)
           .setNumberFormat("#,##0")
           .setHorizontalAlignment("right");
       }
@@ -1025,7 +1056,7 @@ function formatTdwReportSheet_(sheet, reportName, columns, rows, outputFormat, s
   columns.forEach((column, index) => {
     if (/price|cost|amount|vat/i.test(column.key)) {
       const sheetColumn = index + 2;
-      sheet.getRange(firstDataRow, sheetColumn, Math.max(rows.length, 1), 1).setWrap(false);
+      sheet.getRange(firstDataRow, sheetColumn, Math.max(renderedRows.length, 1), 1).setWrap(false);
       sheet.setColumnWidth(sheetColumn, Math.max(sheet.getColumnWidth(sheetColumn), 135));
     }
   });

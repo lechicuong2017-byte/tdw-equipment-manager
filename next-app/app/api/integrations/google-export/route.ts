@@ -14,10 +14,78 @@ type ReportType = (typeof reportTypes)[number];
 const outputFormats = ["xlsx", "pdf"] as const;
 type OutputFormat = (typeof outputFormats)[number];
 
+const assetReportFields = [
+  "relation",
+  "parent_asset",
+  "asset_code",
+  "asset_name",
+  "asset_type",
+  "brand",
+  "model",
+  "serial_number",
+  "purchase_year",
+  "purchase_date",
+  "quantity",
+  "unit_price",
+  "total_price",
+  "assigned_to_name",
+  "department",
+  "location",
+  "software_license_note",
+  "status_label",
+  "warranty_end_date",
+  "note",
+] as const;
+
+const assetReportColumnCatalog: Record<(typeof assetReportFields)[number], ReportColumn> = {
+  relation: { key: "relation", label: "Cấu trúc" },
+  parent_asset: { key: "parent_asset", label: "Thuộc thiết bị" },
+  asset_code: { key: "asset_code", label: "Mã thiết bị" },
+  asset_name: { key: "asset_name", label: "Tên thiết bị" },
+  asset_type: { key: "asset_type", label: "Loại thiết bị" },
+  brand: { key: "brand", label: "Thương hiệu" },
+  model: { key: "model", label: "Model" },
+  serial_number: { key: "serial_number", label: "Serial" },
+  purchase_year: { key: "purchase_year", label: "Năm đề xuất mua" },
+  purchase_date: { key: "purchase_date", label: "Ngày mua" },
+  quantity: { key: "quantity", label: "Số lượng" },
+  unit_price: { key: "unit_price", label: "Đơn giá" },
+  total_price: { key: "total_price", label: "Thành tiền (VNĐ)" },
+  assigned_to_name: { key: "assigned_to_name", label: "Người sử dụng" },
+  department: { key: "department", label: "Phòng ban" },
+  location: { key: "location", label: "Vị trí" },
+  software_license_note: { key: "software_license_note", label: "Phần mềm bản quyền" },
+  status_label: { key: "status_label", label: "Tình trạng thiết bị" },
+  warranty_end_date: { key: "warranty_end_date", label: "Hết bảo hành" },
+  note: { key: "note", label: "Ghi chú" },
+};
+
+const defaultAssetReportFields: (typeof assetReportFields)[number][] = [
+  "asset_name",
+  "purchase_year",
+  "quantity",
+  "assigned_to_name",
+  "total_price",
+  "software_license_note",
+  "status_label",
+  "note",
+];
+
+const assetReportGroupOrder = [
+  "MAY_TINH_LAPTOP",
+  "SCADA_LOGGER_DATA",
+  "O_CUNG_THIET_BI_DIEN_TU",
+  "MAY_IN_PHOTOCOPY_MAY_CHIEU_TV_DIEN_THOAI",
+  "LUU_KHO_KEM_PHAM_CHAT",
+];
+
 const reportFiltersSchema = z.object({
   year: z.number().int().min(2000).max(2100).optional(),
   month: z.number().int().min(1).max(12).optional(),
   vehicle_id: z.uuid().optional(),
+  asset_groups: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+  asset_statuses: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
+  asset_fields: z.array(z.enum(assetReportFields)).min(1).max(assetReportFields.length).optional(),
 }).default({}).refine((filters) => !filters.month || Boolean(filters.year), {
   message: "Phải chọn năm trước khi chọn tháng",
 });
@@ -53,6 +121,7 @@ type ReportPayload = {
   columns: ReportColumn[];
   rows: ReportRow[];
   summary?: string;
+  group_key?: string;
 };
 
 type ExportJobClaim = {
@@ -264,10 +333,15 @@ async function buildReportPayload(
     : filters.year ? `Năm ${filters.year}` : "Tất cả thời gian";
 
   if (reportType === "assets") {
+    const selectedFields = filters.asset_fields?.length
+      ? filters.asset_fields
+      : defaultAssetReportFields;
+    const selectedGroups = new Set(filters.asset_groups ?? []);
+    const selectedStatuses = new Set(filters.asset_statuses ?? []);
     const { data, error } = await supabase
       .from("assets")
       .select(
-        "id, asset_kind, asset_code, asset_name, asset_type, brand, model, serial_number, quantity, unit_price, total_price, assigned_to_name, department_legacy_name, location, status, purchase_date, warranty_end_date, note, departments(name)",
+        "id, asset_kind, asset_code, asset_name, asset_group, asset_group_label, asset_type, brand, model, serial_number, purchase_year, purchase_date, quantity, unit_price, total_price, assigned_to_name, department_legacy_name, location, software_license_note, status, warranty_end_date, note, departments(name)",
       )
       .is("deleted_at", null)
       .neq("status", "DA_THANH_LY")
@@ -282,7 +356,7 @@ async function buildReportPayload(
       .order("installed_at");
     if (installationError) throw new Error("Không thể đọc cấu hình linh kiện");
 
-    const normalizedAssets = (data ?? []).map((asset) => {
+    const allNormalizedAssets = (data ?? []).map((asset) => {
       const { departments, ...fields } = asset;
       const department = Array.isArray(asset.departments)
         ? asset.departments[0]?.name
@@ -291,9 +365,23 @@ async function buildReportPayload(
         ...fields,
         department: department || asset.department_legacy_name,
         status_label: labelStatus(asset.status),
+        report_group: asset.asset_group_label || asset.asset_group || "CHƯA PHÂN NHÓM",
       };
     });
-    const assetById = new Map(normalizedAssets.map((asset) => [asset.id, asset]));
+    const normalizedAssets = allNormalizedAssets.filter((asset) => {
+      if (filters.year && asset.purchase_year && asset.purchase_year > filters.year) return false;
+      if (selectedGroups.size && !selectedGroups.has(asset.asset_group)) return false;
+      if (selectedStatuses.size && !selectedStatuses.has(asset.status)) return false;
+      return true;
+    }).sort((left, right) => {
+      const leftOrder = assetReportGroupOrder.indexOf(left.asset_group);
+      const rightOrder = assetReportGroupOrder.indexOf(right.asset_group);
+      const groupDifference = (leftOrder === -1 ? 999 : leftOrder) - (rightOrder === -1 ? 999 : rightOrder);
+      if (groupDifference) return groupDifference;
+      const labelDifference = left.report_group.localeCompare(right.report_group, "vi");
+      return labelDifference || left.asset_code.localeCompare(right.asset_code, "vi");
+    });
+    const assetById = new Map(allNormalizedAssets.map((asset) => [asset.id, asset]));
     const activeComponentIds = new Set(
       (installations ?? []).map((item) => item.component_asset_id),
     );
@@ -319,7 +407,12 @@ async function buildReportPayload(
           installation,
           component: assetById.get(installation.component_asset_id),
         }))
-        .filter((item) => item.component)
+        .filter((item) => {
+          if (!item.component) return false;
+          if (filters.year && item.component.purchase_year && item.component.purchase_year > filters.year) return false;
+          if (selectedStatuses.size && !selectedStatuses.has(item.component.status)) return false;
+          return true;
+        })
         .sort((left, right) =>
           String(left.component?.asset_code).localeCompare(
             String(right.component?.asset_code),
@@ -330,6 +423,8 @@ async function buildReportPayload(
           if (!component) return;
           rows.push({
             ...component,
+            asset_name: `↳ ${component.asset_name}`,
+            report_group: asset.report_group,
             relation: "↳ Linh kiện đang lắp",
             parent_asset: `${asset.asset_code} — ${asset.asset_name}`,
             installed_at: installation.installed_at,
@@ -338,34 +433,17 @@ async function buildReportPayload(
         });
     }
 
+    const reportYear = filters.year ?? new Date().getFullYear();
+
     return {
       report_type: reportType,
-      title: `TDW - Danh sách thiết bị - ${dateLabel}`,
-      report_name: "BÁO CÁO DANH SÁCH THIẾT BỊ",
+      title: `TDW - Tổng hợp thiết bị đến năm ${reportYear}`,
+      report_name: `BÁO CÁO THIẾT BỊ ĐẾN NĂM ${reportYear}`,
       requested_by: requestedBy,
-      columns: [
-        { key: "relation", label: "Cấu trúc" },
-        { key: "parent_asset", label: "Thuộc thiết bị" },
-        { key: "asset_code", label: "Mã thiết bị" },
-        { key: "asset_name", label: "Tên thiết bị" },
-        { key: "asset_type", label: "Loại thiết bị" },
-        { key: "brand", label: "Thương hiệu" },
-        { key: "model", label: "Model" },
-        { key: "serial_number", label: "Serial" },
-        { key: "quantity", label: "Số lượng" },
-        { key: "unit_price", label: "Đơn giá" },
-        { key: "total_price", label: "Thành tiền" },
-        { key: "assigned_to_name", label: "Người sử dụng" },
-        { key: "department", label: "Phòng ban" },
-        { key: "location", label: "Vị trí" },
-        { key: "status_label", label: "Trạng thái" },
-        { key: "purchase_date", label: "Ngày mua" },
-        { key: "warranty_end_date", label: "Hết bảo hành" },
-        { key: "installed_at", label: "Ngày lắp" },
-        { key: "slot_name", label: "Vị trí / khe" },
-        { key: "note", label: "Ghi chú" },
-      ],
+      columns: selectedFields.map((field) => assetReportColumnCatalog[field]),
       rows,
+      summary: `${rows.length} thiết bị · đến năm ${reportYear}`,
+      group_key: "report_group",
     };
   }
 

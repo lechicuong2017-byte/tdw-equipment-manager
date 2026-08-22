@@ -1,8 +1,10 @@
 import { ExportReportButton } from "@/components/export-assets-button";
 import { AssetQrLabels } from "@/components/asset-qr-labels";
+import { AssetReportExportConfigurator } from "@/components/asset-report-export-configurator";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
 import type { AssetQrData } from "@/lib/asset-qr";
+import { labelStatus } from "@/lib/format";
 
 export const metadata = { title: "Báo cáo" };
 
@@ -12,7 +14,7 @@ export default async function ReportsPage() {
   const { data: qrAssetData } = canExportAssets
     ? await supabase
         .from("assets")
-        .select("id,asset_code,asset_name,asset_group,asset_group_label,purchase_year,last_maintenance_date,warranty_end_date")
+        .select("id,asset_code,asset_name,asset_group,asset_group_label,purchase_year,last_maintenance_date,warranty_end_date,status")
         .is("deleted_at", null)
         .neq("status", "DA_THANH_LY")
         .order("asset_code")
@@ -84,14 +86,24 @@ export default async function ReportsPage() {
                 <p>{report.description}</p>
               </div>
               {can(access, report.permission) ? (
-                <div className="report-actions">
-                  <ExportReportButton reportType={report.type} />
-                  <ExportReportButton
-                    buttonLabel="Xuất PDF"
-                    outputFormat="pdf"
-                    reportType={report.type}
-                  />
-                </div>
+                report.type === "assets" ? (
+                  <AssetReportExportConfigurator assets={(qrAssetData ?? []).map((asset) => ({
+                    asset_group: asset.asset_group,
+                    asset_group_label: asset.asset_group_label,
+                    purchase_year: asset.purchase_year,
+                    status: asset.status,
+                    status_label: labelStatus(asset.status),
+                  }))} />
+                ) : (
+                  <div className="report-actions">
+                    <ExportReportButton reportType={report.type} />
+                    <ExportReportButton
+                      buttonLabel="Xuất PDF"
+                      outputFormat="pdf"
+                      reportType={report.type}
+                    />
+                  </div>
+                )
               ) : (
                 <small>Bạn không có quyền xuất báo cáo này.</small>
               )}

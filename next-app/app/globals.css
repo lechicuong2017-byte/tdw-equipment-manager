@@ -3019,6 +3019,127 @@ tbody tr.asset-row:hover > td {
   margin: 0.5rem 0 0;
 }
 
+.asset-report-configurator {
+  background: linear-gradient(145deg, #f8fcfd, #f4f8fb);
+  border: 1px solid #d7e6ec;
+  border-radius: 14px;
+  display: grid;
+  gap: 1rem;
+  grid-column: 1 / -1;
+  padding: 1rem;
+}
+
+.asset-report-year {
+  align-items: center;
+  display: grid;
+  gap: 0.35rem 0.75rem;
+  grid-template-columns: auto minmax(110px, 150px) minmax(0, 1fr);
+}
+
+.asset-report-year label,
+.asset-report-options legend {
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.asset-report-year select {
+  background: white;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 0 0.75rem;
+}
+
+.asset-report-year small {
+  color: var(--ink-soft);
+  font-size: 0.69rem;
+}
+
+.asset-report-options {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 0.85rem;
+}
+
+.asset-report-options legend {
+  padding: 0 0.4rem;
+}
+
+.asset-report-option-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.asset-report-option-list--groups {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.asset-report-option-list--fields {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.asset-report-option-list--statuses {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.asset-report-option-list label {
+  align-items: flex-start;
+  background: white;
+  border: 1px solid #dfe8ed;
+  border-radius: 9px;
+  color: #425269;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.7rem;
+  font-weight: 720;
+  gap: 0.5rem;
+  line-height: 1.35;
+  min-height: 38px;
+  padding: 0.6rem;
+}
+
+.asset-report-option-list label:has(input:checked) {
+  background: #eaf8ef;
+  border-color: #a8ddbb;
+  color: #176b3d;
+}
+
+.asset-report-option-list input {
+  accent-color: #1d9853;
+  flex: 0 0 auto;
+  margin-top: 0.08rem;
+}
+
+.asset-report-field-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.asset-report-link-button {
+  background: transparent;
+  border: 0;
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 800;
+  margin-top: 0.75rem;
+  padding: 0;
+}
+
+.asset-report-export-actions {
+  grid-column: auto;
+}
+
+.asset-report-validation {
+  color: var(--red) !important;
+  font-size: 0.72rem !important;
+  font-weight: 750;
+  margin: 0 !important;
+}
+
 .report-icon {
   align-items: center;
   background: var(--brand-soft);
@@ -3575,6 +3696,10 @@ tbody tr.asset-row:hover > td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .asset-report-option-list--fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .dashboard-grid,
   .maintenance-detail-grid,
   .profile-grid,
@@ -3589,6 +3714,13 @@ tbody tr.asset-row:hover > td {
 }
 
 @media (max-width: 760px) {
+
+  .asset-report-year,
+  .asset-report-option-list--groups,
+  .asset-report-option-list--fields,
+  .asset-report-option-list--statuses {
+    grid-template-columns: 1fr;
+  }
   .action-toast-region {
     left: 0.75rem;
     max-width: none;

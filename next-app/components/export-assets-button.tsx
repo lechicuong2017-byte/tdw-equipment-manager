@@ -8,6 +8,9 @@ export type ReportExportFilters = {
   year?: number;
   month?: number;
   vehicle_id?: string;
+  asset_groups?: string[];
+  asset_statuses?: string[];
+  asset_fields?: string[];
 };
 
 const loadingLabel: Record<OutputFormat, string> = {
