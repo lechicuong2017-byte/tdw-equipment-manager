@@ -10,7 +10,8 @@ import {
   AssetPreviewProvider,
 } from "@/components/asset-list-previews";
 import { AssetLiquidationAction } from "@/components/asset-liquidation-action";
-import { ConfirmAction } from "@/components/app-modal";
+import { ConfirmAction, ModalTrigger } from "@/components/app-modal";
+import { InteractiveTableRow } from "@/components/interactive-table-row";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney, labelStatus, statusTone } from "@/lib/format";
 import { normalizeSearchText } from "@/lib/search";
@@ -95,7 +96,6 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     { data: departments },
     { count: activeCount },
     { count: liquidatedCount },
-    { data: liquidationCandidates },
   ] = await Promise.all([
     supabase
       .from("settings")
@@ -121,15 +121,6 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       .select("id", { count: "exact", head: true })
       .is("deleted_at", null)
       .eq("status", "DA_THANH_LY"),
-    can(access, "assets.delete")
-      ? supabase
-          .from("assets")
-          .select("id,asset_code,asset_name")
-          .is("deleted_at", null)
-          .neq("status", "DA_THANH_LY")
-          .order("asset_code")
-          .limit(5000)
-      : Promise.resolve({ data: [] }),
   ]);
   const statusSettings = (configuredSettings ?? []).filter(
     (item) => item.setting_type === "status",
@@ -178,8 +169,8 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         actions={
           can(access, "assets.manage") ? (
             <>
-              {can(access, "assets.delete") && (liquidationCandidates ?? []).length ? (
-                <AssetLiquidationAction assets={liquidationCandidates ?? []} />
+              {can(access, "assets.delete") ? (
+                <AssetLiquidationAction assets={[]} lazy />
               ) : null}
               <Link className="secondary-button" href="/assets/new?kind=component">+ Thêm linh kiện</Link>
               <Link className="primary-button" href="/assets/new">+ Thêm thiết bị</Link>
@@ -266,7 +257,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 <th>{scope === "liquidated" ? "Ngày thanh lý / phòng ban" : "Phòng ban / vị trí"}</th>
                 <th>{scope === "liquidated" ? "Lý do" : "Trạng thái"}</th>
                 <th className="align-right">{scope === "liquidated" ? "Giá trị thu hồi" : "Giá trị"}</th>
-                {can(access, "assets.delete") ? <th className="asset-actions-column">Thao tác</th> : null}
+                <th className="asset-actions-column">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -277,20 +268,17 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                 const tone = statusTone(asset.status);
                 const liquidation = liquidationByAsset.get(asset.id);
                 return (
-                  <tr className={`asset-row asset-row--${tone}`} key={asset.id}>
+                  <InteractiveTableRow className={`asset-row asset-row--${tone}`} key={asset.id}>
                     <td>
                       <div className="asset-table-identity">
                         <AssetListThumbnail assetId={asset.id} assetName={asset.asset_name} />
-                        <Link
-                          className="asset-name"
-                          href={`/assets/${asset.id}?returnTo=${encodeURIComponent(pageHref(page))}`}
-                        >
+                        <span className="asset-name">
                           <strong>{asset.asset_name}</strong>
                           <small>
                             {asset.asset_code} · {asset.brand} {asset.model}
                             {asset.asset_kind === "COMPONENT" ? " · Linh kiện" : ""}
                           </small>
-                        </Link>
+                        </span>
                       </div>
                     </td>
                     <td>{settingLabels.get(asset.asset_type) ?? (asset.asset_type || "—")}</td>
@@ -313,9 +301,44 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                         <td className="align-right">{formatMoney(asset.total_price)}</td>
                       </>
                     )}
-                    {can(access, "assets.delete") ? (
-                      <td className="asset-actions-column">
-                        <div className="row-actions">
+                    <td className="asset-actions-column">
+                      <div className="row-actions">
+                        <ModalTrigger
+                          description={`${asset.asset_code} · ${settingLabels.get(asset.asset_type) ?? (asset.asset_type || "Chưa phân loại")}`}
+                          eyebrow="CHI TIẾT THIẾT BỊ"
+                          size="medium"
+                          title={asset.asset_name}
+                          triggerClassName="text-button row-detail-trigger"
+                          triggerLabel="Xem"
+                        >
+                          <div className="record-detail-stack">
+                            <dl className="record-detail-grid">
+                              <div><dt>Mã thiết bị</dt><dd>{asset.asset_code}</dd></div>
+                              <div><dt>Phân loại</dt><dd>{asset.asset_kind === "COMPONENT" ? "Linh kiện" : "Thiết bị hoàn chỉnh"}</dd></div>
+                              <div><dt>Loại</dt><dd>{settingLabels.get(asset.asset_type) ?? (asset.asset_type || "—")}</dd></div>
+                              <div><dt>Thương hiệu / model</dt><dd>{[asset.brand, asset.model].filter(Boolean).join(" · ") || "—"}</dd></div>
+                              <div><dt>Phòng ban</dt><dd>{department || "Chưa phân phòng"}</dd></div>
+                              <div><dt>Vị trí</dt><dd>{asset.location || "Chưa có vị trí"}</dd></div>
+                              <div><dt>Trạng thái</dt><dd>{settingLabels.get(asset.status) ?? labelStatus(asset.status)}</dd></div>
+                              <div><dt>Giá trị</dt><dd>{formatMoney(scope === "liquidated" ? liquidation?.recovery_value : asset.total_price)}</dd></div>
+                              <div><dt>Số lượng</dt><dd>{asset.quantity ?? 1}</dd></div>
+                              <div><dt>Cập nhật</dt><dd>{formatDate(asset.updated_at)}</dd></div>
+                            </dl>
+                            {scope === "liquidated" && liquidation?.reason ? (
+                              <p className="record-detail-note"><strong>Lý do thanh lý:</strong> {liquidation.reason}</p>
+                            ) : null}
+                            <div className="modal-actions">
+                              <Link
+                                className="primary-button"
+                                href={`/assets/${asset.id}?returnTo=${encodeURIComponent(pageHref(page))}`}
+                                prefetch={false}
+                              >
+                                Mở hồ sơ đầy đủ
+                              </Link>
+                            </div>
+                          </div>
+                        </ModalTrigger>
+                        {can(access, "assets.delete") ? (
                           <ConfirmAction
                             action={archiveAsset}
                             confirmLabel="Xóa thiết bị"
@@ -325,14 +348,14 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                             triggerAriaLabel={`Xóa thiết bị ${asset.asset_code}`}
                             triggerLabel="Xóa"
                           />
-                        </div>
-                      </td>
-                    ) : null}
-                  </tr>
+                        ) : null}
+                      </div>
+                    </td>
+                  </InteractiveTableRow>
                 );
               })}
               {!data?.length ? (
-                <tr><td className="empty-cell" colSpan={can(access, "assets.delete") ? 6 : 5}>Không tìm thấy thiết bị phù hợp.</td></tr>
+                <tr><td className="empty-cell" colSpan={6}>Không tìm thấy thiết bị phù hợp.</td></tr>
               ) : null}
             </tbody>
             </table>

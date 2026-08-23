@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ConfirmAction, ModalTrigger } from "@/components/app-modal";
 import { SoftwareForm } from "@/components/software-form";
+import { InteractiveTableRow } from "@/components/interactive-table-row";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
@@ -217,7 +218,7 @@ export default async function SoftwarePage() {
                 );
                 const displayStatus = isExpired ? "EXPIRED" : license.status;
                 return (
-                  <tr key={license.id}>
+                  <InteractiveTableRow key={license.id}>
                     <td>
                       <span className="asset-name">
                         <ModalTrigger
@@ -225,7 +226,7 @@ export default async function SoftwarePage() {
                           eyebrow="CHI TIẾT BẢN QUYỀN"
                           size="large"
                           title={license.software_name}
-                          triggerClassName="software-detail-trigger"
+                          triggerClassName="software-detail-trigger row-detail-trigger"
                           triggerLabel={license.software_name}
                         >
                           <SoftwareLicenseDetail
@@ -247,7 +248,7 @@ export default async function SoftwarePage() {
                           {assignments.slice(0, 3).map((assignment) => {
                             const assignedAsset = getRelatedAsset(assignment.assets);
                             return (
-                              <Link href={`/assets/${assignment.asset_id}`} key={assignment.asset_id}>
+                              <Link href={`/assets/${assignment.asset_id}`} key={assignment.asset_id} prefetch={false}>
                                 {assignedAsset?.asset_code || assignedAsset?.asset_name || "Thiết bị"}
                               </Link>
                             );
@@ -257,7 +258,7 @@ export default async function SoftwarePage() {
                           ) : null}
                         </div>
                       ) : license.assigned_asset_id ? (
-                        <Link className="asset-name" href={`/assets/${license.assigned_asset_id}`}>
+                        <Link className="asset-name" href={`/assets/${license.assigned_asset_id}`} prefetch={false}>
                           <strong>{asset?.asset_code || "Thiết bị"}</strong>
                           <small>{asset?.asset_name}</small>
                         </Link>
@@ -288,7 +289,7 @@ export default async function SoftwarePage() {
                             eyebrow="CHI TIẾT BẢN QUYỀN"
                             size="large"
                             title={license.software_name}
-                            triggerClassName="text-button"
+                            triggerClassName="text-button row-detail-trigger"
                             triggerLabel="Xem"
                           >
                             <SoftwareLicenseDetail
@@ -316,7 +317,7 @@ export default async function SoftwarePage() {
                         </div>
                       </td>
                     ) : null}
-                  </tr>
+                  </InteractiveTableRow>
                 );
               })}
               {!licenses?.length ? (

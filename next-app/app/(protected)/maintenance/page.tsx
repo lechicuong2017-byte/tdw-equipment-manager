@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ConfirmAction } from "@/components/app-modal";
+import { ConfirmAction, ModalTrigger } from "@/components/app-modal";
+import { InteractiveTableRow } from "@/components/interactive-table-row";
 import { MaintenanceForms } from "@/components/maintenance-forms";
 import { MaintenanceLogEditor } from "@/components/maintenance-log-editor";
 import { MaintenanceMediaUpload } from "@/components/maintenance-media-upload";
@@ -195,7 +196,7 @@ export default async function MaintenancePage() {
                   <th>Chu kỳ / phạm vi</th>
                   <th>Hạn tiếp theo</th>
                   <th>Trạng thái</th>
-                  {(canManage || canDelete) ? <th aria-label="Thao tác" /> : null}
+                  <th aria-label="Thao tác">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,9 +210,9 @@ export default async function MaintenancePage() {
                       ? `Loại: ${typeLabels.get(plan.scope_value) ?? plan.scope_value}`
                       : "Một thiết bị";
                   return (
-                    <tr key={plan.id}>
+                    <InteractiveTableRow key={plan.id}>
                       <td>
-                        <Link className="asset-name" href={`/assets/${plan.asset_id}`}>
+                        <Link className="asset-name" href={`/assets/${plan.asset_id}`} prefetch={false}>
                           <strong>{plan.title}</strong>
                           <small>{asset?.asset_code} · {asset?.asset_name}</small>
                           <small>{scopeLabel}{batchSize > 1 ? ` · ${batchSize} thiết bị` : ""}</small>
@@ -229,9 +230,27 @@ export default async function MaintenancePage() {
                           {plan.active ? (isOverdue ? "Quá hạn" : "Đang theo dõi") : "Tạm dừng"}
                         </span>
                       </td>
-                      {(canManage || canDelete) ? (
-                        <td>
+                      <td>
                           <div className="row-actions">
+                            <ModalTrigger
+                              description={`${asset?.asset_code ?? ""} · ${scopeLabel}`}
+                              eyebrow="CHI TIẾT KẾ HOẠCH"
+                              size="medium"
+                              title={plan.title}
+                              triggerClassName="text-button row-detail-trigger"
+                              triggerLabel="Xem"
+                            >
+                              <dl className="record-detail-grid">
+                                <div><dt>Thiết bị</dt><dd>{asset?.asset_name || "—"}</dd></div>
+                                <div><dt>Chu kỳ</dt><dd>{frequencyLabels[plan.frequency] ?? plan.frequency}</dd></div>
+                                <div><dt>Phạm vi</dt><dd>{scopeLabel}</dd></div>
+                                <div><dt>Số thiết bị</dt><dd>{batchSize}</dd></div>
+                                <div><dt>Hạn tiếp theo</dt><dd>{formatDate(plan.next_due_date)}</dd></div>
+                                <div><dt>Trạng thái</dt><dd>{plan.active ? (isOverdue ? "Quá hạn" : "Đang theo dõi") : "Tạm dừng"}</dd></div>
+                                <div className="record-detail-wide"><dt>Lặp lại</dt><dd>{plan.repeat_enabled ? "Có" : "Không"}</dd></div>
+                                <div className="record-detail-wide"><dt>Ghi chú</dt><dd>{plan.note || "—"}</dd></div>
+                              </dl>
+                            </ModalTrigger>
                             {canManage ? (
                               <MaintenancePlanEditor
                                 batchSize={batchSize}
@@ -266,13 +285,12 @@ export default async function MaintenancePage() {
                             ) : null}
                           </div>
                         </td>
-                      ) : null}
-                    </tr>
+                    </InteractiveTableRow>
                   );
                 })}
                 {!plans?.length ? (
                   <tr>
-                    <td className="empty-cell" colSpan={canManage || canDelete ? 5 : 4}>
+                    <td className="empty-cell" colSpan={5}>
                       Chưa có kế hoạch bảo trì.
                     </td>
                   </tr>
@@ -299,16 +317,16 @@ export default async function MaintenancePage() {
                   <th>Thực hiện</th>
                   <th className="align-right">Chi phí</th>
                   <th>Hình ảnh</th>
-                  {(canManage || canDelete) ? <th aria-label="Thao tác" /> : null}
+                  <th aria-label="Thao tác">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {(logs ?? []).map((log) => {
                   const asset = getRelatedAsset(log.assets);
                   return (
-                    <tr key={log.id}>
+                    <InteractiveTableRow key={log.id}>
                       <td>
-                        <Link className="asset-name" href={`/maintenance/${log.id}`}>
+                        <Link className="asset-name" href={`/maintenance/${log.id}`} prefetch={false}>
                           <strong>{formatDate(log.maintenance_date)}</strong>
                           <small>{asset?.asset_code} · {asset?.asset_name}</small>
                         </Link>
@@ -334,9 +352,32 @@ export default async function MaintenancePage() {
                           ) : null}
                         </div>
                       </td>
-                      {(canManage || canDelete) ? (
-                        <td>
+                      <td>
                           <div className="row-actions">
+                            <ModalTrigger
+                              description={`${asset?.asset_code ?? ""} · ${asset?.asset_name ?? "Thiết bị"}`}
+                              eyebrow="CHI TIẾT BẢO TRÌ"
+                              size="medium"
+                              title={maintenanceTypeLabels.get(log.action_type) ?? (log.action_type || "Bảo trì")}
+                              triggerClassName="text-button row-detail-trigger"
+                              triggerLabel="Xem"
+                            >
+                              <div className="record-detail-stack">
+                                <dl className="record-detail-grid">
+                                  <div><dt>Ngày bảo trì</dt><dd>{formatDate(log.maintenance_date)}</dd></div>
+                                  <div><dt>Chi phí</dt><dd>{formatMoney(log.cost)}</dd></div>
+                                  <div><dt>Người thực hiện</dt><dd>{log.performed_by || "—"}</dd></div>
+                                  <div><dt>Đơn vị thực hiện</dt><dd>{log.vendor || "—"}</dd></div>
+                                  <div><dt>Bảo hành thêm</dt><dd>{log.warranty_months ? `${log.warranty_months} tháng` : "—"}</dd></div>
+                                  <div><dt>Hình ảnh</dt><dd>{maintenanceMediaByLog.get(log.id)?.length ?? 0} ảnh</dd></div>
+                                  <div className="record-detail-wide"><dt>Nội dung</dt><dd>{log.description}</dd></div>
+                                  <div className="record-detail-wide"><dt>Ghi chú</dt><dd>{log.note || "—"}</dd></div>
+                                </dl>
+                                <div className="modal-actions">
+                                  <Link className="primary-button" href={`/maintenance/${log.id}`} prefetch={false}>Mở hồ sơ đầy đủ</Link>
+                                </div>
+                              </div>
+                            </ModalTrigger>
                             {canManage ? (
                               <MaintenanceLogEditor
                                 actionTypes={maintenanceTypes.map((item) => ({
@@ -370,13 +411,12 @@ export default async function MaintenancePage() {
                             ) : null}
                           </div>
                         </td>
-                      ) : null}
-                    </tr>
+                    </InteractiveTableRow>
                   );
                 })}
                 {!logs?.length ? (
                   <tr>
-                    <td className="empty-cell" colSpan={canManage || canDelete ? 6 : 5}>
+                    <td className="empty-cell" colSpan={6}>
                       Chưa có nhật ký bảo trì.
                     </td>
                   </tr>

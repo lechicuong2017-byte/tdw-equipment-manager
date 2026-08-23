@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ModalTrigger } from "@/components/app-modal";
+import { InteractiveTableRow } from "@/components/interactive-table-row";
 import { MovementForm } from "@/components/movement-form";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
@@ -74,15 +75,16 @@ export default async function MovementsPage() {
                 <th>Người sử dụng</th>
                 <th>Vị trí</th>
                 <th>Lý do / phê duyệt</th>
+                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {(movements ?? []).map((movement) => {
                 const asset = getRelatedAsset(movement.assets);
                 return (
-                  <tr key={movement.id}>
+                  <InteractiveTableRow key={movement.id}>
                     <td>
-                      <Link className="asset-name" href={`/assets/${movement.asset_id}`}>
+                      <Link className="asset-name" href={`/assets/${movement.asset_id}`} prefetch={false}>
                         <strong>{formatDate(movement.movement_date)}</strong>
                         <small>{asset?.asset_code} · {asset?.asset_name}</small>
                       </Link>
@@ -109,12 +111,33 @@ export default async function MovementsPage() {
                           : "Chưa ghi người duyệt"}
                       </small>
                     </td>
-                  </tr>
+                    <td>
+                      <ModalTrigger
+                        description={`${asset?.asset_code ?? ""} · ${asset?.asset_name ?? "Thiết bị"}`}
+                        eyebrow="CHI TIẾT LUÂN CHUYỂN"
+                        size="medium"
+                        title={`Luân chuyển ngày ${formatDate(movement.movement_date)}`}
+                        triggerClassName="text-button row-detail-trigger"
+                        triggerLabel="Xem"
+                      >
+                        <dl className="record-detail-grid">
+                          <div><dt>Từ người sử dụng</dt><dd>{movement.from_user_name || "Chưa phân công"}</dd></div>
+                          <div><dt>Đến người sử dụng</dt><dd>{movement.to_user_name || "Chưa phân công"}</dd></div>
+                          <div><dt>Từ vị trí</dt><dd>{movement.from_location || "Chưa có vị trí"}</dd></div>
+                          <div><dt>Đến vị trí</dt><dd>{movement.to_location || "Chưa có vị trí"}</dd></div>
+                          <div><dt>Người duyệt</dt><dd>{movement.approved_by_name || "—"}</dd></div>
+                          <div><dt>Ngày luân chuyển</dt><dd>{formatDate(movement.movement_date)}</dd></div>
+                          <div className="record-detail-wide"><dt>Lý do</dt><dd>{movement.reason || "—"}</dd></div>
+                          <div className="record-detail-wide"><dt>Ghi chú</dt><dd>{movement.note || "—"}</dd></div>
+                        </dl>
+                      </ModalTrigger>
+                    </td>
+                  </InteractiveTableRow>
                 );
               })}
               {!movements?.length ? (
                 <tr>
-                  <td className="empty-cell" colSpan={4}>
+                  <td className="empty-cell" colSpan={5}>
                     Chưa có lịch sử luân chuyển.
                   </td>
                 </tr>
