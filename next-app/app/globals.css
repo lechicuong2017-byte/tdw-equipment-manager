@@ -974,6 +974,27 @@ tbody tr.interactive-data-row > td {
   transition: background 150ms ease, box-shadow 150ms ease;
 }
 
+tbody tr.interactive-data-row .asset-name,
+tbody tr.interactive-data-row .software-detail-trigger,
+tbody tr.interactive-data-row > td:first-child > strong {
+  transition: color 150ms ease, transform 150ms ease;
+}
+
+tbody tr.interactive-data-row:hover .asset-name,
+tbody tr.interactive-data-row:focus-visible .asset-name,
+tbody tr.interactive-data-row:hover .software-detail-trigger,
+tbody tr.interactive-data-row:focus-visible .software-detail-trigger,
+tbody tr.interactive-data-row:hover > td:first-child > strong,
+tbody tr.interactive-data-row:focus-visible > td:first-child > strong {
+  color: var(--brand);
+  transform: translateX(2px);
+}
+
+tbody tr.interactive-data-row:hover .asset-name strong,
+tbody tr.interactive-data-row:focus-visible .asset-name strong {
+  color: inherit;
+}
+
 tbody tr.interactive-data-row:hover > td,
 tbody tr.interactive-data-row:focus-visible > td {
   background: #f2f8fa;
