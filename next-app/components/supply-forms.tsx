@@ -80,10 +80,10 @@ export function SupplierQuoteImportForm() {
   return (
     <div className="supplier-quote-import-flow">
       <form action={action} className="data-form import-upload-form">
-        <ActionStateToast state={state} />
-        <div className="form-grid">
+        <ActionStateToast notifyBoundary={!state.quotePreview} state={state} />
+        <div className="form-grid supply-quote-upload-fields">
           <label>Loại hàng gợi ý *<select defaultValue="OFFICE_SUPPLY" name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label>
-          <label className="span-2">File báo giá nhà cung cấp *<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="workbook" required type="file" /></label>
+          <label>File báo giá nhà cung cấp *<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="workbook" required type="file" /></label>
         </div>
         <div className="import-hint supply-import-hint"><strong>Bước 1 · Chỉ đọc và kiểm tra</strong><p>Chưa có dữ liệu nào được lưu. Hệ thống nhận diện file, kiểm tra trùng và đề xuất mã; bạn sẽ chọn lại loại, đơn giá và tick từng dòng ở bước kế tiếp.</p></div>
         {state.error ? <p className="form-error">{state.error}</p> : null}
@@ -123,10 +123,10 @@ function SupplierQuoteReviewForm({ preview }: { preview: SupplierQuotePreview })
     lines: rows.filter((row) => row.selected).map(({ selected: _selected, existingItems: _existingItems, ...row }) => row),
   };
 
-  if (state.success) return <div className="import-preview-summary"><strong>{state.success}</strong><span>Danh mục và báo giá đã được cập nhật.</span></div>;
   return (
-    <form action={action} className="import-preview-form supply-quote-review">
+    <>
       <ActionStateToast state={state} />
+      {state.success ? <div className="import-preview-summary"><strong>{state.success}</strong><span>Danh mục và báo giá đã được cập nhật.</span></div> : <form action={action} className="import-preview-form supply-quote-review">
       <input name="review" type="hidden" value={JSON.stringify(selectedPayload)} />
       <div className="import-preview-summary"><div><strong>Bước 2 · Duyệt trước khi nhập</strong><span>{preview.vendorName} · {rows.length} dòng · {duplicateCount} dòng đã có trong danh mục</span></div><b>{selectedCount} đã chọn</b></div>
       <div className="supply-review-toolbar"><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: true })))} type="button">Chọn tất cả</button><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button><span>Mã mới được cấp theo loại hàng và năm {preview.codeYear}.</span></div>
@@ -136,7 +136,8 @@ function SupplierQuoteReviewForm({ preview }: { preview: SupplierQuotePreview })
       })}</tbody></table></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
       <div className="form-actions"><span>Chỉ {selectedCount} dòng đã tick mới được ghi vào cơ sở dữ liệu.</span><button className="primary-button" disabled={pending || !selectedCount} type="submit">{pending ? "Đang nhập…" : `Nhập ${selectedCount} dòng đã chọn`}</button></div>
-    </form>
+      </form>}
+    </>
   );
 }
 

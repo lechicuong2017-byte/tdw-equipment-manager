@@ -119,8 +119,10 @@ export function useActionToast() {
 }
 
 export function ActionStateToast({
+  notifyBoundary = true,
   state,
 }: {
+  notifyBoundary?: boolean;
   state: { success?: string };
 }) {
   const { showToast } = useActionToast();
@@ -132,9 +134,9 @@ export function ActionStateToast({
     previousState.current = state;
     if (state.success) {
       showToast(state.success);
-      onSuccess();
+      if (notifyBoundary) onSuccess();
     }
-  }, [onSuccess, showToast, state]);
+  }, [notifyBoundary, onSuccess, showToast, state]);
 
   return null;
 }
