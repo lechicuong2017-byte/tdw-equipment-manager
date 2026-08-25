@@ -3,7 +3,7 @@ import {
   ActionToastProvider,
   ActionUrlToast,
 } from "@/components/action-toast";
-import { Sidebar } from "@/components/sidebar";
+import { ProtectedShell } from "@/components/protected-shell";
 import { requireAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +20,7 @@ export default async function ProtectedLayout({
       <Suspense fallback={null}>
         <ActionUrlToast />
       </Suspense>
-      <div className="app-shell">
-        <Sidebar access={access} />
-        <main className="app-main">{children}</main>
-      </div>
+      <ProtectedShell access={access}>{children}</ProtectedShell>
     </ActionToastProvider>
   );
 }

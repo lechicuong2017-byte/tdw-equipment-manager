@@ -20,9 +20,10 @@
 }
 
 .module-switch-link { border: 1px solid rgba(255, 255, 255, 0.13); margin-bottom: 0.9rem; }
-.module-picker-page { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 5rem); }
+.module-picker-main { min-height: 100vh; padding: clamp(2rem, 5vw, 4.5rem); }
+.module-picker-page { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 9rem); }
 .module-picker-heading { margin-bottom: 2rem; max-width: 720px; text-align: center; }
-.module-picker-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 960px; width: 100%; }
+.module-picker-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1280px; width: 100%; }
 .module-picker-card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow); min-height: 300px; overflow: hidden; padding: 2rem; position: relative; transition: transform 160ms ease, box-shadow 160ms ease; }
 .module-picker-card::before { background: currentColor; content: ""; height: 5px; inset: 0 0 auto; position: absolute; }
 .module-picker-card:hover { box-shadow: 0 24px 56px rgba(15, 37, 55, 0.14); transform: translateY(-4px); }
@@ -30,7 +31,36 @@
 .module-picker-card > strong { color: var(--brand); display: block; margin-top: 1.8rem; }
 .module-picker-blue { color: #3379d4; }
 .module-picker-green { color: #15845d; }
+.module-picker-amber { color: #b36a08; }
 .module-picker-icon { align-items: center; background: color-mix(in srgb, currentColor 12%, white); border-radius: 18px; display: flex; height: 68px; justify-content: center; margin-bottom: 1.8rem; width: 68px; }
+.module-system-panel { align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; display: flex; gap: 1.25rem; justify-content: space-between; margin-top: 1.25rem; max-width: 1280px; padding: 1.35rem 1.5rem; width: 100%; }
+.module-system-copy { align-items: center; display: flex; gap: 1rem; }
+.module-system-copy .module-picker-icon { color: var(--brand); flex: 0 0 56px; height: 56px; margin: 0; width: 56px; }
+.module-system-copy h2 { font-size: 1.08rem; margin: 0.15rem 0; }
+.module-system-copy p:last-child { color: var(--ink-soft); margin: 0; }
+.supply-section-tabs { margin-bottom: 1.25rem; }
+.supply-metric-grid .metric-card strong { font-size: clamp(1.3rem, 2vw, 2rem); }
+.supply-metric-grid .metric-card:nth-child(3) strong { white-space: nowrap; }
+.form-fieldset { border: 1px solid var(--line); border-radius: 18px; margin-top: 1rem; padding: 1.25rem; }
+.form-fieldset legend { font-weight: 800; padding: 0 0.5rem; }
+.import-hint { background: var(--brand-soft); border-radius: 14px; color: var(--ink-soft); margin-top: 1rem; padding: 1rem; }
+.import-hint p { margin: 0.3rem 0 0; }
+.report-filter-panel { align-items: end; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; display: grid; gap: 1.5rem; grid-template-columns: minmax(240px, 0.8fr) minmax(0, 2fr); margin-bottom: 1.25rem; padding: 1.5rem; }
+.report-filter-panel h2 { margin: 0.2rem 0; }
+.report-filter-panel p:last-child { color: var(--ink-soft); margin: 0; }
+.report-filter-grid { align-items: end; display: grid; gap: 0.75rem; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
+.report-filter-grid label { display: grid; font-size: 0.76rem; font-weight: 750; gap: 0.35rem; }
+@media (max-width: 1100px) {
+  .module-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-filter-panel { grid-template-columns: 1fr; }
+  .report-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .module-picker-main { padding: 1.25rem; }
+  .module-picker-grid { grid-template-columns: 1fr; }
+  .module-system-panel, .module-system-copy { align-items: flex-start; flex-direction: column; }
+  .report-filter-grid { grid-template-columns: 1fr; }
+}
 .vehicle-page-header .page-header { margin-bottom: 1.35rem; }
 .vehicle-page-header .muted { max-width: 760px; }
 .vehicle-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 37, 55, 0.04); display: grid; gap: 0.35rem; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-bottom: 1rem; padding: 0.4rem; }

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireAccess } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const modules = ["assets", "maintenance", "movement", "software"] as const;
+const modules = ["assets", "maintenance", "movement", "software", "vehicles", "supplies"] as const;
 const scopeTypes = ["none", "all", "department", "assigned", "owned"] as const;
 
 function requireAdmin(roles: string[]) {

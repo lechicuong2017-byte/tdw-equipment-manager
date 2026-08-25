@@ -17,6 +17,7 @@ export type AppIconName =
   | "reports"
   | "settings"
   | "software"
+  | "supplies"
   | "timeline"
   | "vehicle"
   | "inspection"
@@ -48,6 +49,7 @@ const iconPaths: Record<AppIconName, ReactNode> = {
   reports: <><path d="M5 3h10l4 4v14H5z" /><path d="M15 3v5h5M8 17v-3M12 17v-6M16 17V9" /></>,
   settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" /></>,
   software: <><rect height="16" rx="2" width="18" x="3" y="4" /><path d="M3 8h18M7 6h.01M10 6h.01M8 13l2 2-2 2M13 17h3" /></>,
+  supplies: <><path d="M5 6.5h14v14H5zM8 3.5h8v5H8z" /><path d="M9 12h6M9 16h4" /></>,
   timeline: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   vehicle: <><path d="M5 16h14l-1.3-6.2A2.3 2.3 0 0 0 15.5 8h-7a2.3 2.3 0 0 0-2.2 1.8z" /><path d="M3 16v2h2M21 16v2h-2M7 13h.01M17 13h.01M8 8l1-3h6l1 3" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></>,
   inspection: <><path d="M7 3h10v3H7zM5 5h14v16H5z" /><path d="m8 13 2.2 2.2L16 9.5M8 18h8" /></>,

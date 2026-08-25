@@ -41,10 +41,24 @@ const vehicleNavItems: ReadonlyArray<{
   { href: "/vehicles/reports", label: "Báo cáo xe", icon: "reports", permission: "reports.vehicles.export", tone: "rose" },
 ];
 
+const supplyNavItems: ReadonlyArray<{
+  href: string;
+  icon: AppIconName;
+  label: string;
+  permission: string;
+  tone: string;
+}> = [
+  { href: "/supplies", label: "Tổng quan", icon: "dashboard", permission: "supplies.view", tone: "cyan" },
+  { href: "/supplies?section=catalog", label: "Danh mục hàng", icon: "supplies", permission: "supplies.view", tone: "blue" },
+  { href: "/supplies?section=requests", label: "Phiếu yêu cầu", icon: "assets", permission: "supplies.view", tone: "amber" },
+  { href: "/supplies?section=reports", label: "Báo cáo mua sắm", icon: "reports", permission: "reports.supplies.export", tone: "rose" },
+];
+
 export function Sidebar({ access }: { access: AccessProfile }) {
   const pathname = usePathname();
   const isVehicleModule = pathname.startsWith("/vehicles");
-  const navItems = isVehicleModule ? vehicleNavItems : equipmentNavItems;
+  const isSupplyModule = pathname.startsWith("/supplies");
+  const navItems = isVehicleModule ? vehicleNavItems : isSupplyModule ? supplyNavItems : equipmentNavItems;
   const initials = (access.full_name || access.email)
     .split(/\s+/)
     .filter(Boolean)
@@ -63,7 +77,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           src="/tdw-logo.webp"
           width={126}
         />
-        <small>{isVehicleModule ? "Vehicle Manager" : "Equipment Manager"}</small>
+        <small>{isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
       </div>
 
       <nav aria-label="Điều hướng chính">
@@ -81,7 +95,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
             </Link>
           ))}
 
-        {!isVehicleModule && access.roles.includes("admin") ? (
+        {!isVehicleModule && !isSupplyModule && access.roles.includes("admin") ? (
           <>
             <p className="nav-label nav-label-spaced">HỆ THỐNG</p>
             <Link href="/admin/users"><span className="nav-icon nav-icon-cyan"><AppIcon name="users" /></span>Người dùng</Link>

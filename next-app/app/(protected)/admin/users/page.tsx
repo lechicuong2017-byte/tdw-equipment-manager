@@ -15,6 +15,8 @@ const modules = [
   ["maintenance", "Bảo trì"],
   ["movement", "Luân chuyển"],
   ["software", "Phần mềm"],
+  ["vehicles", "Quản lý xe"],
+  ["supplies", "Văn phòng phẩm / Dụng cụ vệ sinh"],
 ] as const;
 
 export default async function UsersPage({ searchParams }: UsersPageProps) {

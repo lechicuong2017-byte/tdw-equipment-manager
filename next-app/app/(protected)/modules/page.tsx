@@ -25,6 +25,15 @@ export default async function ModulesPage() {
       available: can(access, "vehicles.view"),
       tone: "green",
     },
+    {
+      href: "/supplies",
+      icon: "supplies" as const,
+      eyebrow: "HÀNH CHÍNH",
+      title: "Văn phòng phẩm & vệ sinh",
+      description: "Danh mục hàng hóa, phiếu yêu cầu, mua sắm theo kỳ và báo cáo chi phí.",
+      available: can(access, "supplies.view"),
+      tone: "amber",
+    },
   ];
 
   return (
@@ -32,7 +41,7 @@ export default async function ModulesPage() {
       <div className="module-picker-heading">
         <p className="eyebrow">TDW MANAGEMENT</p>
         <h1>Chọn phân hệ làm việc</h1>
-        <p className="muted">Bạn có thể đổi phân hệ bất kỳ lúc nào từ thanh điều hướng.</p>
+        <p className="muted">Chỉ các phân hệ bạn được cấp quyền mới xuất hiện tại đây.</p>
       </div>
       <div className="module-picker-grid">
         {modules.map((module) => module.available ? (
@@ -45,6 +54,19 @@ export default async function ModulesPage() {
           </Link>
         ) : null)}
       </div>
+      {access.roles.includes("admin") ? (
+        <div className="module-system-panel">
+          <div className="module-system-copy">
+            <span className="module-picker-icon"><AppIcon name="users" size={28} /></span>
+            <div>
+              <p className="eyebrow">QUẢN TRỊ HỆ THỐNG</p>
+              <h2>Người dùng và quyền phân hệ</h2>
+              <p>Quản lý tài khoản, vai trò, MFA và phạm vi dữ liệu cho từng phân hệ.</p>
+            </div>
+          </div>
+          <Link className="secondary-button" href="/admin/users">Mở quản trị →</Link>
+        </div>
+      ) : null}
     </section>
   );
 }
