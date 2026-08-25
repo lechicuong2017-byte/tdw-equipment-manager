@@ -390,6 +390,21 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .supply-review-table th:first-child, .supply-review-table td:first-child { text-align: center; width: 70px; }
 .supply-review-table tr.selected td { background: #eefaf3; }
 .supply-review-table td { vertical-align: middle; }
+.supply-review-check {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  position: relative;
+  width: 34px;
+}
+.supply-review-check:hover .software-asset-checkmark { border-color: #69b982; }
+.supply-review-check:has(input:checked) .software-asset-checkmark {
+  background: #20a454;
+  border-color: #20a454;
+  color: #fff;
+}
 .supply-review-table td code { color: var(--blue); font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
 .supply-review-table td input:not([type="checkbox"]), .supply-review-table td select { min-width: 150px; }
 .supply-review-table td:nth-child(3) { min-width: 300px; }
