@@ -332,7 +332,8 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-pdf-picker { background: linear-gradient(135deg, #f7fbfc, #f2f8fa); border: 1px dashed #b8d4dd; border-radius: 12px; padding: 0.85rem; }
 .vehicle-pdf-picker > span { color: var(--ink); display: block; font-size: 0.74rem; font-weight: 800; margin-bottom: 0.25rem; }
 .vehicle-pdf-picker > small { color: var(--ink-soft); display: block; font-size: 0.66rem; font-weight: 600; line-height: 1.45; margin: 0.2rem 0; }
-.vehicle-pdf-picker input[type="file"] { background: var(--surface); margin: 0.45rem 0 0.25rem; }
+.vehicle-pdf-file-control { margin: 0.45rem 0 0.25rem; }
+.vehicle-pdf-file-control:has(input:disabled) { cursor: wait; opacity: 0.7; }
 .vehicle-pdf-picker em { display: block; font-size: 0.66rem; font-style: normal; font-weight: 750; margin-top: 0.35rem; }
 .vehicle-pdf-success { color: var(--green); }
 .vehicle-pdf-error { color: var(--danger); }
@@ -368,15 +369,35 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .supplier-quote-import-flow .import-upload-form {
   align-items: end;
   border-bottom: 1px solid var(--line);
-  grid-template-columns: minmax(460px, 0.85fr) minmax(420px, 1.15fr);
+  grid-template-columns: minmax(640px, 1.2fr) minmax(0, 0.8fr);
   padding-bottom: 1rem;
 }
 .supply-quote-upload-fields {
-  grid-template-columns: minmax(190px, 0.72fr) minmax(260px, 1.28fr);
+  grid-template-columns: minmax(250px, 0.72fr) minmax(340px, 1.28fr);
 }
 .supply-quote-upload-fields label { min-width: 0; }
-.supply-quote-upload-fields select,
-.supply-quote-upload-fields input[type="file"] { width: 100%; }
+.supply-quote-upload-fields select { width: 100%; }
+.workbook-file-field { display: grid; gap: 0.45rem; min-width: 0; }
+.workbook-file-field > span:first-child { white-space: nowrap; }
+.app-file-picker {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  cursor: pointer;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 42px;
+  overflow: hidden;
+  padding: 0.35rem 0.45rem;
+  position: relative;
+}
+.app-file-picker:hover { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(14, 110, 142, 0.08); }
+.app-file-picker input[type="file"] { cursor: pointer; inset: 0; min-height: 0; opacity: 0; padding: 0; position: absolute; }
+.app-file-picker strong { background: var(--brand-soft); border-radius: 7px; color: var(--brand-dark); font-size: 0.68rem; padding: 0.48rem 0.65rem; white-space: nowrap; }
+.app-file-picker em { color: var(--ink-soft); font-size: 0.68rem; font-style: normal; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.supplier-quote-import-flow .supply-import-hint { min-width: 0; }
 .supplier-quote-import-flow .import-upload-form > .form-actions {
   grid-column: 1 / -1;
   justify-content: flex-start;
@@ -409,6 +430,11 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .supply-review-table td input:not([type="checkbox"]), .supply-review-table td select { min-width: 150px; }
 .supply-review-table td:nth-child(3) { min-width: 300px; }
 .supply-review-table .status-pill { white-space: nowrap; }
+
+@media (max-width: 1120px) {
+  .supplier-quote-import-flow .import-upload-form { grid-template-columns: 1fr; }
+  .supplier-quote-import-flow .import-upload-form > .form-actions { grid-column: auto; }
+}
 
 @media (max-width: 900px) {
   .module-picker-grid { grid-template-columns: 1fr; }

@@ -14,6 +14,7 @@ import {
   type SupplyActionState,
 } from "@/app/(protected)/supplies/actions";
 import { buildSupplyItemCode, type SupplyItemCategory } from "@/lib/supply-item-codes";
+import { WorkbookFilePicker } from "@/components/workbook-file-picker";
 
 const initialState: SupplyActionState = {};
 
@@ -54,7 +55,7 @@ export function SupplyImportForm() {
   return (
     <form action={action} className="data-form">
       <ActionStateToast state={state} />
-      <label>File phiếu tổng hợp XLSX *<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="workbook" required type="file" /></label>
+      <WorkbookFilePicker label="File phiếu tổng hợp XLSX *" name="workbook" />
       <div className="import-hint"><strong>Tự nhận diện hai mẫu TDW</strong><p>Hệ thống đọc loại hàng, quý/năm, người đề nghị, phê duyệt, số lượng, đơn giá và ghi chú; file đã nhập sẽ không tạo trùng.</p></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
       <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang đọc file…" : "Nhập phiếu XLSX"}</button></div>
@@ -83,7 +84,7 @@ export function SupplierQuoteImportForm() {
         <ActionStateToast notifyBoundary={!state.quotePreview} state={state} />
         <div className="form-grid supply-quote-upload-fields">
           <label>Loại hàng gợi ý *<select defaultValue="OFFICE_SUPPLY" name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label>
-          <label>File báo giá nhà cung cấp *<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="workbook" required type="file" /></label>
+          <WorkbookFilePicker label="File báo giá nhà cung cấp *" name="workbook" />
         </div>
         <div className="import-hint supply-import-hint"><strong>Bước 1 · Chỉ đọc và kiểm tra</strong><p>Chưa có dữ liệu nào được lưu. Hệ thống nhận diện file, kiểm tra trùng và đề xuất mã; bạn sẽ chọn lại loại, đơn giá và tick từng dòng ở bước kế tiếp.</p></div>
         {state.error ? <p className="form-error">{state.error}</p> : null}

@@ -15,6 +15,7 @@ import {
 import { AppModal, ModalTrigger } from "@/components/app-modal";
 import { ActionStateToast } from "@/components/action-toast";
 import { PdfInvoicePicker } from "@/components/pdf-invoice-picker";
+import { WorkbookFilePicker } from "@/components/workbook-file-picker";
 
 const initialState: VehicleActionState = {};
 const initialImportState: VehicleImportState = {};
@@ -248,7 +249,7 @@ function ImportWorkbook() {
       <AppModal open={open} onClose={() => setOpen(false)} eyebrow="NHẬP DỮ LIỆU" title="Bảo dưỡng & nhiên liệu từ XLSX" description="Đọc tất cả sheet đúng mẫu TDW, xem trước và chống nhập trùng." size="wide">
         <ActionStateToast state={commit} />
         <form action={previewAction} className="data-form import-upload-form">
-          <label>Chọn file XLSX<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="file" type="file" required /></label>
+          <WorkbookFilePicker label="File lịch sử xe XLSX *" name="file" />
           <button className="secondary-button" disabled={previewing} type="submit">{previewing ? "Đang phân tích…" : "Đọc và xem trước"}</button>
         </form>
         {preview.error ? <p className="form-error">{preview.error}</p> : null}

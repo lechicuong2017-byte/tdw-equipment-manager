@@ -128,8 +128,10 @@ export function PdfInvoicePicker({
   const [optimizing, setOptimizing] = useState(false);
   const [compressionMethod, setCompressionMethod] = useState("");
   const [originalByteSize, setOriginalByteSize] = useState("");
+  const [fileName, setFileName] = useState("");
 
   async function handleFile(file: File | undefined) {
+    setFileName(file?.name ?? "");
     setError("");
     setMessage("");
     setCompressionMethod("");
@@ -137,11 +139,13 @@ export function PdfInvoicePicker({
     if (!file) return;
     if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
       setError("Chỉ chấp nhận tệp PDF.");
+      setFileName("");
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
     if (file.size > maxSourceBytes) {
       setError("PDF gốc không được vượt quá 20 MB.");
+      setFileName("");
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
@@ -170,6 +174,7 @@ export function PdfInvoicePicker({
       );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể đọc hoặc nén PDF này.");
+      setFileName("");
       if (inputRef.current) inputRef.current.value = "";
     } finally {
       setOptimizing(false);
@@ -177,17 +182,22 @@ export function PdfInvoicePicker({
   }
 
   return (
-    <label className="span-3 vehicle-pdf-picker">
+    <div className="span-3 vehicle-pdf-picker">
       <span>{label}</span>
       {existingFileName ? <small>Đang lưu: {existingFileName}. Chọn tệp mới để thay thế.</small> : null}
-      <input
-        accept=".pdf,application/pdf"
-        disabled={optimizing}
-        name={fieldName}
-        onChange={(event) => void handleFile(event.currentTarget.files?.[0])}
-        ref={inputRef}
-        type="file"
-      />
+      <label className="app-file-picker vehicle-pdf-file-control">
+        <input
+          accept=".pdf,application/pdf"
+          aria-label={label}
+          disabled={optimizing}
+          name={fieldName}
+          onChange={(event) => void handleFile(event.currentTarget.files?.[0])}
+          ref={inputRef}
+          type="file"
+        />
+        <strong>{optimizing ? "Đang tối ưu…" : "Chọn file PDF"}</strong>
+        <em title={fileName}>{fileName || "Chưa chọn file"}</em>
+      </label>
       <input name={`${fieldName}_optimizing`} type="hidden" value={optimizing ? "1" : "0"} />
       <input name={`${fieldName}_compression_method`} type="hidden" value={compressionMethod} />
       <input name={`${fieldName}_original_byte_size`} type="hidden" value={originalByteSize} />
@@ -196,6 +206,6 @@ export function PdfInvoicePicker({
       {optimizing ? <em>Đang tối ưu dung lượng PDF…</em> : null}
       {message ? <em className="vehicle-pdf-success">{message}</em> : null}
       {error ? <em className="vehicle-pdf-error">{error}</em> : null}
-    </label>
+    </div>
   );
 }
