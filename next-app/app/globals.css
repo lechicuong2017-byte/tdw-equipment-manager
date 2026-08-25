@@ -78,7 +78,7 @@
 .supply-data-table { min-width: 1040px; table-layout: fixed; }
 .supply-catalog-table { min-width: 980px; }
 .supply-report-table { min-width: 960px; }
-.supply-warehouse-table { min-width: 900px; }
+.supply-warehouse-table { min-width: 1100px; }
 .supply-movement-table { min-width: 1020px; }
 .supply-data-table th,
 .supply-data-table td { vertical-align: middle; }
@@ -161,6 +161,15 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .supply-catalog-table td:nth-child(5) { width: 12%; }
 .supply-catalog-table th:nth-child(6),
 .supply-catalog-table td:nth-child(6) { width: 13%; }
+.supply-search-filters {
+  grid-template-columns: minmax(270px, 1.55fr) minmax(170px, 0.85fr) minmax(190px, 1fr) minmax(125px, 0.62fr) minmax(145px, 0.72fr) auto;
+  margin: 0 0 1rem;
+}
+.supply-search-filters .supply-search-field { min-width: 0; }
+.supply-price-filter { display: grid; gap: 0.25rem; min-width: 0; }
+.supply-price-filter > span { color: var(--ink-soft); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; padding-left: 0.15rem; }
+.supply-price-filter input { min-width: 0; width: 100%; }
+.supply-clear-filter { color: var(--brand-dark); font-size: 0.7rem; font-weight: 800; white-space: nowrap; }
 .supply-request-table th:first-child,
 .supply-request-table td:first-child { width: 17%; }
 .supply-request-table th:nth-child(2),
@@ -202,15 +211,17 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .supply-report-table th:nth-child(6),
 .supply-report-table td:nth-child(6) { width: 13%; }
 .supply-warehouse-table th:first-child,
-.supply-warehouse-table td:first-child { width: 36%; }
+.supply-warehouse-table td:first-child { width: 28%; }
 .supply-warehouse-table th:nth-child(2),
-.supply-warehouse-table td:nth-child(2) { width: 20%; }
+.supply-warehouse-table td:nth-child(2) { width: 15%; }
 .supply-warehouse-table th:nth-child(3),
-.supply-warehouse-table td:nth-child(3) { width: 12%; }
+.supply-warehouse-table td:nth-child(3) { width: 20%; }
 .supply-warehouse-table th:nth-child(4),
-.supply-warehouse-table td:nth-child(4) { width: 16%; }
+.supply-warehouse-table td:nth-child(4) { width: 9%; }
 .supply-warehouse-table th:nth-child(5),
-.supply-warehouse-table td:nth-child(5) { width: 16%; }
+.supply-warehouse-table td:nth-child(5) { width: 13%; }
+.supply-warehouse-table th:nth-child(6),
+.supply-warehouse-table td:nth-child(6) { width: 15%; }
 .supply-movement-table th:first-child,
 .supply-movement-table td:first-child { width: 30%; }
 .supply-movement-table th:nth-child(2),

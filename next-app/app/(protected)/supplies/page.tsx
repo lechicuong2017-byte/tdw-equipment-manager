@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AutoSubmitSearchInput, AutoSubmitSelect, InstantFilterForm } from "@/components/auto-submit-select";
 import { ModalTrigger, ConfirmAction } from "@/components/app-modal";
 import { AppIcon } from "@/components/app-icon";
 import { InteractiveTableRow } from "@/components/interactive-table-row";
@@ -10,9 +11,11 @@ import {
 } from "@/components/supply-forms";
 import { archiveSupplyItem, deleteSupplyQuote, deleteSupplyRequest } from "./actions";
 import { can, requireAccess } from "@/lib/auth";
+import { normalizeSearchText } from "@/lib/search";
 
 export const metadata = { title: "Văn phòng phẩm & Dụng cụ vệ sinh" };
-type SuppliesPageProps = { searchParams: Promise<{ section?: string; year?: string; quarter?: string; month?: string; category?: string }> };
+type SuppliesPageProps = { searchParams: Promise<{ section?: string; year?: string; quarter?: string; month?: string; category?: string; q?: string; vendor?: string; price_min?: string; price_max?: string }> };
+type SupplierSnapshot = { vendorName: string; unitPrice: number; quoteDate: string | null };
 const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const categoryLabel = (value: string) => value === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : value === "CLEANING_SUPPLY" ? "Dụng cụ vệ sinh" : "VPP & Dụng cụ vệ sinh";
 const statusLabel: Record<string, string> = { DRAFT: "Nháp", SUBMITTED: "Đã trình", APPROVED: "Đã duyệt", ORDERED: "Đã đặt mua", CLOSED: "Hoàn tất", REJECTED: "Không duyệt" };
@@ -32,6 +35,10 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const quarter = Number(params.quarter) || 0;
   const month = Number(params.month) || 0;
   const category = params.category === "OFFICE_SUPPLY" || params.category === "CLEANING_SUPPLY" ? params.category : "";
+  const supplySearch = String(params.q ?? "").trim().slice(0, 120);
+  const supplyVendor = String(params.vendor ?? "").trim().slice(0, 160);
+  const supplyPriceMin = Math.max(0, Number(params.price_min) || 0);
+  const supplyPriceMax = Math.max(0, Number(params.price_max) || 0);
   const [itemsResult, requestsResult, linesResult, departmentsResult, quotesResult, quoteLinesResult, balancesResult, movementsResult] = await Promise.all([
     supabase.from("supply_items").select("id,category,item_code,item_name,unit,description,default_unit_price,active,updated_at").order("category").order("item_name"),
     supabase.from("supply_requests").select("id,request_no,category,period_type,period_year,period_month,period_quarter,requested_on,requesting_department,requester_name,checker_name,approver_name,status,note,source_file,created_at").order("requested_on", { ascending: false }),
@@ -56,6 +63,38 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   lines.forEach((line) => linesByRequest.set(line.request_id, [...(linesByRequest.get(line.request_id) ?? []), line]));
   const linesByQuote = new Map<string, typeof quoteLines>();
   quoteLines.forEach((line) => linesByQuote.set(line.quote_id, [...(linesByQuote.get(line.quote_id) ?? []), line]));
+  const supplierByItem = new Map<string, SupplierSnapshot>();
+  quotes.forEach((quote) => {
+    (linesByQuote.get(quote.id) ?? []).forEach((line) => {
+      const snapshot = { vendorName: quote.vendor_name, unitPrice: Number(line.unit_price || 0), quoteDate: quote.quote_date };
+      if (line.item_id && !supplierByItem.has(line.item_id)) supplierByItem.set(line.item_id, snapshot);
+      if (line.item_code && !supplierByItem.has(`code:${line.item_code}`)) supplierByItem.set(`code:${line.item_code}`, snapshot);
+    });
+  });
+  const supplierFor = (itemId?: string | null, itemCode?: string | null) =>
+    (itemId ? supplierByItem.get(itemId) : undefined) ?? (itemCode ? supplierByItem.get(`code:${itemCode}`) : undefined);
+  const vendorOptions = [...new Set(quotes.map((quote) => quote.vendor_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, "vi"));
+  const matchesSupplyFilter = (item: { id?: string | null; item_id?: string | null; item_code?: string | null; item_name?: string | null; category?: string | null; unit?: string | null; description?: string | null; default_unit_price?: number | string | null }) => {
+    const snapshot = supplierFor(item.id ?? item.item_id, item.item_code);
+    const price = snapshot?.unitPrice ?? Number(item.default_unit_price || 0);
+    if (category && item.category !== category) return false;
+    if (supplyVendor && snapshot?.vendorName !== supplyVendor) return false;
+    if (supplyPriceMin && price < supplyPriceMin) return false;
+    if (supplyPriceMax && price > supplyPriceMax) return false;
+    const query = normalizeSearchText(supplySearch);
+    if (!query) return true;
+    const haystack = normalizeSearchText([
+      item.item_code, item.item_name, categoryLabel(item.category || ""), item.unit, item.description,
+      snapshot?.vendorName, price, price.toLocaleString("vi-VN"),
+    ].filter(Boolean).join(" "));
+    return query.split(" ").every((token) => haystack.includes(token));
+  };
+  const filteredCatalogItems = items.filter(matchesSupplyFilter);
+  const filteredInventoryBalances = inventoryBalances.filter(matchesSupplyFilter);
+  const filteredInventoryMovements = inventoryMovements.filter((movement) => {
+    const item = Array.isArray(movement.supply_items) ? movement.supply_items[0] : movement.supply_items;
+    return matchesSupplyFilter({ ...item, item_id: movement.item_id, default_unit_price: movement.unit_price });
+  });
   const totalSpend = lines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
   const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
   const currentRequests = requests.filter((request) => request.period_year === new Date().getFullYear() && (request.period_type !== "QUARTER" || request.period_quarter === currentQuarter));
@@ -99,37 +138,70 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
       <section className="supply-overview-grid"><article className="panel supply-panel supply-panel--requests"><div className="panel-heading"><div><p className="eyebrow">PHIẾU GẦN ĐÂY</p><h2>Nhu cầu mua sắm</h2></div>{can(access, "supplies.import") ? <ModalTrigger description="Nhận diện trực tiếp hai mẫu phiếu tổng hợp TDW." eyebrow="NHẬP DỮ LIỆU" size="medium" title="Nhập phiếu từ XLSX" triggerClassName="secondary-button" triggerLabel="Nhập phiếu XLSX"><SupplyImportForm /></ModalTrigger> : null}</div><SupplyRequestTable access={access} requests={requests.slice(0, 6)} linesByRequest={linesByRequest} /></article><article className="panel supply-panel supply-panel--quotes"><div className="panel-heading"><div><p className="eyebrow">BÁO GIÁ MỚI</p><h2>Nhà cung cấp</h2></div>{can(access, "supplies.import") ? <ModalTrigger description="Đọc báo giá Lan Anh, Hưng Thịnh và các mẫu có cột tương đương." eyebrow="BÁO GIÁ" size="large" title="Nhập báo giá XLSX" triggerClassName="secondary-button" triggerLabel="+ Báo giá"><SupplierQuoteImportForm /></ModalTrigger> : null}</div>{quoteQueryError ? <p className="form-error">Chưa áp dụng cấu trúc báo giá mới trên Supabase.</p> : <SupplyQuoteCards quotes={quotes.slice(0, 5)} />}</article></section>
     </> : null}
 
-    {section === "catalog" ? <CatalogSection access={access} items={items} /> : null}
-    {section === "warehouse" ? <WarehouseSection balances={inventoryBalances} error={inventoryError} movements={inventoryMovements} /> : null}
+    {section === "catalog" ? <CatalogSection access={access} category={category} items={filteredCatalogItems} priceMax={supplyPriceMax} priceMin={supplyPriceMin} q={supplySearch} supplierFor={supplierFor} total={items.length} vendor={supplyVendor} vendorOptions={vendorOptions} /> : null}
+    {section === "warehouse" ? <WarehouseSection balances={filteredInventoryBalances} category={category} error={inventoryError} movements={filteredInventoryMovements} priceMax={supplyPriceMax} priceMin={supplyPriceMin} q={supplySearch} supplierFor={supplierFor} total={inventoryBalances.length} vendor={supplyVendor} vendorOptions={vendorOptions} /> : null}
     {section === "requests" ? <section className="panel supply-panel supply-panel--requests"><div className="panel-heading"><div><p className="eyebrow">PHIẾU YÊU CẦU</p><h2>Mua sắm theo kỳ</h2></div>{can(access, "supplies.import") ? <ModalTrigger description="Nhập phiếu VPP hoặc dụng cụ vệ sinh theo hai file tổng hợp TDW." eyebrow="NHẬP DỮ LIỆU" size="medium" title="Nhập lịch sử XLSX" triggerClassName="secondary-button" triggerLabel="Nhập XLSX"><SupplyImportForm /></ModalTrigger> : null}</div><SupplyRequestTable access={access} requests={requests} linesByRequest={linesByRequest} /></section> : null}
     {section === "quotes" ? <section className="panel supply-panel supply-panel--quotes"><div className="panel-heading"><div><p className="eyebrow">BÁO GIÁ NHÀ CUNG CẤP</p><h2>Danh sách báo giá đã nhận</h2></div><span>{quotes.length} báo giá</span></div>{quoteQueryError ? <p className="form-error">Chưa thể tải báo giá. Hãy áp dụng migration Supabase mới.</p> : <SupplyQuoteTable access={access} linesByQuote={linesByQuote} quotes={quotes} />}</section> : null}
     {section === "reports" ? <ReportsSection category={category} filteredLines={filteredLines} filteredRequests={filteredRequests} filteredTotal={filteredTotal} month={month} quarter={quarter} year={year} /> : null}
   </>;
 }
 
-function CatalogSection({ items, access }: { items: SupplyItemOption[]; access: any }) {
+type SupplyFilterProps = {
+  q: string;
+  category: string;
+  vendor: string;
+  priceMin: number;
+  priceMax: number;
+  vendorOptions: string[];
+};
+
+function SupplySearchFilters({ section, q, category, vendor, priceMin, priceMax, vendorOptions }: SupplyFilterProps & { section: "catalog" | "warehouse" }) {
+  const hasFilters = Boolean(q || category || vendor || priceMin || priceMax);
+  return <InstantFilterForm className="filter-bar supply-search-filters">
+    <input name="section" type="hidden" value={section} />
+    <label className="search-field supply-search-field">
+      <span aria-hidden="true">⌕</span>
+      <AutoSubmitSearchInput defaultValue={q} name="q" placeholder="Tìm tên, loại, giá hoặc nhà cung cấp…" />
+    </label>
+    <AutoSubmitSelect aria-label="Lọc theo chủng loại" defaultValue={category} name="category">
+      <option value="">Tất cả chủng loại</option>
+      <option value="OFFICE_SUPPLY">Văn phòng phẩm</option>
+      <option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option>
+    </AutoSubmitSelect>
+    <AutoSubmitSelect aria-label="Lọc theo nhà cung cấp" defaultValue={vendor} name="vendor">
+      <option value="">Tất cả nhà cung cấp</option>
+      {vendorOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+    </AutoSubmitSelect>
+    <label className="supply-price-filter"><span>Giá từ</span><AutoSubmitSearchInput defaultValue={priceMin || ""} min={0} name="price_min" placeholder="0 ₫" step="1000" type="number" /></label>
+    <label className="supply-price-filter"><span>Đến</span><AutoSubmitSearchInput defaultValue={priceMax || ""} min={0} name="price_max" placeholder="Không giới hạn" step="1000" type="number" /></label>
+    {hasFilters ? <Link className="supply-clear-filter" href={`/supplies?section=${section}`}>Xóa bộ lọc</Link> : null}
+  </InstantFilterForm>;
+}
+
+function CatalogSection({ items, access, total, supplierFor, ...filters }: { items: SupplyItemOption[]; access: any; total: number; supplierFor: (itemId?: string | null, itemCode?: string | null) => SupplierSnapshot | undefined } & SupplyFilterProps) {
   return <section className="panel supply-panel supply-panel--catalog">
-    <div className="panel-heading"><div><p className="eyebrow">DANH MỤC</p><h2>Hàng hóa đang quản lý</h2></div><span>{items.length} mặt hàng</span></div>
+    <div className="panel-heading"><div><p className="eyebrow">DANH MỤC</p><h2>Hàng hóa đang quản lý</h2></div><span>{items.length === total ? `${total} mặt hàng` : `${items.length}/${total} mặt hàng`}</span></div>
+    <SupplySearchFilters section="catalog" {...filters} />
     <div className="table-wrap">
       <table className="supply-data-table supply-catalog-table">
-        <thead><tr><th>Tên hàng</th><th>Loại</th><th>Đơn vị</th><th>Đơn giá</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <thead><tr><th>Tên hàng</th><th>Loại</th><th>Đơn vị</th><th>Nhà cung cấp / giá</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
         <tbody>
-          {items.map((item) => <InteractiveTableRow className={`supply-row supply-row--${supplyTone(item.category)}${item.active ? "" : " supply-row--inactive"}`} key={item.id}>
+          {items.map((item) => { const supplier = supplierFor(item.id, item.item_code); return <InteractiveTableRow className={`supply-row supply-row--${supplyTone(item.category)}${item.active ? "" : " supply-row--inactive"}`} key={item.id}>
             <td><SupplyRowIdentity icon="supplies" meta={`${item.item_code || "Chưa đặt mã"} · ${item.description || "Chưa có mô tả"}`} title={item.item_name} /></td>
             <td><span className={`supply-category-pill ${supplyTone(item.category)}`}>{categoryLabel(item.category)}</span></td>
             <td><strong className="table-secondary">{item.unit}</strong></td>
-            <td className="supply-money-cell">{money.format(Number(item.default_unit_price || 0))}</td>
+            <td><strong className="table-secondary">{supplier?.vendorName || "Chưa có báo giá"}</strong><small className="table-note">{money.format(supplier?.unitPrice ?? Number(item.default_unit_price || 0))}{supplier?.quoteDate ? ` · ${dateLabel(supplier.quoteDate)}` : " · giá tham khảo"}</small></td>
             <td><span className={`status-pill ${item.active ? "status-ok" : "status-muted"}`}>{item.active ? "Đang dùng" : "Ngừng dùng"}</span></td>
             <td className="supply-actions-column"><div className="table-actions row-actions"><ModalTrigger description="Thông tin dùng chung trong phiếu yêu cầu và báo giá." eyebrow="CHI TIẾT HÀNG HÓA" size="medium" title={item.item_name} triggerClassName="text-button row-detail-trigger" triggerLabel="Xem"><SupplyItemDetail item={item} /></ModalTrigger>{can(access, "supplies.manage") ? <ModalTrigger description="Cập nhật tên, đơn vị, loại và đơn giá mặc định." eyebrow="DANH MỤC" size="large" title={`Sửa ${item.item_name}`} triggerClassName="text-button" triggerLabel="Sửa"><SupplyItemForm initial={item} /></ModalTrigger> : null}{can(access, "supplies.delete") && item.active ? <ConfirmAction action={archiveSupplyItem} description={`Xóa “${item.item_name}” khỏi danh mục đang dùng? Dữ liệu phiếu cũ vẫn được giữ nguyên.`} fields={{ id: item.id }} title="Xóa hàng hóa?" triggerLabel="Xóa" /> : null}</div></td>
-          </InteractiveTableRow>)}
-          {!items.length ? <tr><td className="empty-state" colSpan={6}>Chưa có hàng hóa trong danh mục.</td></tr> : null}
+          </InteractiveTableRow>; })}
+          {!items.length ? <tr><td className="empty-state" colSpan={6}>Không tìm thấy hàng hóa phù hợp với bộ lọc.</td></tr> : null}
         </tbody>
       </table>
     </div>
   </section>;
 }
 
-function WarehouseSection({ balances, movements, error }: { balances: Array<any>; movements: Array<any>; error: any }) {
+function WarehouseSection({ balances, movements, error, total, supplierFor, ...filters }: { balances: Array<any>; movements: Array<any>; error: any; total: number; supplierFor: (itemId?: string | null, itemCode?: string | null) => SupplierSnapshot | undefined } & SupplyFilterProps) {
   const stocked = balances.filter((row) => Number(row.on_hand_quantity) > 0);
   const lowStock = stocked.filter((row) => Number(row.on_hand_quantity) <= 5);
   const totalReceiptValue = balances.reduce((sum, row) => sum + Number(row.total_receipt_value || 0), 0);
@@ -142,8 +214,9 @@ function WarehouseSection({ balances, movements, error }: { balances: Array<any>
       <article className="metric-card supply-metric supply-metric--green"><span><AppIcon name="value" /></span><small>Giá trị nhập ghi nhận</small><strong>{money.format(totalReceiptValue)}</strong><p>Theo đơn giá tại thời điểm nhập</p></article>
     </section>
     <section className="panel supply-panel supply-panel--warehouse">
-      <div className="panel-heading"><div><p className="eyebrow">TỒN KHO</p><h2>Số dư theo hàng hóa</h2></div><span>{stocked.length} mặt hàng còn tồn</span></div>
-      <div className="table-wrap"><table className="supply-data-table supply-warehouse-table"><thead><tr><th>Hàng hóa</th><th>Loại</th><th>Đơn vị</th><th>Tồn hiện tại</th><th>Lần cập nhật cuối</th></tr></thead><tbody>{balances.map((row) => <InteractiveTableRow className={`supply-row supply-row--${supplyTone(row.category)}${Number(row.on_hand_quantity) <= 0 ? " supply-row--inactive" : ""}`} key={row.item_id}><td><SupplyRowIdentity icon="archive" meta={row.item_code || "Chưa có mã"} title={row.item_name} /></td><td><span className={`supply-category-pill ${supplyTone(row.category)}`}>{categoryLabel(row.category)}</span></td><td><strong className="table-secondary">{row.unit}</strong></td><td><span className={`supply-stock-pill ${Number(row.on_hand_quantity) <= 0 ? "empty" : Number(row.on_hand_quantity) <= 5 ? "low" : "ok"}`}>{Number(row.on_hand_quantity).toLocaleString("vi-VN")} {row.unit}</span></td><td>{row.last_movement_at ? new Date(row.last_movement_at).toLocaleString("vi-VN") : "Chưa phát sinh"}</td></InteractiveTableRow>)}{!balances.length ? <tr><td className="empty-state" colSpan={5}>Chưa có hàng hóa để theo dõi tồn kho.</td></tr> : null}</tbody></table></div>
+      <div className="panel-heading"><div><p className="eyebrow">TỒN KHO</p><h2>Số dư theo hàng hóa</h2></div><span>{balances.length === total ? `${stocked.length} mặt hàng còn tồn` : `${balances.length}/${total} mặt hàng phù hợp`}</span></div>
+      <SupplySearchFilters section="warehouse" {...filters} />
+      <div className="table-wrap"><table className="supply-data-table supply-warehouse-table"><thead><tr><th>Hàng hóa</th><th>Loại</th><th>Nhà cung cấp / giá</th><th>Đơn vị</th><th>Tồn hiện tại</th><th>Lần cập nhật cuối</th></tr></thead><tbody>{balances.map((row) => { const supplier = supplierFor(row.item_id, row.item_code); return <InteractiveTableRow className={`supply-row supply-row--${supplyTone(row.category)}${Number(row.on_hand_quantity) <= 0 ? " supply-row--inactive" : ""}`} key={row.item_id}><td><SupplyRowIdentity icon="archive" meta={row.item_code || "Chưa có mã"} title={row.item_name} /></td><td><span className={`supply-category-pill ${supplyTone(row.category)}`}>{categoryLabel(row.category)}</span></td><td><strong className="table-secondary">{supplier?.vendorName || "Chưa có báo giá"}</strong><small className="table-note">{supplier ? money.format(supplier.unitPrice) : "Chưa có đơn giá"}</small></td><td><strong className="table-secondary">{row.unit}</strong></td><td><span className={`supply-stock-pill ${Number(row.on_hand_quantity) <= 0 ? "empty" : Number(row.on_hand_quantity) <= 5 ? "low" : "ok"}`}>{Number(row.on_hand_quantity).toLocaleString("vi-VN")} {row.unit}</span></td><td>{row.last_movement_at ? new Date(row.last_movement_at).toLocaleString("vi-VN") : "Chưa phát sinh"}</td></InteractiveTableRow>; })}{!balances.length ? <tr><td className="empty-state" colSpan={6}>Không tìm thấy tồn kho phù hợp với bộ lọc.</td></tr> : null}</tbody></table></div>
     </section>
     <section className="panel supply-panel supply-panel--movements">
       <div className="panel-heading"><div><p className="eyebrow">THẺ KHO</p><h2>Lịch sử nhập xuất</h2></div><span>{movements.length} giao dịch gần nhất</span></div>
