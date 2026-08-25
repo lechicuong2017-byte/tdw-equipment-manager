@@ -38,9 +38,10 @@
 .module-system-copy .module-picker-icon { color: var(--brand); flex: 0 0 56px; height: 56px; margin: 0; width: 56px; }
 .module-system-copy h2 { font-size: 1.08rem; margin: 0.15rem 0; }
 .module-system-copy p:last-child { color: var(--ink-soft); margin: 0; }
-.supply-section-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 1rem; }
-.supply-section-tabs a { transition: background 160ms ease, color 160ms ease, transform 160ms ease; }
-.supply-section-tabs a:hover { background: #f3f8fa; color: var(--brand-dark); transform: translateY(-1px); }
+.vehicle-tabs.supply-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.vehicle-tabs.supply-tabs a { min-width: 0; }
+.vehicle-tabs.supply-tabs a:hover { background: #edf7fa; color: var(--brand-dark); transform: translateY(-1px); }
+.vehicle-tabs.supply-tabs a.active { background: linear-gradient(135deg, #ddf2f6, #d4ecf3); box-shadow: inset 0 0 0 1px #c1e4ec; }
 .supply-command-bar { --supply-accent: #3977cf; align-items: center; background: linear-gradient(120deg, #fff, color-mix(in srgb, var(--supply-accent) 5%, white)); border: 1px solid var(--line); border-left: 4px solid var(--supply-accent); border-radius: 18px; display: flex; gap: 1rem; justify-content: space-between; margin-bottom: 1rem; min-height: 92px; padding: 1rem 1.2rem; }
 .supply-command-bar--catalog { --supply-accent: #168397; }
 .supply-command-bar--requests { --supply-accent: #b36a08; }
@@ -51,6 +52,7 @@
 .supply-command-copy small { color: #8592a2; display: block; font-size: 0.62rem; font-weight: 850; letter-spacing: 0.12em; }
 .supply-command-copy strong { display: block; font-size: 1.02rem; margin-top: 0.1rem; }
 .supply-command-copy p { color: var(--ink-soft); font-size: 0.72rem; margin: 0.12rem 0 0; }
+.supply-import-actions { max-width: 520px; }
 .supply-metric-grid .metric-card strong { font-size: clamp(1.3rem, 2vw, 2rem); }
 .supply-metric-grid .metric-card:nth-child(3) strong { white-space: nowrap; }
 .supply-metric { --metric-accent: #3977cf; border-top: 4px solid var(--metric-accent); min-height: 160px; }
@@ -122,7 +124,8 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
   .module-picker-grid { grid-template-columns: 1fr; }
   .module-system-panel, .module-system-copy { align-items: flex-start; flex-direction: column; }
   .report-filter-grid { grid-template-columns: 1fr; }
-  .supply-section-tabs { grid-template-columns: 1fr 1fr; }
+  .vehicle-tabs.supply-tabs { display: flex; overflow-x: auto; }
+  .vehicle-tabs.supply-tabs a { flex: 0 0 auto; min-width: 145px; white-space: nowrap; }
   .supply-command-bar { align-items: stretch; flex-direction: column; }
   .supply-detail-grid { grid-template-columns: 1fr; }
   .supply-detail-grid .span-2 { grid-column: auto; }
