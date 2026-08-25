@@ -248,6 +248,21 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .import-preview-summary { align-items: center; background: var(--green-soft); border: 1px solid #b9e3ce; border-radius: 10px; color: var(--green); display: flex; justify-content: space-between; padding: 0.75rem 0.9rem; }
 .import-preview-table { border: 1px solid var(--line); border-radius: 12px; max-height: 48vh; }
 .import-preview-table table { min-width: 980px; }
+.supplier-quote-import-flow { display: grid; gap: 1rem; }
+.supplier-quote-import-flow .import-upload-form { border-bottom: 1px solid var(--line); padding-bottom: 1rem; }
+.supply-quote-review { border: 1px solid #b9e3ce; border-radius: 14px; padding: 1rem; }
+.supply-quote-review .import-preview-summary span { display: block; margin-top: 0.2rem; }
+.supply-review-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 0.8rem; }
+.supply-review-toolbar span { color: var(--muted); margin-left: auto; }
+.supply-review-table { max-height: 52vh; }
+.supply-review-table table { min-width: 1320px; }
+.supply-review-table th:first-child, .supply-review-table td:first-child { text-align: center; width: 70px; }
+.supply-review-table tr.selected td { background: #eefaf3; }
+.supply-review-table td { vertical-align: middle; }
+.supply-review-table td code { color: var(--blue); font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+.supply-review-table td input:not([type="checkbox"]), .supply-review-table td select { min-width: 150px; }
+.supply-review-table td:nth-child(3) { min-width: 300px; }
+.supply-review-table .status-pill { white-space: nowrap; }
 
 @media (max-width: 900px) {
   .module-picker-grid { grid-template-columns: 1fr; }

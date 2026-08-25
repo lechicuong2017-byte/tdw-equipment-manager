@@ -1,16 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { ActionStateToast } from "@/components/action-toast";
 import {
-  importSupplierQuoteWorkbook,
+  commitSupplierQuoteReview,
   importSupplyWorkbook,
+  previewSupplierQuoteWorkbook,
   saveSupplyQuote,
   saveSupplyItem,
   saveSupplyRequest,
   saveSupplyRequestMetadata,
+  type SupplierQuotePreview,
   type SupplyActionState,
 } from "@/app/(protected)/supplies/actions";
+import { buildSupplyItemCode, type SupplyItemCategory } from "@/lib/supply-item-codes";
 
 const initialState: SupplyActionState = {};
 
@@ -65,7 +68,7 @@ export type SupplyQuoteOption = {
   vendor_name: string;
   vendor_address?: string | null;
   vendor_contact?: string | null;
-  category: "OFFICE_SUPPLY" | "CLEANING_SUPPLY";
+  category: "OFFICE_SUPPLY" | "CLEANING_SUPPLY" | "MIXED";
   quote_date?: string | null;
   valid_until?: string | null;
   status: "RECEIVED" | "REVIEWING" | "SELECTED" | "REJECTED" | "EXPIRED";
@@ -73,17 +76,66 @@ export type SupplyQuoteOption = {
 };
 
 export function SupplierQuoteImportForm() {
-  const [state, action, pending] = useActionState(importSupplierQuoteWorkbook, initialState);
+  const [state, action, pending] = useActionState(previewSupplierQuoteWorkbook, initialState);
   return (
-    <form action={action} className="data-form">
+    <div className="supplier-quote-import-flow">
+      <form action={action} className="data-form import-upload-form">
+        <ActionStateToast state={state} />
+        <div className="form-grid">
+          <label>Loại hàng gợi ý *<select defaultValue="OFFICE_SUPPLY" name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label>
+          <label className="span-2">File báo giá nhà cung cấp *<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="workbook" required type="file" /></label>
+        </div>
+        <div className="import-hint supply-import-hint"><strong>Bước 1 · Chỉ đọc và kiểm tra</strong><p>Chưa có dữ liệu nào được lưu. Hệ thống nhận diện file, kiểm tra trùng và đề xuất mã; bạn sẽ chọn lại loại, đơn giá và tick từng dòng ở bước kế tiếp.</p></div>
+        {state.error ? <p className="form-error">{state.error}</p> : null}
+        <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang phân tích…" : "Đọc file và xem trước"}</button></div>
+      </form>
+      {state.quotePreview ? <SupplierQuoteReviewForm key={state.quotePreview.fingerprint} preview={state.quotePreview} /> : null}
+    </div>
+  );
+}
+
+type ReviewRow = SupplierQuotePreview["lines"][number] & { selected: boolean };
+
+function SupplierQuoteReviewForm({ preview }: { preview: SupplierQuotePreview }) {
+  const [state, action, pending] = useActionState(commitSupplierQuoteReview, initialState);
+  const [rows, setRows] = useState<ReviewRow[]>(() => preview.lines.map((line) => ({ ...line, selected: false })));
+  const selectedCount = rows.filter((row) => row.selected).length;
+  const duplicateCount = rows.filter((row) => row.existingItems.some((item) => item.category === row.category)).length;
+  const currency = useMemo(() => new Intl.NumberFormat("vi-VN"), []);
+
+  const recode = (source: ReviewRow[]) => {
+    const counters = { ...preview.nextSequences };
+    const assigned = new Map<string, string>();
+    return source.map((row) => {
+      const existing = row.existingItems.find((item) => item.category === row.category);
+      const key = `${row.category}|${row.itemName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase()}`;
+      if (existing?.itemCode) return { ...row, itemCode: existing.itemCode };
+      const repeatedCode = assigned.get(key);
+      if (repeatedCode) return { ...row, itemCode: repeatedCode };
+      const itemCode = buildSupplyItemCode(row.category, preview.codeYear, counters[row.category]++);
+      assigned.set(key, itemCode);
+      return { ...row, itemCode };
+    });
+  };
+  const changeCategory = (key: string, category: SupplyItemCategory) => setRows((current) => recode(current.map((row) => row.key === key ? { ...row, category } : row)));
+  const selectedPayload = {
+    ...preview,
+    lines: rows.filter((row) => row.selected).map(({ selected: _selected, existingItems: _existingItems, ...row }) => row),
+  };
+
+  if (state.success) return <div className="import-preview-summary"><strong>{state.success}</strong><span>Danh mục và báo giá đã được cập nhật.</span></div>;
+  return (
+    <form action={action} className="import-preview-form supply-quote-review">
       <ActionStateToast state={state} />
-      <div className="form-grid">
-        <label>Loại hàng *<select defaultValue="OFFICE_SUPPLY" name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label>
-        <label className="span-2">File báo giá nhà cung cấp *<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="workbook" required type="file" /></label>
-      </div>
-      <div className="import-hint supply-import-hint"><strong>Tự nhận diện nhiều mẫu báo giá</strong><p>Hệ thống tìm đúng sheet báo giá, đọc nhà cung cấp, ngày báo giá, tên hàng, đơn vị, số lượng, đơn giá, VAT và tổng tiền. Tên file được chuẩn hóa và file trùng sẽ không nhập lại.</p></div>
+      <input name="review" type="hidden" value={JSON.stringify(selectedPayload)} />
+      <div className="import-preview-summary"><div><strong>Bước 2 · Duyệt trước khi nhập</strong><span>{preview.vendorName} · {rows.length} dòng · {duplicateCount} dòng đã có trong danh mục</span></div><b>{selectedCount} đã chọn</b></div>
+      <div className="supply-review-toolbar"><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: true })))} type="button">Chọn tất cả</button><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button><span>Mã mới được cấp theo loại hàng và năm {preview.codeYear}.</span></div>
+      <div className="table-wrap import-preview-table supply-review-table"><table><thead><tr><th>Chọn</th><th>Mã đề xuất</th><th>Tên hàng</th><th>Loại hàng</th><th>Đơn vị</th><th>Số lượng</th><th>Đơn giá</th><th>Kiểm tra trùng</th></tr></thead><tbody>{rows.map((row) => {
+        const existing = row.existingItems.find((item) => item.category === row.category);
+        return <tr className={row.selected ? "selected" : ""} key={row.key}><td><input aria-label={`Chọn ${row.itemName}`} checked={row.selected} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, selected: event.target.checked } : item))} type="checkbox" /></td><td><code>{row.itemCode}</code></td><td><strong>{row.itemName}</strong>{row.note ? <small>{row.note}</small> : null}</td><td><select aria-label={`Loại hàng ${row.itemName}`} onChange={(event) => changeCategory(row.key, event.target.value as SupplyItemCategory)} value={row.category}><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></td><td><input aria-label={`Đơn vị ${row.itemName}`} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, unit: event.target.value } : item))} value={row.unit} /></td><td>{currency.format(row.quantity)}</td><td><input aria-label={`Đơn giá ${row.itemName}`} min={0} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, unitPrice: Number(event.target.value), amount: item.quantity * Number(event.target.value) } : item))} type="number" value={row.unitPrice} /></td><td><span className={`status-pill ${existing ? "status-ok" : "status-muted"}`}>{existing ? `Đã có · ${existing.itemCode || "sẽ bổ sung mã"}` : "Sẽ tạo mới"}</span></td></tr>;
+      })}</tbody></table></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
-      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang phân tích…" : "Nhập báo giá XLSX"}</button></div>
+      <div className="form-actions"><span>Chỉ {selectedCount} dòng đã tick mới được ghi vào cơ sở dữ liệu.</span><button className="primary-button" disabled={pending || !selectedCount} type="submit">{pending ? "Đang nhập…" : `Nhập ${selectedCount} dòng đã chọn`}</button></div>
     </form>
   );
 }
@@ -97,7 +149,7 @@ export function SupplyQuoteForm({ initial }: { initial: SupplyQuoteOption }) {
       <div className="form-grid">
         <label className="span-2">Nhà cung cấp *<input defaultValue={initial.vendor_name} maxLength={300} name="vendor_name" required /></label>
         <label>Số báo giá<input defaultValue={initial.quote_no ?? ""} maxLength={100} name="quote_no" /></label>
-        <label>Loại hàng<select defaultValue={initial.category} name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label>
+        <label>Loại hàng<select defaultValue={initial.category} name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option><option value="MIXED">VPP & Dụng cụ vệ sinh</option></select></label>
         <label>Ngày báo giá<input defaultValue={initial.quote_date ?? ""} name="quote_date" type="date" /></label>
         <label>Hiệu lực đến<input defaultValue={initial.valid_until ?? ""} name="valid_until" type="date" /></label>
         <label>Trạng thái<select defaultValue={initial.status} name="status"><option value="RECEIVED">Đã nhận</option><option value="REVIEWING">Đang xem xét</option><option value="SELECTED">Đã chọn</option><option value="REJECTED">Không chọn</option><option value="EXPIRED">Hết hiệu lực</option></select></label>
