@@ -6,7 +6,7 @@ import { InteractiveTableRow } from "@/components/interactive-table-row";
 import { PageHeader } from "@/components/page-header";
 import {
   SupplierQuoteImportForm, SupplyImportForm, SupplyItemForm, SupplyQuoteForm,
-  SupplyRequestEditForm, SupplyRequestForm, type SupplyItemOption,
+  SupplyInventoryMovementForm, SupplyRequestEditForm, SupplyRequestForm, type SupplyItemOption,
 } from "@/components/supply-forms";
 import { archiveSupplyItem, deleteSupplyQuote, deleteSupplyRequest } from "./actions";
 import { can, requireAccess } from "@/lib/auth";
@@ -17,6 +17,8 @@ const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND
 const categoryLabel = (value: string) => value === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : value === "CLEANING_SUPPLY" ? "Dụng cụ vệ sinh" : "VPP & Dụng cụ vệ sinh";
 const statusLabel: Record<string, string> = { DRAFT: "Nháp", SUBMITTED: "Đã trình", APPROVED: "Đã duyệt", ORDERED: "Đã đặt mua", CLOSED: "Hoàn tất", REJECTED: "Không duyệt" };
 const quoteStatusLabel: Record<string, string> = { RECEIVED: "Đã nhận", REVIEWING: "Đang xem xét", SELECTED: "Đã chọn", REJECTED: "Không chọn", EXPIRED: "Hết hiệu lực" };
+const movementLabel: Record<string, string> = { RECEIPT: "Nhập từ báo giá", ISSUE: "Xuất theo phiếu", ADJUSTMENT_IN: "Nhập điều chỉnh", ADJUSTMENT_OUT: "Xuất điều chỉnh", RETURN_IN: "Hoàn kho", RECEIPT_REVERSAL: "Đảo nhập kho" };
+const inboundMovements = new Set(["RECEIPT", "ADJUSTMENT_IN", "RETURN_IN"]);
 const periodLabel = (row: any) => row.period_type === "MONTH" ? `Tháng ${row.period_month}/${row.period_year}` : row.period_type === "QUARTER" ? `Quý ${row.period_quarter}/${row.period_year}` : `Năm ${row.period_year}`;
 const dateLabel = (value?: string | null) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("vi-VN") : "—";
 const supplyTone = (category?: string | null) => category === "OFFICE_SUPPLY" ? "office" : category === "CLEANING_SUPPLY" ? "cleaning" : "mixed";
@@ -25,18 +27,20 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const { access, supabase } = await requireAccess();
   if (!can(access, "supplies.view")) redirect("/modules");
   const params = await searchParams;
-  const section = ["overview", "catalog", "requests", "quotes", "reports"].includes(params.section ?? "") ? params.section! : "overview";
+  const section = ["overview", "catalog", "warehouse", "requests", "quotes", "reports"].includes(params.section ?? "") ? params.section! : "overview";
   const year = Number(params.year) || new Date().getFullYear();
   const quarter = Number(params.quarter) || 0;
   const month = Number(params.month) || 0;
   const category = params.category === "OFFICE_SUPPLY" || params.category === "CLEANING_SUPPLY" ? params.category : "";
-  const [itemsResult, requestsResult, linesResult, departmentsResult, quotesResult, quoteLinesResult] = await Promise.all([
+  const [itemsResult, requestsResult, linesResult, departmentsResult, quotesResult, quoteLinesResult, balancesResult, movementsResult] = await Promise.all([
     supabase.from("supply_items").select("id,category,item_code,item_name,unit,description,default_unit_price,active,updated_at").order("category").order("item_name"),
     supabase.from("supply_requests").select("id,request_no,category,period_type,period_year,period_month,period_quarter,requested_on,requesting_department,requester_name,checker_name,approver_name,status,note,source_file,created_at").order("requested_on", { ascending: false }),
     supabase.from("supply_request_lines").select("id,request_id,item_code,item_name,unit,proposed_quantity,stock_quantity,ordered_quantity,requested_departments,approval_note,approved_unit_price,amount,note,sort_order"),
     supabase.from("departments").select("id,name").order("name"),
     supabase.from("supply_quotes").select("id,quote_no,vendor_name,vendor_address,vendor_contact,category,quote_date,valid_until,status,subtotal,tax_rate,tax_amount,total_amount,note,source_file,source_sheet,created_at").order("quote_date", { ascending: false, nullsFirst: false }),
     supabase.from("supply_quote_lines").select("id,quote_id,item_id,item_code,category,item_name,unit,quantity,unit_price,old_unit_price,amount,note,sort_order").order("sort_order"),
+    supabase.from("supply_inventory_balances").select("item_id,category,item_code,item_name,unit,active,on_hand_quantity,total_receipt_value,last_movement_at").order("category").order("item_name"),
+    supabase.from("supply_inventory_movements").select("id,item_id,movement_type,quantity,unit_price,movement_date,source_type,reference_no,note,created_at,supply_items(item_code,item_name,unit,category)").order("movement_date", { ascending: false }).order("created_at", { ascending: false }).limit(100),
   ]);
   const queryError = itemsResult.error || requestsResult.error || linesResult.error || departmentsResult.error;
   const quoteQueryError = quotesResult.error || quoteLinesResult.error;
@@ -45,6 +49,9 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const lines = linesResult.data ?? [];
   const quotes = quotesResult.data ?? [];
   const quoteLines = quoteLinesResult.data ?? [];
+  const inventoryBalances = balancesResult.data ?? [];
+  const inventoryMovements = movementsResult.data ?? [];
+  const inventoryError = balancesResult.error || movementsResult.error;
   const linesByRequest = new Map<string, typeof lines>();
   lines.forEach((line) => linesByRequest.set(line.request_id, [...(linesByRequest.get(line.request_id) ?? []), line]));
   const linesByQuote = new Map<string, typeof quoteLines>();
@@ -58,11 +65,13 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const filteredTotal = filteredLines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
   const tabs = [
     ["overview", "Tổng quan", "dashboard"], ["catalog", "Danh mục hàng", "supplies"],
-    ["requests", "Phiếu yêu cầu", "assets"], ["quotes", "Báo giá NCC", "value"], ["reports", "Báo cáo", "reports"],
+    ["warehouse", "Kho hàng", "archive"], ["requests", "Phiếu yêu cầu", "assets"],
+    ["quotes", "Báo giá NCC", "value"], ["reports", "Báo cáo", "reports"],
   ] as const;
   const sectionMetadata = {
     overview: ["Tổng quan mua sắm", "Số liệu, báo giá và phiếu cần theo dõi", "dashboard", "overview"],
     catalog: ["Danh mục hàng hóa", "Tên hàng, đơn vị và giá tham khảo dùng chung", "supplies", "catalog"],
+    warehouse: ["Kho hàng", "Tồn kho và lịch sử nhập xuất theo từng mặt hàng", "archive", "warehouse"],
     requests: ["Phiếu yêu cầu", "Nhu cầu mua theo tháng, quý hoặc năm", "assets", "requests"],
     quotes: ["Báo giá nhà cung cấp", "So sánh báo giá, VAT và tổng chi phí", "value", "quotes"],
     reports: ["Báo cáo mua sắm", "Lọc và xuất dữ liệu theo kỳ", "reports", "reports"],
@@ -77,6 +86,7 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
       <div className="supply-command-copy"><span><AppIcon name={meta[2]} size={22} /></span><div><small>KHU VỰC ĐANG LÀM VIỆC</small><strong>{meta[0]}</strong><p>{meta[1]}</p></div></div>
       {section === "catalog" && can(access, "supplies.import") ? <div className="vehicle-actions supply-import-actions"><div className="vehicle-action-group"><small>NHẬP TỪ EXCEL</small><div><ModalTrigger description="Đọc phiếu tổng hợp TDW, tự tạo các hàng hóa chưa có và lưu lịch sử mua sắm." eyebrow="NHẬP DANH MỤC" size="medium" title="Nhập danh mục từ XLSX" triggerClassName="secondary-button" triggerLabel="Nhập danh mục XLSX"><SupplyImportForm /></ModalTrigger><ModalTrigger description="Đọc báo giá, kiểm tra trùng và duyệt từng dòng trước khi lưu." eyebrow="BÁO GIÁ" size="wide" title="Xem trước báo giá XLSX" triggerLabel="Nhập báo giá XLSX"><SupplierQuoteImportForm /></ModalTrigger></div></div></div> : null}
       {section === "quotes" && can(access, "supplies.import") ? <div className="vehicle-actions"><div className="vehicle-action-group vehicle-action-group--primary"><small>NHẬP DỮ LIỆU</small><div><ModalTrigger description="Đọc báo giá, kiểm tra trùng và duyệt từng dòng trước khi lưu." eyebrow="BÁO GIÁ" size="wide" title="Xem trước báo giá XLSX" triggerLabel="Nhập báo giá XLSX"><SupplierQuoteImportForm /></ModalTrigger></div></div></div> : null}
+      {section === "warehouse" && can(access, "supplies.manage") ? <div className="vehicle-actions"><div className="vehicle-action-group vehicle-action-group--primary"><small>GIAO DỊCH KHO</small><div><ModalTrigger description="Ghi nhận tồn đầu kỳ, nhập bổ sung hoặc xuất điều chỉnh có kiểm tra tồn kho." eyebrow="KHO HÀNG" size="large" title="Nhập / xuất kho" triggerLabel="+ Nhập / xuất kho"><SupplyInventoryMovementForm items={items} /></ModalTrigger></div></div></div> : null}
     </section>
 
     {section === "overview" ? <>
@@ -90,6 +100,7 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
     </> : null}
 
     {section === "catalog" ? <CatalogSection access={access} items={items} /> : null}
+    {section === "warehouse" ? <WarehouseSection balances={inventoryBalances} error={inventoryError} movements={inventoryMovements} /> : null}
     {section === "requests" ? <section className="panel supply-panel supply-panel--requests"><div className="panel-heading"><div><p className="eyebrow">PHIẾU YÊU CẦU</p><h2>Mua sắm theo kỳ</h2></div>{can(access, "supplies.import") ? <ModalTrigger description="Nhập phiếu VPP hoặc dụng cụ vệ sinh theo hai file tổng hợp TDW." eyebrow="NHẬP DỮ LIỆU" size="medium" title="Nhập lịch sử XLSX" triggerClassName="secondary-button" triggerLabel="Nhập XLSX"><SupplyImportForm /></ModalTrigger> : null}</div><SupplyRequestTable access={access} requests={requests} linesByRequest={linesByRequest} /></section> : null}
     {section === "quotes" ? <section className="panel supply-panel supply-panel--quotes"><div className="panel-heading"><div><p className="eyebrow">BÁO GIÁ NHÀ CUNG CẤP</p><h2>Danh sách báo giá đã nhận</h2></div><span>{quotes.length} báo giá</span></div>{quoteQueryError ? <p className="form-error">Chưa thể tải báo giá. Hãy áp dụng migration Supabase mới.</p> : <SupplyQuoteTable access={access} linesByQuote={linesByQuote} quotes={quotes} />}</section> : null}
     {section === "reports" ? <ReportsSection category={category} filteredLines={filteredLines} filteredRequests={filteredRequests} filteredTotal={filteredTotal} month={month} quarter={quarter} year={year} /> : null}
@@ -118,11 +129,34 @@ function CatalogSection({ items, access }: { items: SupplyItemOption[]; access: 
   </section>;
 }
 
+function WarehouseSection({ balances, movements, error }: { balances: Array<any>; movements: Array<any>; error: any }) {
+  const stocked = balances.filter((row) => Number(row.on_hand_quantity) > 0);
+  const lowStock = stocked.filter((row) => Number(row.on_hand_quantity) <= 5);
+  const totalReceiptValue = balances.reduce((sum, row) => sum + Number(row.total_receipt_value || 0), 0);
+  if (error) return <section className="panel supply-panel supply-panel--warehouse"><p className="form-error">Chưa thể tải kho hàng. Hãy áp dụng migration kho trên Supabase rồi tải lại.</p></section>;
+  return <>
+    <section className="metric-grid supply-metric-grid supply-warehouse-metrics">
+      <article className="metric-card supply-metric supply-metric--blue"><span><AppIcon name="archive" /></span><small>Mặt hàng có tồn</small><strong>{stocked.length}</strong><p>{balances.length} mặt hàng đang theo dõi</p></article>
+      <article className="metric-card supply-metric supply-metric--amber"><span><AppIcon name="health" /></span><small>Sắp hết hàng</small><strong>{lowStock.length}</strong><p>Tồn từ 5 đơn vị trở xuống</p></article>
+      <article className="metric-card supply-metric supply-metric--violet"><span><AppIcon name="movement" /></span><small>Giao dịch gần đây</small><strong>{movements.length}</strong><p>Nhập, xuất và điều chỉnh</p></article>
+      <article className="metric-card supply-metric supply-metric--green"><span><AppIcon name="value" /></span><small>Giá trị nhập ghi nhận</small><strong>{money.format(totalReceiptValue)}</strong><p>Theo đơn giá tại thời điểm nhập</p></article>
+    </section>
+    <section className="panel supply-panel supply-panel--warehouse">
+      <div className="panel-heading"><div><p className="eyebrow">TỒN KHO</p><h2>Số dư theo hàng hóa</h2></div><span>{stocked.length} mặt hàng còn tồn</span></div>
+      <div className="table-wrap"><table className="supply-data-table supply-warehouse-table"><thead><tr><th>Hàng hóa</th><th>Loại</th><th>Đơn vị</th><th>Tồn hiện tại</th><th>Lần cập nhật cuối</th></tr></thead><tbody>{balances.map((row) => <InteractiveTableRow className={`supply-row supply-row--${supplyTone(row.category)}${Number(row.on_hand_quantity) <= 0 ? " supply-row--inactive" : ""}`} key={row.item_id}><td><SupplyRowIdentity icon="archive" meta={row.item_code || "Chưa có mã"} title={row.item_name} /></td><td><span className={`supply-category-pill ${supplyTone(row.category)}`}>{categoryLabel(row.category)}</span></td><td><strong className="table-secondary">{row.unit}</strong></td><td><span className={`supply-stock-pill ${Number(row.on_hand_quantity) <= 0 ? "empty" : Number(row.on_hand_quantity) <= 5 ? "low" : "ok"}`}>{Number(row.on_hand_quantity).toLocaleString("vi-VN")} {row.unit}</span></td><td>{row.last_movement_at ? new Date(row.last_movement_at).toLocaleString("vi-VN") : "Chưa phát sinh"}</td></InteractiveTableRow>)}{!balances.length ? <tr><td className="empty-state" colSpan={5}>Chưa có hàng hóa để theo dõi tồn kho.</td></tr> : null}</tbody></table></div>
+    </section>
+    <section className="panel supply-panel supply-panel--movements">
+      <div className="panel-heading"><div><p className="eyebrow">THẺ KHO</p><h2>Lịch sử nhập xuất</h2></div><span>{movements.length} giao dịch gần nhất</span></div>
+      <div className="table-wrap"><table className="supply-data-table supply-movement-table"><thead><tr><th>Ngày / hàng hóa</th><th>Hình thức</th><th>Số lượng</th><th>Đơn giá</th><th>Chứng từ / ghi chú</th></tr></thead><tbody>{movements.map((movement) => { const item = Array.isArray(movement.supply_items) ? movement.supply_items[0] : movement.supply_items; const inbound = inboundMovements.has(movement.movement_type); return <InteractiveTableRow className={`supply-row supply-row--movement ${inbound ? "movement-in" : "movement-out"}`} key={movement.id}><td><SupplyRowIdentity icon="movement" meta={`${item?.item_code || "Chưa có mã"} · ${item?.unit || "đơn vị"}`} title={item?.item_name || "Hàng hóa"} /></td><td><span className={`supply-movement-pill ${inbound ? "in" : "out"}`}>{movementLabel[movement.movement_type] ?? movement.movement_type}</span></td><td><strong className={inbound ? "supply-quantity-in" : "supply-quantity-out"}>{inbound ? "+" : "−"}{Number(movement.quantity).toLocaleString("vi-VN")}</strong><small className="table-note">{dateLabel(movement.movement_date)}</small></td><td className="supply-money-cell">{money.format(Number(movement.unit_price || 0))}</td><td><strong className="table-secondary">{movement.reference_no || "Không có số chứng từ"}</strong><small className="table-note">{movement.note || "Không có ghi chú"}</small></td></InteractiveTableRow>; })}{!movements.length ? <tr><td className="empty-state" colSpan={5}>Chưa có giao dịch nhập xuất kho.</td></tr> : null}</tbody></table></div>
+    </section>
+  </>;
+}
+
 function ReportsSection({ category, filteredLines, filteredRequests, filteredTotal, month, quarter, year }: any) {
   return <><section className="report-filter-panel supply-report-filter"><div><p className="eyebrow">BỘ LỌC BÁO CÁO</p><h2>Chi phí mua sắm</h2><p>{filteredRequests.length} phiếu · {filteredLines.length} dòng · {money.format(filteredTotal)}</p></div><form className="report-filter-grid"><input name="section" type="hidden" value="reports" /><label>Năm<input defaultValue={year} min={2000} max={2200} name="year" type="number" /></label><label>Quý<select defaultValue={quarter} name="quarter"><option value="0">Tất cả quý</option>{[1,2,3,4].map((value) => <option key={value} value={value}>Quý {value}</option>)}</select></label><label>Tháng<select defaultValue={month} name="month"><option value="0">Tất cả tháng</option>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>Tháng {index + 1}</option>)}</select></label><label>Loại<select defaultValue={category} name="category"><option value="">Tất cả loại</option><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label><button className="primary-button" type="submit">Áp dụng</button></form></section><section className="panel supply-panel supply-panel--reports"><div className="panel-heading"><div><p className="eyebrow">CHI TIẾT</p><h2>Dòng hàng theo bộ lọc</h2></div><Link className="secondary-button" href={`/api/supplies/reports?format=xlsx&year=${year}&quarter=${quarter}&month=${month}&category=${category}`}>Xuất XLSX</Link></div><div className="table-wrap"><table className="supply-data-table supply-report-table"><thead><tr><th>Phiếu / kỳ</th><th>Hàng hóa</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th><th>Phê duyệt</th></tr></thead><tbody>{filteredLines.map((line: any) => { const request = filteredRequests.find((item: any) => item.id === line.request_id); return <tr className={`supply-row supply-row--${supplyTone(request?.category)}`} key={line.id}><td><SupplyRowIdentity icon="reports" meta={request ? `${categoryLabel(request.category)} · ${periodLabel(request)}` : "Chưa xác định kỳ"} title={request?.request_no || "Phiếu mua sắm"} /></td><td><strong className="table-secondary">{line.item_name}</strong><small className="table-note">{line.unit} · {line.requested_departments}</small></td><td>{Number(line.ordered_quantity).toLocaleString("vi-VN")}</td><td className="supply-money-cell">{money.format(Number(line.approved_unit_price))}</td><td className="supply-money-cell supply-money-cell--strong">{money.format(Number(line.amount))}</td><td>{line.approval_note || "—"}</td></tr>; })}{!filteredLines.length ? <tr><td className="empty-state" colSpan={6}>Không có dòng hàng phù hợp với bộ lọc.</td></tr> : null}</tbody></table></div></section></>;
 }
 
-function SupplyRowIdentity({ icon, meta, title }: { icon: "assets" | "reports" | "supplies" | "value"; meta: string; title: string }) {
+function SupplyRowIdentity({ icon, meta, title }: { icon: "archive" | "assets" | "movement" | "reports" | "supplies" | "value"; meta: string; title: string }) {
   return <div className="supply-row-identity"><span className="supply-row-icon"><AppIcon name={icon} size={19} /></span><span className="supply-row-copy"><strong className="interactive-row-title">{title}</strong><small>{meta}</small></span></div>;
 }
 

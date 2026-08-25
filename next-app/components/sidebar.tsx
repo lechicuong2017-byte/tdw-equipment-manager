@@ -50,7 +50,9 @@ const supplyNavItems: ReadonlyArray<{
 }> = [
   { href: "/supplies", label: "Tổng quan", icon: "dashboard", permission: "supplies.view", tone: "cyan" },
   { href: "/supplies?section=catalog", label: "Danh mục hàng", icon: "supplies", permission: "supplies.view", tone: "blue" },
+  { href: "/supplies?section=warehouse", label: "Kho hàng", icon: "archive", permission: "supplies.view", tone: "green" },
   { href: "/supplies?section=requests", label: "Phiếu yêu cầu", icon: "assets", permission: "supplies.view", tone: "amber" },
+  { href: "/supplies?section=quotes", label: "Báo giá NCC", icon: "value", permission: "supplies.view", tone: "violet" },
   { href: "/supplies?section=reports", label: "Báo cáo mua sắm", icon: "reports", permission: "reports.supplies.export", tone: "rose" },
 ];
 

@@ -105,6 +105,16 @@ const requestMetadataSchema = z.object({
   note: z.string().trim().max(3000),
 });
 
+const inventoryMovementSchema = z.object({
+  item_id: z.string().uuid("Hãy chọn hàng hóa."),
+  direction: z.enum(["IN", "OUT"]),
+  quantity: z.coerce.number().positive("Số lượng phải lớn hơn 0.").max(1000000000),
+  unit_price: z.coerce.number().min(0).max(1000000000000),
+  movement_date: z.iso.date(),
+  reference_no: z.string().trim().max(120),
+  note: z.string().trim().max(2000),
+});
+
 function normalizeText(value: unknown) {
   return normalizedSupplyName(value);
 }
@@ -475,7 +485,10 @@ export async function saveSupplyRequest(_state: SupplyActionState, formData: For
     requested_departments, approval_note, note: line_note,
     created_by: access.user_id, updated_by: access.user_id,
   });
-  if (lineResult.error) return { error: "Đã tạo phiếu nhưng chưa thể thêm dòng hàng." };
+  if (lineResult.error) {
+    await supabase.from("supply_requests").update({ deleted_at: new Date().toISOString(), updated_by: access.user_id }).eq("id", saved.id);
+    return { error: lineResult.error.message.includes("Kho không đủ") ? lineResult.error.message : "Chưa thể thêm dòng hàng vào phiếu." };
+  }
   revalidatePath("/supplies");
   return { success: "Đã tạo phiếu yêu cầu." };
 }
@@ -565,7 +578,10 @@ export async function importSupplyWorkbook(_state: SupplyActionState, formData: 
       updated_by: access.user_id,
     };
   }));
-  if (lineError) return { error: "Đã tạo phiếu nhưng không thể lưu các dòng hàng." };
+  if (lineError) {
+    await supabase.from("supply_requests").update({ deleted_at: new Date().toISOString(), updated_by: access.user_id }).eq("id", request.id);
+    return { error: lineError.message.includes("Kho không đủ") ? lineError.message : "Không thể lưu các dòng hàng của phiếu." };
+  }
   revalidatePath("/supplies");
   return { success: `Đã nhập ${parsed.lines.length} mặt hàng từ ${parsed.category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh"}.` };
 }
@@ -743,6 +759,35 @@ export async function commitSupplierQuoteReview(_state: SupplyActionState, formD
   }
   revalidatePath("/supplies");
   return { success: `Đã nhập ${review.lines.length} dòng đã chọn; các mặt hàng trùng được dùng lại, không tạo bản ghi mới.` };
+}
+
+export async function recordSupplyInventoryMovement(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "supplies.manage")) return { error: "Bạn không có quyền nhập hoặc xuất kho." };
+  const parsed = inventoryMovementSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin kho chưa hợp lệ." };
+  const values = parsed.data;
+  const { data: item, error: itemError } = await supabase
+    .from("supply_items")
+    .select("id,item_name")
+    .eq("id", values.item_id)
+    .is("deleted_at", null)
+    .single();
+  if (itemError || !item) return { error: "Không tìm thấy hàng hóa trong kho." };
+  const { error } = await supabase.from("supply_inventory_movements").insert({
+    item_id: values.item_id,
+    movement_type: values.direction === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT",
+    quantity: values.quantity,
+    unit_price: values.unit_price,
+    movement_date: values.movement_date,
+    source_type: "MANUAL",
+    reference_no: values.reference_no,
+    note: values.note || (values.direction === "IN" ? "Nhập kho thủ công" : "Xuất kho thủ công"),
+    created_by: access.user_id,
+  });
+  if (error) return { error: error.message.includes("Kho không đủ") ? error.message : "Không thể ghi nhận giao dịch kho." };
+  revalidatePath("/supplies");
+  return { success: `${values.direction === "IN" ? "Đã nhập" : "Đã xuất"} ${values.quantity.toLocaleString("vi-VN")} đơn vị ${item.item_name}.` };
 }
 
 export async function saveSupplyQuote(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {

@@ -6,6 +6,7 @@ import {
   commitSupplierQuoteReview,
   importSupplyWorkbook,
   previewSupplierQuoteWorkbook,
+  recordSupplyInventoryMovement,
   saveSupplyQuote,
   saveSupplyItem,
   saveSupplyRequest,
@@ -59,6 +60,27 @@ export function SupplyImportForm() {
       <div className="import-hint"><strong>Tự nhận diện hai mẫu TDW</strong><p>Hệ thống đọc loại hàng, quý/năm, người đề nghị, phê duyệt, số lượng, đơn giá và ghi chú; file đã nhập sẽ không tạo trùng.</p></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
       <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang đọc file…" : "Nhập phiếu XLSX"}</button></div>
+    </form>
+  );
+}
+
+export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption[] }) {
+  const [state, action, pending] = useActionState(recordSupplyInventoryMovement, initialState);
+  return (
+    <form action={action} className="data-form">
+      <ActionStateToast state={state} />
+      <div className="form-grid">
+        <label>Hình thức *<select defaultValue="IN" name="direction"><option value="IN">Nhập kho</option><option value="OUT">Xuất kho</option></select></label>
+        <label>Ngày ghi nhận *<input defaultValue={new Date().toISOString().slice(0, 10)} name="movement_date" required type="date" /></label>
+        <label className="span-2">Hàng hóa *<select defaultValue="" name="item_id" required><option disabled value="">Chọn hàng hóa</option>{items.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.item_code || "Chưa có mã"} · {item.item_name} · {item.unit}</option>)}</select></label>
+        <label>Số lượng *<input min="0.001" name="quantity" required step="0.001" type="number" /></label>
+        <label>Đơn giá<input defaultValue={0} min={0} name="unit_price" step="1" type="number" /></label>
+        <label className="span-2">Số chứng từ<input maxLength={120} name="reference_no" placeholder="Ví dụ: NK-2026-001" /></label>
+        <label className="span-2">Ghi chú<textarea maxLength={2000} name="note" rows={3} /></label>
+      </div>
+      <div className="import-hint"><strong>Luồng tự động vẫn được ưu tiên</strong><p>Báo giá XLSX đã duyệt sẽ tự nhập kho; phiếu yêu cầu chỉ tự xuất kho khi chuyển sang Đã duyệt, Đã đặt mua hoặc Hoàn tất. Form này dùng cho tồn đầu kỳ và điều chỉnh thực tế.</p></div>
+      {state.error ? <p className="form-error">{state.error}</p> : null}
+      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang ghi nhận…" : "Ghi nhận kho"}</button></div>
     </form>
   );
 }
@@ -136,7 +158,7 @@ function SupplierQuoteReviewForm({ preview }: { preview: SupplierQuotePreview })
       <div className="supply-review-toolbar"><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: true })))} type="button">Chọn tất cả</button><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button><span>Mã mới được cấp theo loại hàng và năm {preview.codeYear}.</span></div>
       <div className="table-wrap import-preview-table supply-review-table"><table><thead><tr><th>Chọn</th><th>Mã đề xuất</th><th>Tên hàng</th><th>Loại hàng</th><th>Đơn vị</th><th>Số lượng</th><th>Đơn giá</th><th>Kiểm tra trùng</th></tr></thead><tbody>{rows.map((row) => {
         const existing = row.existingItems.find((item) => item.category === row.category);
-        return <tr className={row.selected ? "selected" : ""} key={row.key}><td><label className="supply-review-check"><input aria-label={`Chọn ${row.itemName}`} checked={row.selected} className="software-asset-checkbox" onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, selected: event.target.checked } : item))} type="checkbox" /><span aria-hidden="true" className="software-asset-checkmark">✓</span></label></td><td><code>{row.itemCode}</code></td><td><strong>{row.itemName}</strong>{row.note ? <small>{row.note}</small> : null}</td><td><select aria-label={`Loại hàng ${row.itemName}`} onChange={(event) => changeCategory(row.key, event.target.value as SupplyItemCategory)} value={row.category}><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></td><td><input aria-label={`Đơn vị ${row.itemName}`} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, unit: event.target.value } : item))} value={row.unit} /></td><td>{currency.format(row.quantity)}</td><td><input aria-label={`Đơn giá ${row.itemName}`} min={0} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, unitPrice: Number(event.target.value), amount: item.quantity * Number(event.target.value) } : item))} type="number" value={row.unitPrice} /></td><td><span className={`status-pill ${existing ? "status-ok" : "status-muted"}`}>{existing ? `Đã có · ${existing.itemCode || "sẽ bổ sung mã"}` : "Sẽ tạo mới"}</span></td></tr>;
+        return <tr className={row.selected ? "selected" : ""} key={row.key}><td><label className="supply-review-check"><input aria-label={`Chọn ${row.itemName}`} checked={row.selected} className="software-asset-checkbox" onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, selected: event.target.checked } : item))} type="checkbox" /><span aria-hidden="true" className="software-asset-checkmark">✓</span></label></td><td><code>{row.itemCode}</code></td><td><div className="supply-review-item-copy"><strong>{row.itemName}</strong>{row.note ? <small>{row.note}</small> : null}</div></td><td><select aria-label={`Loại hàng ${row.itemName}`} onChange={(event) => changeCategory(row.key, event.target.value as SupplyItemCategory)} value={row.category}><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></td><td><input aria-label={`Đơn vị ${row.itemName}`} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, unit: event.target.value } : item))} value={row.unit} /></td><td>{currency.format(row.quantity)}</td><td><input aria-label={`Đơn giá ${row.itemName}`} min={0} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, unitPrice: Number(event.target.value), amount: item.quantity * Number(event.target.value) } : item))} type="number" value={row.unitPrice} /></td><td><span className={`status-pill ${existing ? "status-ok" : "status-muted"}`}>{existing ? `Đã có · ${existing.itemCode || "sẽ bổ sung mã"}` : "Sẽ tạo mới"}</span></td></tr>;
       })}</tbody></table></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
       <div className="form-actions"><span>Chỉ {selectedCount} dòng đã tick mới được ghi vào cơ sở dữ liệu.</span><button className="primary-button" disabled={pending || !selectedCount} type="submit">{pending ? "Đang nhập…" : `Nhập ${selectedCount} dòng đã chọn`}</button></div>
