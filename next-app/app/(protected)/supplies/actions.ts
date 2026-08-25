@@ -46,6 +46,30 @@ const requestSchema = z.object({
   line_note: z.string().trim().max(2000),
 });
 
+const quoteSchema = z.object({
+  id: z.string().uuid(),
+  quote_no: z.string().trim().max(100),
+  vendor_name: z.string().trim().min(1, "Tên nhà cung cấp là bắt buộc").max(300),
+  vendor_address: z.string().trim().max(1000),
+  vendor_contact: z.string().trim().max(1000),
+  category: categorySchema,
+  quote_date: z.string().optional(),
+  valid_until: z.string().optional(),
+  status: z.enum(["RECEIVED", "REVIEWING", "SELECTED", "REJECTED", "EXPIRED"]),
+  note: z.string().trim().max(3000),
+});
+
+const requestMetadataSchema = z.object({
+  id: z.string().uuid(),
+  request_no: z.string().trim().min(1).max(80),
+  requested_on: z.iso.date(),
+  requester_name: z.string().trim().max(160),
+  checker_name: z.string().trim().max(160),
+  approver_name: z.string().trim().max(160),
+  status: z.enum(["DRAFT", "SUBMITTED", "APPROVED", "ORDERED", "CLOSED", "REJECTED"]),
+  note: z.string().trim().max(3000),
+});
+
 function normalizeText(value: unknown) {
   return String(value ?? "")
     .normalize("NFD")
@@ -204,6 +228,129 @@ function parseWorksheet(worksheet: ExcelJS.Worksheet, fileName: string) {
   };
 }
 
+type ParsedQuoteLine = {
+  itemName: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  oldUnitPrice: number | null;
+  amount: number;
+  note: string;
+};
+
+function parseVietnameseDateText(text: string) {
+  const slash = text.match(/(\d{1,2})\s*[\/.-]\s*(\d{1,2})\s*[\/.-]\s*(\d{4})/);
+  const words = normalizeText(text).match(/NGAY\s*(\d{1,2})\s*THANG\s*(\d{1,2})\s*NAM\s*(\d{4})/);
+  const match = slash ?? words;
+  if (!match) return null;
+  return `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`;
+}
+
+function quoteHeaderScore(worksheet: ExcelJS.Worksheet) {
+  let best = 0;
+  for (let rowIndex = 1; rowIndex <= Math.min(30, worksheet.rowCount); rowIndex += 1) {
+    const values = Array.from({ length: worksheet.columnCount }, (_, index) => normalizeText(worksheet.getRow(rowIndex).getCell(index + 1).value));
+    const score = [
+      values.some((value) => value.includes("TEN VAT TU HANG HOA") || value === "VAN PHONG PHAM"),
+      values.some((value) => value === "DVT" || value === "DV"),
+      values.some((value) => value === "SO LUONG" || value === "SL"),
+      values.some((value) => value === "DON GIA"),
+      values.some((value) => value === "THANH TIEN"),
+    ].filter(Boolean).length;
+    best = Math.max(best, score);
+  }
+  return best;
+}
+
+function parseSupplierQuoteWorksheet(worksheet: ExcelJS.Worksheet) {
+  let headerRow = 0;
+  let headerValues: string[] = [];
+  for (let rowIndex = 1; rowIndex <= Math.min(30, worksheet.rowCount); rowIndex += 1) {
+    const values = Array.from({ length: worksheet.columnCount }, (_, index) => normalizeText(worksheet.getRow(rowIndex).getCell(index + 1).value));
+    const hasItem = values.some((value) => value.includes("TEN VAT TU HANG HOA") || value === "VAN PHONG PHAM");
+    const hasPrice = values.some((value) => value === "DON GIA");
+    if (hasItem && hasPrice) {
+      headerRow = rowIndex;
+      headerValues = values;
+      break;
+    }
+  }
+  if (!headerRow) throw new Error("Không nhận diện được dòng tiêu đề hàng hóa của báo giá.");
+  const findColumn = (...candidates: string[]) => {
+    for (const candidate of candidates) {
+      const wanted = normalizeText(candidate);
+      const index = headerValues.findIndex((value) => value === wanted || value.includes(wanted));
+      if (index >= 0) return index + 1;
+    }
+    return 0;
+  };
+  const sttColumn = findColumn("STT", "TT");
+  const itemColumn = findColumn("TÊN VẬT TƯ HÀNG HÓA", "VĂN PHÒNG PHẨM");
+  const unitColumn = findColumn("ĐVT", "ĐV");
+  const quantityColumn = findColumn("SỐ LƯỢNG", "SL");
+  const unitPriceColumn = findColumn("ĐƠN GIÁ");
+  const amountColumn = findColumn("THÀNH TIỀN");
+  const oldPriceColumn = findColumn("GIÁ CŨ");
+  const noteColumn = findColumn("GHI CHÚ");
+  const lines: ParsedQuoteLine[] = [];
+
+  for (let rowIndex = headerRow + 1; rowIndex <= worksheet.rowCount; rowIndex += 1) {
+    const row = worksheet.getRow(rowIndex);
+    const stt = cellNumber(row.getCell(sttColumn).value);
+    const itemName = cellText(row.getCell(itemColumn).value).replace(/\s+/g, " ").trim();
+    if (!stt || !itemName) continue;
+    const quantity = cellNumber(row.getCell(quantityColumn).value);
+    const unitPrice = cellNumber(row.getCell(unitPriceColumn).value);
+    lines.push({
+      itemName,
+      unit: cellText(row.getCell(unitColumn).value) || "Đơn vị",
+      quantity,
+      unitPrice,
+      oldUnitPrice: oldPriceColumn ? cellNumber(row.getCell(oldPriceColumn).value) || null : null,
+      amount: cellNumber(row.getCell(amountColumn).value) || quantity * unitPrice,
+      note: noteColumn ? cellText(row.getCell(noteColumn).value) : "",
+    });
+  }
+  if (!lines.length) throw new Error("Báo giá không có dòng hàng hóa hợp lệ.");
+
+  const topRows = Array.from({ length: Math.min(headerRow - 1, 12) }, (_, index) =>
+    Array.from({ length: worksheet.columnCount }, (_, column) => cellText(worksheet.getRow(index + 1).getCell(column + 1).value)).filter(Boolean).join(" "),
+  ).filter(Boolean);
+  const vendorName = topRows.find((value) => /CÔNG TY|VĂN PHÒNG PHẨM/i.test(value))?.trim() || "Nhà cung cấp chưa xác định";
+  const vendorAddress = topRows.find((value) => /ĐỊA CHỈ|ADDRESS/i.test(value))?.trim() || "";
+  const vendorContact = topRows.filter((value) => /ĐIỆN THOẠI|PHONE|EMAIL|HOTLINE/i.test(value)).join(" · ");
+  const fullText = Array.from({ length: worksheet.rowCount }, (_, index) =>
+    Array.from({ length: worksheet.columnCount }, (_, column) => cellText(worksheet.getRow(index + 1).getCell(column + 1).value)).join(" "),
+  ).join("\n");
+  const quoteDate = parseVietnameseDateText(fullText);
+  let subtotal = lines.reduce((sum, line) => sum + line.amount, 0);
+  let taxRate = 0;
+  let taxAmount = 0;
+  let totalAmount = subtotal;
+  for (let rowIndex = headerRow + 1; rowIndex <= worksheet.rowCount; rowIndex += 1) {
+    const rowText = Array.from({ length: worksheet.columnCount }, (_, index) => cellText(worksheet.getRow(rowIndex).getCell(index + 1).value)).join(" ");
+    const normalized = normalizeText(rowText);
+    const numbers = Array.from({ length: worksheet.columnCount }, (_, index) => cellNumber(worksheet.getRow(rowIndex).getCell(index + 1).value)).filter((value) => value > 0);
+    if (normalized.includes("THUE SUAT") || normalized.includes("VAT")) {
+      const rate = rowText.match(/(\d+(?:[.,]\d+)?)\s*%/);
+      if (rate) taxRate = Number(rate[1].replace(",", "."));
+      if (numbers.length) taxAmount = numbers.at(-1) ?? taxAmount;
+    } else if (normalized.includes("TONG CONG") || normalized.includes("TONG TIEN THANH TOAN")) {
+      if (numbers.length) totalAmount = numbers.at(-1) ?? totalAmount;
+    } else if (normalized.includes("CONG TIEN HANG") || normalized.includes("TONG CHI PHI")) {
+      if (numbers.length) subtotal = numbers.at(-1) ?? subtotal;
+    }
+  }
+  if (!taxAmount && taxRate) taxAmount = Math.round(subtotal * taxRate / 100);
+  if (totalAmount <= subtotal && taxAmount) totalAmount = subtotal + taxAmount;
+  return { vendorName, vendorAddress, vendorContact, quoteDate, subtotal, taxRate, taxAmount, totalAmount, lines };
+}
+
+function canonicalQuoteFileName(vendorName: string, quoteDate: string | null) {
+  const vendor = normalizeText(vendorName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "nha-cung-cap";
+  return `bao-gia-${vendor}-${quoteDate ?? new Date().toISOString().slice(0, 10)}.xlsx`;
+}
+
 export async function saveSupplyItem(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
   const { access, supabase } = await requireAccess();
   if (!can(access, "supplies.manage")) return { error: "Bạn không có quyền quản lý danh mục hàng." };
@@ -322,4 +469,141 @@ export async function importSupplyWorkbook(_state: SupplyActionState, formData: 
   if (lineError) return { error: "Đã tạo phiếu nhưng không thể lưu các dòng hàng." };
   revalidatePath("/supplies");
   return { success: `Đã nhập ${parsed.lines.length} mặt hàng từ ${parsed.category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh"}.` };
+}
+
+export async function importSupplierQuoteWorkbook(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "supplies.import")) return { error: "Bạn không có quyền nhập báo giá XLSX." };
+  const file = formData.get("workbook");
+  const category = categorySchema.safeParse(formData.get("category"));
+  if (!category.success) return { error: "Hãy chọn loại hàng của báo giá." };
+  if (!(file instanceof File) || !file.size) return { error: "Hãy chọn file báo giá XLSX." };
+  if (file.size > 10 * 1024 * 1024 || !/\.xlsx$/i.test(file.name)) return { error: "File phải là XLSX và không quá 10 MB." };
+  const bytes = await file.arrayBuffer();
+  const workbook = new ExcelJS.Workbook();
+  try {
+    await workbook.xlsx.load(bytes);
+  } catch {
+    return { error: "Không thể đọc file báo giá XLSX." };
+  }
+  const worksheet = [...workbook.worksheets].sort((a, b) => quoteHeaderScore(b) - quoteHeaderScore(a))[0];
+  if (!worksheet || quoteHeaderScore(worksheet) < 4) return { error: "Không tìm thấy sheet báo giá có tên hàng, đơn vị, số lượng và đơn giá." };
+  let parsed: ReturnType<typeof parseSupplierQuoteWorksheet>;
+  try {
+    parsed = parseSupplierQuoteWorksheet(worksheet);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Không thể nhận diện mẫu báo giá." };
+  }
+  const fingerprint = createHash("sha256").update(new Uint8Array(bytes)).update(`|${worksheet.name}|${category.data}`).digest("hex");
+  const { data: duplicate } = await supabase.from("supply_quotes").select("id").eq("import_fingerprint", fingerprint).maybeSingle();
+  if (duplicate) return { error: "Báo giá này đã được nhập trước đó." };
+
+  const { data: existingItems } = await supabase.from("supply_items").select("id,item_name,category").eq("category", category.data);
+  const byName = new Map((existingItems ?? []).map((item) => [normalizeText(item.item_name), item.id]));
+  const uniqueMissing = new Map<string, ParsedQuoteLine>();
+  parsed.lines.forEach((line) => {
+    const key = normalizeText(line.itemName);
+    if (!byName.has(key) && !uniqueMissing.has(key)) uniqueMissing.set(key, line);
+  });
+  if (uniqueMissing.size) {
+    const { data: inserted, error } = await supabase.from("supply_items").insert([...uniqueMissing.values()].map((line) => ({
+      category: category.data,
+      item_name: line.itemName,
+      unit: line.unit,
+      default_unit_price: line.unitPrice,
+      description: `Tạo từ báo giá ${parsed.vendorName}`,
+      created_by: access.user_id,
+      updated_by: access.user_id,
+    }))).select("id,item_name");
+    if (error) return { error: "Không thể bổ sung danh mục hàng từ báo giá." };
+    inserted?.forEach((item) => byName.set(normalizeText(item.item_name), item.id));
+  }
+  const canonicalFile = canonicalQuoteFileName(parsed.vendorName, parsed.quoteDate);
+  const { data: quote, error: quoteError } = await supabase.from("supply_quotes").insert({
+    quote_no: "",
+    vendor_name: parsed.vendorName,
+    vendor_address: parsed.vendorAddress,
+    vendor_contact: parsed.vendorContact,
+    category: category.data,
+    quote_date: parsed.quoteDate,
+    subtotal: parsed.subtotal,
+    tax_rate: parsed.taxRate,
+    tax_amount: parsed.taxAmount,
+    total_amount: parsed.totalAmount,
+    note: file.name === canonicalFile ? "" : `Tên file gốc: ${file.name}`,
+    source_file: canonicalFile,
+    source_sheet: worksheet.name,
+    import_fingerprint: fingerprint,
+    created_by: access.user_id,
+    updated_by: access.user_id,
+  }).select("id").single();
+  if (quoteError || !quote) return { error: "Không thể lưu thông tin báo giá." };
+  const { error: lineError } = await supabase.from("supply_quote_lines").insert(parsed.lines.map((line, index) => ({
+    quote_id: quote.id,
+    item_id: byName.get(normalizeText(line.itemName)) ?? null,
+    item_name: line.itemName,
+    unit: line.unit,
+    quantity: line.quantity,
+    unit_price: line.unitPrice,
+    old_unit_price: line.oldUnitPrice,
+    amount: line.amount,
+    note: line.note,
+    sort_order: index + 1,
+    created_by: access.user_id,
+    updated_by: access.user_id,
+  })));
+  if (lineError) return { error: "Đã tạo báo giá nhưng chưa thể lưu các dòng hàng." };
+  revalidatePath("/supplies");
+  return { success: `Đã nhập ${parsed.lines.length} dòng báo giá của ${parsed.vendorName}.` };
+}
+
+export async function saveSupplyQuote(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "supplies.manage")) return { error: "Bạn không có quyền sửa báo giá." };
+  const parsed = quoteSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin báo giá chưa hợp lệ." };
+  const { id, quote_date, valid_until, ...values } = parsed.data;
+  const { error } = await supabase.from("supply_quotes").update({
+    ...values,
+    quote_date: quote_date || null,
+    valid_until: valid_until || null,
+    updated_by: access.user_id,
+  }).eq("id", id);
+  if (error) return { error: "Không thể cập nhật báo giá." };
+  revalidatePath("/supplies");
+  return { success: "Đã cập nhật báo giá." };
+}
+
+export async function deleteSupplyQuote(formData: FormData): Promise<SupplyActionState> {
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "supplies.delete")) return { error: "Bạn không có quyền xóa báo giá." };
+  const id = z.string().uuid().safeParse(formData.get("id"));
+  if (!id.success) return { error: "Báo giá không hợp lệ." };
+  const { error } = await supabase.from("supply_quotes").update({ deleted_at: new Date().toISOString(), updated_by: access.user_id }).eq("id", id.data);
+  if (error) return { error: "Không thể xóa báo giá." };
+  revalidatePath("/supplies");
+  return { success: "Đã xóa báo giá và giữ nhật ký kiểm toán." };
+}
+
+export async function saveSupplyRequestMetadata(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "supplies.manage")) return { error: "Bạn không có quyền sửa phiếu yêu cầu." };
+  const parsed = requestMetadataSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin phiếu chưa hợp lệ." };
+  const { id, ...values } = parsed.data;
+  const { error } = await supabase.from("supply_requests").update({ ...values, updated_by: access.user_id }).eq("id", id);
+  if (error) return { error: "Không thể cập nhật phiếu yêu cầu." };
+  revalidatePath("/supplies");
+  return { success: "Đã cập nhật phiếu yêu cầu." };
+}
+
+export async function deleteSupplyRequest(formData: FormData): Promise<SupplyActionState> {
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "supplies.delete")) return { error: "Bạn không có quyền xóa phiếu yêu cầu." };
+  const id = z.string().uuid().safeParse(formData.get("id"));
+  if (!id.success) return { error: "Phiếu yêu cầu không hợp lệ." };
+  const { error } = await supabase.from("supply_requests").update({ deleted_at: new Date().toISOString(), updated_by: access.user_id }).eq("id", id.data);
+  if (error) return { error: "Không thể xóa phiếu yêu cầu." };
+  revalidatePath("/supplies");
+  return { success: "Đã xóa phiếu yêu cầu và giữ nhật ký kiểm toán." };
 }

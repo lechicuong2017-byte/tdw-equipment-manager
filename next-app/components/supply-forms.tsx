@@ -3,9 +3,12 @@
 import { useActionState } from "react";
 import { ActionStateToast } from "@/components/action-toast";
 import {
+  importSupplierQuoteWorkbook,
   importSupplyWorkbook,
+  saveSupplyQuote,
   saveSupplyItem,
   saveSupplyRequest,
+  saveSupplyRequestMetadata,
   type SupplyActionState,
 } from "@/app/(protected)/supplies/actions";
 
@@ -52,6 +55,90 @@ export function SupplyImportForm() {
       <div className="import-hint"><strong>Tự nhận diện hai mẫu TDW</strong><p>Hệ thống đọc loại hàng, quý/năm, người đề nghị, phê duyệt, số lượng, đơn giá và ghi chú; file đã nhập sẽ không tạo trùng.</p></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
       <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang đọc file…" : "Nhập phiếu XLSX"}</button></div>
+    </form>
+  );
+}
+
+export type SupplyQuoteOption = {
+  id: string;
+  quote_no?: string | null;
+  vendor_name: string;
+  vendor_address?: string | null;
+  vendor_contact?: string | null;
+  category: "OFFICE_SUPPLY" | "CLEANING_SUPPLY";
+  quote_date?: string | null;
+  valid_until?: string | null;
+  status: "RECEIVED" | "REVIEWING" | "SELECTED" | "REJECTED" | "EXPIRED";
+  note?: string | null;
+};
+
+export function SupplierQuoteImportForm() {
+  const [state, action, pending] = useActionState(importSupplierQuoteWorkbook, initialState);
+  return (
+    <form action={action} className="data-form">
+      <ActionStateToast state={state} />
+      <div className="form-grid">
+        <label>Loại hàng *<select defaultValue="OFFICE_SUPPLY" name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label>
+        <label className="span-2">File báo giá nhà cung cấp *<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="workbook" required type="file" /></label>
+      </div>
+      <div className="import-hint supply-import-hint"><strong>Tự nhận diện nhiều mẫu báo giá</strong><p>Hệ thống tìm đúng sheet báo giá, đọc nhà cung cấp, ngày báo giá, tên hàng, đơn vị, số lượng, đơn giá, VAT và tổng tiền. Tên file được chuẩn hóa và file trùng sẽ không nhập lại.</p></div>
+      {state.error ? <p className="form-error">{state.error}</p> : null}
+      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang phân tích…" : "Nhập báo giá XLSX"}</button></div>
+    </form>
+  );
+}
+
+export function SupplyQuoteForm({ initial }: { initial: SupplyQuoteOption }) {
+  const [state, action, pending] = useActionState(saveSupplyQuote, initialState);
+  return (
+    <form action={action} className="data-form">
+      <ActionStateToast state={state} />
+      <input name="id" type="hidden" value={initial.id} />
+      <div className="form-grid">
+        <label className="span-2">Nhà cung cấp *<input defaultValue={initial.vendor_name} maxLength={300} name="vendor_name" required /></label>
+        <label>Số báo giá<input defaultValue={initial.quote_no ?? ""} maxLength={100} name="quote_no" /></label>
+        <label>Loại hàng<select defaultValue={initial.category} name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label>
+        <label>Ngày báo giá<input defaultValue={initial.quote_date ?? ""} name="quote_date" type="date" /></label>
+        <label>Hiệu lực đến<input defaultValue={initial.valid_until ?? ""} name="valid_until" type="date" /></label>
+        <label>Trạng thái<select defaultValue={initial.status} name="status"><option value="RECEIVED">Đã nhận</option><option value="REVIEWING">Đang xem xét</option><option value="SELECTED">Đã chọn</option><option value="REJECTED">Không chọn</option><option value="EXPIRED">Hết hiệu lực</option></select></label>
+        <label className="span-2">Địa chỉ<textarea defaultValue={initial.vendor_address ?? ""} maxLength={1000} name="vendor_address" rows={2} /></label>
+        <label>Liên hệ<textarea defaultValue={initial.vendor_contact ?? ""} maxLength={1000} name="vendor_contact" rows={2} /></label>
+        <label className="span-3">Ghi chú<textarea defaultValue={initial.note ?? ""} maxLength={3000} name="note" rows={3} /></label>
+      </div>
+      {state.error ? <p className="form-error">{state.error}</p> : null}
+      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang lưu…" : "Lưu báo giá"}</button></div>
+    </form>
+  );
+}
+
+export type SupplyRequestMetadata = {
+  id: string;
+  request_no: string;
+  requested_on: string;
+  requester_name?: string | null;
+  checker_name?: string | null;
+  approver_name?: string | null;
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "ORDERED" | "CLOSED" | "REJECTED";
+  note?: string | null;
+};
+
+export function SupplyRequestEditForm({ initial }: { initial: SupplyRequestMetadata }) {
+  const [state, action, pending] = useActionState(saveSupplyRequestMetadata, initialState);
+  return (
+    <form action={action} className="data-form">
+      <ActionStateToast state={state} />
+      <input name="id" type="hidden" value={initial.id} />
+      <div className="form-grid">
+        <label>Số phiếu *<input defaultValue={initial.request_no} maxLength={80} name="request_no" required /></label>
+        <label>Ngày đề nghị *<input defaultValue={initial.requested_on} name="requested_on" required type="date" /></label>
+        <label>Trạng thái<select defaultValue={initial.status} name="status"><option value="DRAFT">Nháp</option><option value="SUBMITTED">Đã trình</option><option value="APPROVED">Đã duyệt</option><option value="ORDERED">Đã đặt mua</option><option value="CLOSED">Hoàn tất</option><option value="REJECTED">Không duyệt</option></select></label>
+        <label>Người đề nghị<input defaultValue={initial.requester_name ?? ""} maxLength={160} name="requester_name" /></label>
+        <label>Người kiểm tra<input defaultValue={initial.checker_name ?? ""} maxLength={160} name="checker_name" /></label>
+        <label>Người duyệt<input defaultValue={initial.approver_name ?? ""} maxLength={160} name="approver_name" /></label>
+        <label className="span-3">Ghi chú<textarea defaultValue={initial.note ?? ""} maxLength={3000} name="note" rows={3} /></label>
+      </div>
+      {state.error ? <p className="form-error">{state.error}</p> : null}
+      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang lưu…" : "Lưu phiếu"}</button></div>
     </form>
   );
 }
