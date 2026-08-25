@@ -79,7 +79,10 @@ export type SupplyQuoteOption = {
 export function SupplierQuoteImportForm() {
   const [state, action, pending] = useActionState(previewSupplierQuoteWorkbook, initialState);
   return (
-    <div className="supplier-quote-import-flow">
+    <div
+      className="supplier-quote-import-flow"
+      data-unsaved-changes={state.quotePreview ? "true" : undefined}
+    >
       <form action={action} className="data-form import-upload-form">
         <ActionStateToast notifyBoundary={!state.quotePreview} state={state} />
         <div className="form-grid supply-quote-upload-fields">

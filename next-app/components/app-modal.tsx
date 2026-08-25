@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useActionState, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -31,8 +31,26 @@ export function AppModal({
   title,
 }: AppModalProps) {
   const [mounted, setMounted] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLElement>(null);
+
+  const requestClose = useCallback(() => {
+    const modal = modalRef.current;
+    const hasSelectedFile = Array.from(
+      modal?.querySelectorAll<HTMLInputElement>('input[type="file"]') ?? [],
+    ).some((input) => Boolean(input.files?.length));
+    const hasUnsavedReview = Boolean(
+      modal?.querySelector('[data-unsaved-changes="true"]'),
+    );
+
+    if (hasSelectedFile || hasUnsavedReview) {
+      setConfirmingClose(true);
+      return;
+    }
+    onClose();
+  }, [onClose]);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -41,14 +59,20 @@ export function AppModal({
     document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (confirmingClose) setConfirmingClose(false);
+      else requestClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
+  }, [confirmingClose, open, requestClose]);
+
+  useEffect(() => {
+    if (!open) setConfirmingClose(false);
+  }, [open]);
 
   if (!mounted || !open) return null;
 
@@ -56,7 +80,7 @@ export function AppModal({
     <div
       className="app-modal-backdrop"
       onMouseDown={(event) => {
-        if (event.currentTarget === event.target) onClose();
+        if (event.currentTarget === event.target && !confirmingClose) requestClose();
       }}
       role="presentation"
     >
@@ -64,6 +88,7 @@ export function AppModal({
         aria-labelledby={titleId}
         aria-modal="true"
         className={`app-modal app-modal-${size}`}
+        ref={modalRef}
         role="dialog"
       >
         <header className="app-modal-header">
@@ -75,7 +100,7 @@ export function AppModal({
           <button
             aria-label="Đóng popup"
             className="app-modal-close"
-            onClick={onClose}
+            onClick={requestClose}
             ref={closeButtonRef}
             type="button"
           >
@@ -83,6 +108,28 @@ export function AppModal({
           </button>
         </header>
         <div className="app-modal-body">{children}</div>
+        {confirmingClose ? (
+          <div className="app-modal-unsaved-backdrop" role="presentation">
+            <section
+              aria-describedby={`${titleId}-unsaved-description`}
+              aria-labelledby={`${titleId}-unsaved-title`}
+              aria-modal="true"
+              className="app-modal-unsaved"
+              role="alertdialog"
+            >
+              <span aria-hidden="true" className="app-modal-unsaved-icon">!</span>
+              <div>
+                <p className="eyebrow">DỮ LIỆU CHƯA LƯU</p>
+                <h3 id={`${titleId}-unsaved-title`}>Đóng và bỏ dữ liệu đang nhập?</h3>
+                <p id={`${titleId}-unsaved-description`}>File hoặc danh sách xem trước vẫn chưa được lưu. Nếu đóng popup, các lựa chọn hiện tại sẽ bị mất.</p>
+              </div>
+              <div className="app-modal-unsaved-actions">
+                <button className="secondary-button" onClick={() => setConfirmingClose(false)} type="button">Tiếp tục chỉnh sửa</button>
+                <button className="danger-button" onClick={onClose} type="button">Đóng và bỏ dữ liệu</button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </section>
     </div>,
     document.body,
