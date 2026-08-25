@@ -251,25 +251,26 @@ function parseWorksheet(worksheet: ExcelJS.Worksheet, fileName: string) {
   const proposedPriceColumn = priceColumns.length > 1 ? priceColumns[0] : 0;
   const noteColumn = findColumn("GHI CHÚ");
   const lines: ParsedLine[] = [];
+  const cellValue = (row: ExcelJS.Row, column: number) => column > 0 ? row.getCell(column).value : null;
 
   for (let rowIndex = headerRow + 1; rowIndex <= worksheet.rowCount; rowIndex += 1) {
     const row = worksheet.getRow(rowIndex);
-    const itemName = cellText(row.getCell(itemColumn).value).replace(/\s+/g, " ").trim();
+    const itemName = cellText(cellValue(row, itemColumn)).replace(/\s+/g, " ").trim();
     const normalized = normalizeText(itemName);
     if (!itemName || normalized.includes("TONG CHI PHI") || normalized === "VAN PHONG PHAM") continue;
-    const unit = cellText(row.getCell(unitColumn).value) || "Đơn vị";
-    const approvedUnitPrice = cellNumber(row.getCell(approvedPriceColumn).value);
+    const unit = cellText(cellValue(row, unitColumn)) || "Đơn vị";
+    const approvedUnitPrice = cellNumber(cellValue(row, approvedPriceColumn));
     lines.push({
       itemName,
       unit,
-      proposedQuantity: cellNumber(row.getCell(proposedColumn).value),
-      stockQuantity: cellNumber(row.getCell(stockColumn).value),
-      orderedQuantity: cellNumber(row.getCell(orderedColumn).value),
-      requestedDepartments: cellText(row.getCell(departmentColumn).value),
-      approvalNote: cellText(row.getCell(approvalColumn).value),
-      proposedUnitPrice: proposedPriceColumn ? cellNumber(row.getCell(proposedPriceColumn).value) : null,
+      proposedQuantity: cellNumber(cellValue(row, proposedColumn)),
+      stockQuantity: cellNumber(cellValue(row, stockColumn)),
+      orderedQuantity: cellNumber(cellValue(row, orderedColumn)),
+      requestedDepartments: cellText(cellValue(row, departmentColumn)),
+      approvalNote: cellText(cellValue(row, approvalColumn)),
+      proposedUnitPrice: proposedPriceColumn ? cellNumber(cellValue(row, proposedPriceColumn)) : null,
       approvedUnitPrice,
-      note: cellText(row.getCell(noteColumn).value),
+      note: cellText(cellValue(row, noteColumn)),
     });
   }
   if (!lines.length) throw new Error("File không có dòng hàng hóa hợp lệ.");
