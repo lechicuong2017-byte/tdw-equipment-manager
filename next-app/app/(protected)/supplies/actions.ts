@@ -40,7 +40,36 @@ export type SupplierQuotePreview = {
   lines: SupplierQuotePreviewLine[];
 };
 
-export type SupplyActionState = { error?: string; success?: string; quotePreview?: SupplierQuotePreview };
+export type SupplyWorkbookPreviewLine = ParsedLine & {
+  key: string;
+  category: SupplyItemCategory;
+  itemCode: string;
+  existingItem: SupplierQuotePreviewExistingItem | null;
+};
+
+export type SupplyWorkbookPreview = {
+  sourceFile: string;
+  sourceSheet: string;
+  fingerprint: string;
+  codeYear: number;
+  nextSequences: Record<SupplyItemCategory, number>;
+  requestNo: string;
+  periodYear: number;
+  periodQuarter: number;
+  requestedOn: string;
+  requestingDepartment: string;
+  requesterName: string;
+  checkerName: string;
+  approverName: string;
+  lines: SupplyWorkbookPreviewLine[];
+};
+
+export type SupplyActionState = {
+  error?: string;
+  success?: string;
+  quotePreview?: SupplierQuotePreview;
+  workbookPreview?: SupplyWorkbookPreview;
+};
 
 const categorySchema = z.enum(["OFFICE_SUPPLY", "CLEANING_SUPPLY"]);
 const quoteCategorySchema = z.enum(["OFFICE_SUPPLY", "CLEANING_SUPPLY", "MIXED"]);
@@ -426,6 +455,36 @@ const quoteReviewSchema = z.object({
   })).min(1).max(1000),
 });
 
+const workbookReviewSchema = z.object({
+  sourceFile: z.string().trim().min(1).max(255),
+  sourceSheet: z.string().trim().min(1).max(255),
+  fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  codeYear: z.number().int().min(2000).max(2200),
+  requestNo: z.string().trim().min(1).max(80),
+  periodYear: z.number().int().min(2000).max(2200),
+  periodQuarter: z.number().int().min(1).max(4),
+  requestedOn: z.string().date(),
+  requestingDepartment: z.string().trim().max(300),
+  requesterName: z.string().trim().max(160),
+  checkerName: z.string().trim().max(160),
+  approverName: z.string().trim().max(160),
+  lines: z.array(z.object({
+    key: z.string().trim().min(1).max(100),
+    category: categorySchema,
+    itemCode: z.string().trim().min(1).max(80),
+    itemName: z.string().trim().min(1).max(300),
+    unit: z.string().trim().min(1).max(80),
+    proposedQuantity: z.number().min(0).max(1000000000),
+    stockQuantity: z.number().min(0).max(1000000000),
+    orderedQuantity: z.number().min(0).max(1000000000),
+    requestedDepartments: z.string().trim().max(1000),
+    approvalNote: z.string().trim().max(1000),
+    proposedUnitPrice: z.number().min(0).max(1000000000000).nullable(),
+    approvedUnitPrice: z.number().min(0).max(1000000000000),
+    note: z.string().trim().max(2000),
+  })).min(1).max(1000),
+});
+
 function nextSupplyCodeSequences(items: Array<{ item_code?: string | null }>, year: number) {
   const result: Record<SupplyItemCategory, number> = { OFFICE_SUPPLY: 1, CLEANING_SUPPLY: 1 };
   for (const category of ["OFFICE_SUPPLY", "CLEANING_SUPPLY"] as const) {
@@ -504,15 +563,16 @@ export async function archiveSupplyItem(formData: FormData): Promise<SupplyActio
   return { success: "Đã ngừng dùng hàng hóa." };
 }
 
-export async function importSupplyWorkbook(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
+export async function previewSupplyWorkbook(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
   const { access, supabase } = await requireAccess();
   if (!can(access, "supplies.import")) return { error: "Bạn không có quyền nhập file XLSX." };
   const file = formData.get("workbook");
   if (!(file instanceof File) || !file.size) return { error: "Hãy chọn file XLSX." };
   if (file.size > 10 * 1024 * 1024 || !/\.xlsx$/i.test(file.name)) return { error: "File phải là XLSX và không quá 10 MB." };
+  const bytes = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
   try {
-    await workbook.xlsx.load(await file.arrayBuffer());
+    await workbook.xlsx.load(bytes);
   } catch {
     return { error: "Không thể đọc file XLSX." };
   }
@@ -524,45 +584,145 @@ export async function importSupplyWorkbook(_state: SupplyActionState, formData: 
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Không thể nhận diện mẫu file." };
   }
-  const fingerprint = createHash("sha256").update(`${file.name}|${worksheet.name}|${parsed.category}|${parsed.requestNo}|${parsed.periodYear}|${parsed.periodQuarter}`).digest("hex");
+  const fingerprint = createHash("sha256").update(new Uint8Array(bytes)).update(`|${worksheet.name}|${parsed.category}`).digest("hex");
   const { data: duplicate } = await supabase.from("supply_requests").select("id").eq("import_fingerprint", fingerprint).maybeSingle();
   if (duplicate) return { error: "Phiếu từ file này đã được nhập trước đó." };
 
-  const { data: allItems } = await supabase.from("supply_items").select("id,item_name,category,item_code").is("deleted_at", null);
-  const existingItems = (allItems ?? []).filter((item) => item.category === parsed.category);
-  const byName = new Map((existingItems ?? []).map((item) => [normalizeText(item.item_name), { id: item.id, itemCode: item.item_code }]));
+  const { data: allItems, error: itemError } = await supabase.from("supply_items").select("id,item_name,category,item_code").is("deleted_at", null);
+  if (itemError) return { error: "Không thể kiểm tra danh mục hàng hóa hiện có." };
+  const existingByName = new Map(
+    (allItems ?? [])
+      .filter((item) => item.category === parsed.category)
+      .map((item) => [normalizeText(item.item_name), item]),
+  );
   const nextSequences = nextSupplyCodeSequences(allItems ?? [], parsed.periodYear);
-  const uniqueMissing = new Map<string, ParsedLine>();
-  parsed.lines.forEach((line) => {
-    const key = normalizeText(line.itemName);
-    if (!byName.has(key) && !uniqueMissing.has(key)) uniqueMissing.set(key, line);
+  let sequence = nextSequences[parsed.category];
+  const proposedCodes = new Map<string, string>();
+  const lines: SupplyWorkbookPreviewLine[] = parsed.lines.map((line, index) => {
+    const nameKey = normalizeText(line.itemName);
+    const existing = existingByName.get(nameKey);
+    let itemCode = existing?.item_code || proposedCodes.get(nameKey) || "";
+    if (!itemCode) {
+      itemCode = buildSupplyItemCode(parsed.category, parsed.periodYear, sequence++);
+      proposedCodes.set(nameKey, itemCode);
+    }
+    return {
+      ...line,
+      key: `${index + 1}-${nameKey.slice(0, 48)}`,
+      category: parsed.category,
+      itemCode,
+      existingItem: existing ? {
+        id: existing.id,
+        category: existing.category as SupplyItemCategory,
+        itemCode: existing.item_code || "",
+      } : null,
+    };
   });
-  const missing = [...uniqueMissing.values()].map((line) => ({
-    category: parsed.category, item_name: line.itemName, unit: line.unit,
-    item_code: buildSupplyItemCode(parsed.category, parsed.periodYear, nextSequences[parsed.category]++),
-    default_unit_price: line.approvedUnitPrice, created_by: access.user_id, updated_by: access.user_id,
-  }));
-  if (missing.length) {
-    const { data: inserted, error } = await supabase.from("supply_items").insert(missing).select("id,item_name,item_code");
-    if (error) return { error: "Không thể tạo danh mục hàng từ file." };
-    inserted?.forEach((item) => byName.set(normalizeText(item.item_name), { id: item.id, itemCode: item.item_code }));
+
+  return {
+    success: `Đã phân tích ${lines.length} dòng. Hãy kiểm tra và tick các dòng cần nhập.`,
+    workbookPreview: {
+      sourceFile: file.name,
+      sourceSheet: worksheet.name,
+      fingerprint,
+      codeYear: parsed.periodYear,
+      nextSequences,
+      requestNo: parsed.requestNo,
+      periodYear: parsed.periodYear,
+      periodQuarter: parsed.periodQuarter,
+      requestedOn: parsed.requestedOn,
+      requestingDepartment: parsed.requestingDepartment,
+      requesterName: parsed.requesterName,
+      checkerName: parsed.checkerName,
+      approverName: parsed.approverName,
+      lines,
+    },
+  };
+}
+
+export async function commitSupplyWorkbookReview(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "supplies.import")) return { error: "Bạn không có quyền nhập file XLSX." };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(formData.get("review") ?? ""));
+  } catch {
+    return { error: "Dữ liệu xem trước không hợp lệ. Hãy đọc lại file." };
   }
+  const parsed = workbookReviewSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu duyệt chưa hợp lệ." };
+  const review = parsed.data;
+  const categories = new Set(review.lines.map((line) => line.category));
+  if (categories.size !== 1) return { error: "Một phiếu nhập chỉ được chứa một loại hàng." };
+  const category = review.lines[0].category;
+  const { data: duplicate } = await supabase.from("supply_requests").select("id").eq("import_fingerprint", review.fingerprint).maybeSingle();
+  if (duplicate) return { error: "Phiếu từ file này đã được nhập trước đó." };
+
+  const { data: allItems, error: itemReadError } = await supabase.from("supply_items").select("id,item_name,category,item_code").is("deleted_at", null);
+  if (itemReadError) return { error: "Không thể kiểm tra trùng danh mục hàng hóa." };
+  const byKey = new Map((allItems ?? []).map((item) => [`${item.category}|${normalizeText(item.item_name)}`, item]));
+  const usedCodes = new Set((allItems ?? []).map((item) => String(item.item_code || "").toUpperCase()).filter(Boolean));
+  const nextSequences = nextSupplyCodeSequences(allItems ?? [], review.codeYear);
+  const pending = new Map<string, {
+    category: SupplyItemCategory;
+    item_name: string;
+    unit: string;
+    item_code: string;
+    default_unit_price: number;
+    created_by: string;
+    updated_by: string;
+  }>();
+
+  for (const line of review.lines) {
+    const key = `${line.category}|${normalizeText(line.itemName)}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      if (!existing.item_code) {
+        let code = line.itemCode.toUpperCase();
+        while (!code || usedCodes.has(code)) code = buildSupplyItemCode(line.category, review.codeYear, nextSequences[line.category]++);
+        const { error } = await supabase.from("supply_items").update({ item_code: code, updated_by: access.user_id }).eq("id", existing.id);
+        if (error) return { error: `Không thể bổ sung mã cho ${line.itemName}.` };
+        existing.item_code = code;
+        usedCodes.add(code);
+      }
+      continue;
+    }
+    if (pending.has(key)) continue;
+    let code = line.itemCode.toUpperCase();
+    while (!code || usedCodes.has(code)) code = buildSupplyItemCode(line.category, review.codeYear, nextSequences[line.category]++);
+    usedCodes.add(code);
+    pending.set(key, {
+      category: line.category,
+      item_name: line.itemName,
+      unit: line.unit,
+      item_code: code,
+      default_unit_price: line.approvedUnitPrice,
+      created_by: access.user_id,
+      updated_by: access.user_id,
+    });
+  }
+  if (pending.size) {
+    const { data: inserted, error } = await supabase.from("supply_items").insert([...pending.values()]).select("id,item_name,category,item_code");
+    if (error) return { error: error.code === "23505" ? "Có mặt hàng hoặc mã hàng bị trùng. Hãy đọc lại file để cập nhật danh mục." : "Không thể tạo danh mục hàng từ file." };
+    inserted?.forEach((item) => byKey.set(`${item.category}|${normalizeText(item.item_name)}`, item));
+  }
+
   const { data: request, error: requestError } = await supabase.from("supply_requests").insert({
-    request_no: parsed.requestNo, category: parsed.category, period_type: "QUARTER",
-    period_year: parsed.periodYear, period_quarter: parsed.periodQuarter,
-    requested_on: parsed.requestedOn, requesting_department: parsed.requestingDepartment,
-    requester_name: parsed.requesterName, checker_name: parsed.checkerName,
-    approver_name: parsed.approverName, status: "APPROVED", source_file: file.name,
-    source_sheet: worksheet.name, import_fingerprint: fingerprint,
+    request_no: review.requestNo, category, period_type: "QUARTER",
+    period_year: review.periodYear, period_quarter: review.periodQuarter,
+    requested_on: review.requestedOn, requesting_department: review.requestingDepartment,
+    requester_name: review.requesterName, checker_name: review.checkerName,
+    approver_name: review.approverName, status: "APPROVED", source_file: review.sourceFile,
+    source_sheet: review.sourceSheet, import_fingerprint: review.fingerprint,
     created_by: access.user_id, updated_by: access.user_id,
   }).select("id").single();
   if (requestError || !request) return { error: "Không thể tạo phiếu từ file." };
-  const { error: lineError } = await supabase.from("supply_request_lines").insert(parsed.lines.map((line, index) => {
-    const catalogItem = byName.get(normalizeText(line.itemName));
+  const { error: lineError } = await supabase.from("supply_request_lines").insert(review.lines.map((line, index) => {
+    const catalogItem = byKey.get(`${line.category}|${normalizeText(line.itemName)}`);
     return {
       request_id: request.id,
       item_id: catalogItem?.id ?? null,
-      item_code: catalogItem?.itemCode ?? "",
+      item_code: catalogItem?.item_code ?? line.itemCode,
       item_name: line.itemName,
       unit: line.unit,
       proposed_quantity: line.proposedQuantity,
@@ -583,7 +743,7 @@ export async function importSupplyWorkbook(_state: SupplyActionState, formData: 
     return { error: lineError.message.includes("Kho không đủ") ? lineError.message : "Không thể lưu các dòng hàng của phiếu." };
   }
   revalidatePath("/supplies");
-  return { success: `Đã nhập ${parsed.lines.length} mặt hàng từ ${parsed.category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh"}.` };
+  return { success: `Đã nhập ${review.lines.length} dòng đã chọn từ ${category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh"}.` };
 }
 
 export async function previewSupplierQuoteWorkbook(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {

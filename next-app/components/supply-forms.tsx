@@ -3,8 +3,9 @@
 import { useActionState, useMemo, useState } from "react";
 import { ActionStateToast } from "@/components/action-toast";
 import {
+  commitSupplyWorkbookReview,
   commitSupplierQuoteReview,
-  importSupplyWorkbook,
+  previewSupplyWorkbook,
   previewSupplierQuoteWorkbook,
   recordSupplyInventoryMovement,
   saveSupplyQuote,
@@ -13,6 +14,7 @@ import {
   saveSupplyRequestMetadata,
   type SupplierQuotePreview,
   type SupplyActionState,
+  type SupplyWorkbookPreview,
 } from "@/app/(protected)/supplies/actions";
 import { buildSupplyItemCode, type SupplyItemCategory } from "@/lib/supply-item-codes";
 import { WorkbookFilePicker } from "@/components/workbook-file-picker";
@@ -52,15 +54,64 @@ export function SupplyItemForm({ initial }: { initial?: SupplyItemOption }) {
 }
 
 export function SupplyImportForm() {
-  const [state, action, pending] = useActionState(importSupplyWorkbook, initialState);
+  const [state, action, pending] = useActionState(previewSupplyWorkbook, initialState);
   return (
-    <form action={action} className="data-form">
+    <div className="supply-workbook-import-flow" data-unsaved-changes={state.workbookPreview ? "true" : undefined}>
+      <form action={action} className="data-form import-upload-form">
+        <ActionStateToast notifyBoundary={!state.workbookPreview} state={state} />
+        <WorkbookFilePicker label="File phiếu tổng hợp XLSX *" name="workbook" />
+        <div className="import-hint supply-import-hint"><strong>Bước 1 · Chỉ đọc và kiểm tra</strong><p>Chưa có dữ liệu nào được lưu. Hệ thống đọc loại hàng, quý/năm, số lượng và đơn giá; bạn sẽ review, kiểm tra trùng và tick từng dòng ở bước kế tiếp.</p></div>
+        {state.error ? <p className="form-error">{state.error}</p> : null}
+        <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang phân tích…" : "Đọc file và xem trước"}</button></div>
+      </form>
+      {state.workbookPreview ? <SupplyWorkbookReviewForm key={state.workbookPreview.fingerprint} preview={state.workbookPreview} /> : null}
+    </div>
+  );
+}
+
+type WorkbookReviewRow = SupplyWorkbookPreview["lines"][number] & { selected: boolean };
+
+function SupplyWorkbookReviewForm({ preview }: { preview: SupplyWorkbookPreview }) {
+  const [state, action, pending] = useActionState(commitSupplyWorkbookReview, initialState);
+  const [rows, setRows] = useState<WorkbookReviewRow[]>(() => preview.lines.map((line) => ({ ...line, selected: false })));
+  const selectedCount = rows.filter((row) => row.selected).length;
+  const duplicateCount = rows.filter((row) => row.existingItem).length;
+  const currency = useMemo(() => new Intl.NumberFormat("vi-VN"), []);
+  const selectedPayload = {
+    ...preview,
+    lines: rows
+      .filter((row) => row.selected)
+      .map(({ selected: _selected, existingItem: _existingItem, ...row }) => row),
+  };
+
+  return (
+    <>
       <ActionStateToast state={state} />
-      <WorkbookFilePicker label="File phiếu tổng hợp XLSX *" name="workbook" />
-      <div className="import-hint"><strong>Tự nhận diện hai mẫu TDW</strong><p>Hệ thống đọc loại hàng, quý/năm, người đề nghị, phê duyệt, số lượng, đơn giá và ghi chú; file đã nhập sẽ không tạo trùng.</p></div>
-      {state.error ? <p className="form-error">{state.error}</p> : null}
-      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang đọc file…" : "Nhập phiếu XLSX"}</button></div>
-    </form>
+      {state.success ? (
+        <div className="import-preview-summary"><strong>{state.success}</strong><span>Danh mục và phiếu yêu cầu đã được cập nhật.</span></div>
+      ) : (
+        <form action={action} className="import-preview-form supply-workbook-review">
+          <input name="review" type="hidden" value={JSON.stringify(selectedPayload)} />
+          <div className="import-preview-summary"><div><strong>Bước 2 · Duyệt trước khi nhập</strong><span>Quý {preview.periodQuarter}/{preview.periodYear} · {rows.length} dòng · {duplicateCount} dòng đã có trong danh mục</span></div><b>{selectedCount} đã chọn</b></div>
+          <div className="supply-review-toolbar"><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: true })))} type="button">Chọn tất cả</button><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button><span>Chỉ các dòng đã tick mới được ghi vào cơ sở dữ liệu.</span></div>
+          <div className="table-wrap import-preview-table supply-review-table supply-workbook-review-table"><table><thead><tr><th>Chọn</th><th>Mã đề xuất</th><th>Tên hàng</th><th>Loại hàng</th><th>Đơn vị</th><th>SL đề xuất</th><th>SL đặt mua</th><th>Đơn giá</th><th>Kiểm tra trùng</th></tr></thead><tbody>{rows.map((row) => (
+            <tr className={row.selected ? "selected" : ""} key={row.key}>
+              <td><label className="supply-review-check"><input aria-label={`Chọn ${row.itemName}`} checked={row.selected} className="software-asset-checkbox" onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, selected: event.target.checked } : item))} type="checkbox" /><span aria-hidden="true" className="software-asset-checkmark">✓</span></label></td>
+              <td><code>{row.itemCode}</code></td>
+              <td><div className="supply-review-item-copy"><strong>{row.itemName}</strong>{row.note ? <small>{row.note}</small> : null}</div></td>
+              <td><span className={`status-pill ${row.category === "OFFICE_SUPPLY" ? "status-info" : "status-ok"}`}>{row.category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh"}</span></td>
+              <td><input aria-label={`Đơn vị ${row.itemName}`} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, unit: event.target.value } : item))} value={row.unit} /></td>
+              <td>{currency.format(row.proposedQuantity)}</td>
+              <td>{currency.format(row.orderedQuantity)}</td>
+              <td><input aria-label={`Đơn giá ${row.itemName}`} min={0} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, approvedUnitPrice: Number(event.target.value) } : item))} type="number" value={row.approvedUnitPrice} /></td>
+              <td><span className={`status-pill ${row.existingItem ? "status-ok" : "status-muted"}`}>{row.existingItem ? `Đã có · ${row.existingItem.itemCode || "sẽ bổ sung mã"}` : "Sẽ tạo mới"}</span></td>
+            </tr>
+          ))}</tbody></table></div>
+          {state.error ? <p className="form-error">{state.error}</p> : null}
+          <div className="form-actions"><span>Chỉ {selectedCount} dòng đã tick mới được ghi vào cơ sở dữ liệu.</span><button className="primary-button" disabled={pending || !selectedCount} type="submit">{pending ? "Đang nhập…" : `Nhập ${selectedCount} dòng đã chọn`}</button></div>
+        </form>
+      )}
+    </>
   );
 }
 

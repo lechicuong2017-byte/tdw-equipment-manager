@@ -410,6 +410,17 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .import-preview-table { border: 1px solid var(--line); border-radius: 12px; max-height: 48vh; }
 .import-preview-table table { min-width: 980px; }
 .supplier-quote-import-flow { display: grid; gap: 1rem; }
+.supply-workbook-import-flow { display: grid; gap: 1rem; }
+.supply-workbook-import-flow > .import-upload-form {
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+  grid-template-columns: minmax(360px, 0.72fr) minmax(0, 1.28fr);
+  padding-bottom: 1rem;
+}
+.supply-workbook-import-flow > .import-upload-form > .form-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+}
 .supplier-quote-import-flow .import-upload-form {
   align-items: end;
   border-bottom: 1px solid var(--line);
@@ -447,6 +458,10 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
   justify-content: flex-start;
 }
 .supply-quote-review { border: 1px solid #b9e3ce; border-radius: 14px; padding: 1rem; }
+.supply-workbook-review { border: 1px solid #b9e3ce; border-radius: 14px; padding: 1rem; }
+.supply-workbook-review .import-preview-summary span { display: block; margin-top: 0.2rem; }
+.supply-workbook-review-table table { min-width: 1540px; }
+.supply-workbook-review-table td:nth-child(3) { min-width: 390px; }
 .supply-quote-review .import-preview-summary span { display: block; margin-top: 0.2rem; }
 .supply-review-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 0.8rem; }
 .supply-review-toolbar span { color: var(--muted); margin-left: auto; }
@@ -498,6 +513,8 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 @media (max-width: 1120px) {
   .supplier-quote-import-flow .import-upload-form { grid-template-columns: 1fr; }
   .supplier-quote-import-flow .import-upload-form > .form-actions { grid-column: auto; }
+  .supply-workbook-import-flow > .import-upload-form { grid-template-columns: 1fr; }
+  .supply-workbook-import-flow > .import-upload-form > .form-actions { grid-column: auto; }
 }
 
 @media (max-width: 900px) {
@@ -511,6 +528,8 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
   .import-upload-form { grid-template-columns: 1fr; }
   .supplier-quote-import-flow .import-upload-form { grid-template-columns: 1fr; }
   .supplier-quote-import-flow .import-upload-form > .form-actions { grid-column: auto; }
+  .supply-workbook-import-flow > .import-upload-form { grid-template-columns: 1fr; }
+  .supply-workbook-import-flow > .import-upload-form > .form-actions { grid-column: auto; }
 }
 
 @media (max-width: 620px) {
