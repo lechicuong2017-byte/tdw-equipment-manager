@@ -18,6 +18,7 @@ import {
 } from "@/app/(protected)/supplies/actions";
 import { buildSupplyItemCode, type SupplyItemCategory } from "@/lib/supply-item-codes";
 import { WorkbookFilePicker } from "@/components/workbook-file-picker";
+import { normalizeSearchText } from "@/lib/search";
 
 const initialState: SupplyActionState = {};
 
@@ -117,13 +118,65 @@ function SupplyWorkbookReviewForm({ preview }: { preview: SupplyWorkbookPreview 
 
 export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption[] }) {
   const [state, action, pending] = useActionState(recordSupplyInventoryMovement, initialState);
+  const [itemSearch, setItemSearch] = useState("");
+  const [selectedItemId, setSelectedItemId] = useState("");
+  const activeItems = useMemo(
+    () => items
+      .filter((item) => item.active)
+      .sort((left, right) => left.item_name.localeCompare(right.item_name, "vi")),
+    [items],
+  );
+  const normalizedItemSearch = normalizeSearchText(itemSearch);
+  const filteredItems = useMemo(() => {
+    if (!normalizedItemSearch) return activeItems;
+    return activeItems.filter((item) => normalizeSearchText([
+      item.item_name,
+      item.item_code,
+      item.unit,
+    ].filter(Boolean).join(" ")).includes(normalizedItemSearch));
+  }, [activeItems, normalizedItemSearch]);
+  const selectedItem = activeItems.find((item) => item.id === selectedItemId);
+  const visibleItems = selectedItem && !filteredItems.some((item) => item.id === selectedItem.id)
+    ? [selectedItem, ...filteredItems]
+    : filteredItems;
+
   return (
     <form action={action} className="data-form">
       <ActionStateToast state={state} />
       <div className="form-grid">
         <label>Hình thức *<select defaultValue="IN" name="direction"><option value="IN">Nhập kho</option><option value="OUT">Xuất kho</option></select></label>
         <label>Ngày ghi nhận *<input defaultValue={new Date().toISOString().slice(0, 10)} name="movement_date" required type="date" /></label>
-        <label className="span-2">Hàng hóa *<select defaultValue="" name="item_id" required><option disabled value="">Chọn hàng hóa</option>{items.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.item_code || "Chưa có mã"} · {item.item_name} · {item.unit}</option>)}</select></label>
+        <div className="span-2 supply-inventory-item-picker">
+          <label>
+            Tìm hàng hóa
+            <input
+              autoComplete="off"
+              onChange={(event) => setItemSearch(event.target.value)}
+              placeholder="Nhập tên hoặc mã hàng…"
+              type="search"
+              value={itemSearch}
+            />
+          </label>
+          <label>
+            Hàng hóa *
+            <select
+              name="item_id"
+              onChange={(event) => setSelectedItemId(event.target.value)}
+              required
+              value={selectedItemId}
+            >
+              <option disabled value="">Chọn hàng hóa</option>
+              {visibleItems.map((item) => <option key={item.id} value={item.id}>{item.item_code || "Chưa có mã"} · {item.item_name} · {item.unit}</option>)}
+            </select>
+          </label>
+          <small className={filteredItems.length ? "" : "is-empty"}>
+            {normalizedItemSearch
+              ? filteredItems.length
+                ? `${filteredItems.length} mặt hàng phù hợp; có thể gõ tên có dấu hoặc không dấu.`
+                : "Không tìm thấy mặt hàng phù hợp. Hãy thử tên hoặc mã khác."
+              : `${activeItems.length} mặt hàng đang sử dụng.`}
+          </small>
+        </div>
         <label>Số lượng *<input min="0.001" name="quantity" required step="0.001" type="number" /></label>
         <label>Đơn giá<input defaultValue={0} min={0} name="unit_price" step="1" type="number" /></label>
         <label className="span-2">Số chứng từ<input maxLength={120} name="reference_no" placeholder="Ví dụ: NK-2026-001" /></label>
@@ -131,7 +184,7 @@ export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption
       </div>
       <div className="import-hint"><strong>Luồng tự động vẫn được ưu tiên</strong><p>Báo giá XLSX đã duyệt sẽ tự nhập kho; phiếu yêu cầu chỉ tự xuất kho khi chuyển sang Đã duyệt, Đã đặt mua hoặc Hoàn tất. Form này dùng cho tồn đầu kỳ và điều chỉnh thực tế.</p></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
-      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang ghi nhận…" : "Ghi nhận kho"}</button></div>
+      <div className="form-actions"><button className="primary-button" disabled={pending || !selectedItemId} type="submit">{pending ? "Đang ghi nhận…" : "Ghi nhận kho"}</button></div>
     </form>
   );
 }
