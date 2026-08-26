@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     sheet.getCell(cell).alignment = { horizontal: "center", vertical: "middle" };
     sheet.getCell(cell).font = { bold: index < 2, color: { argb: index === 1 ? "FF08769A" : "FF17324D" }, size: index === 1 ? 17 : index === 0 ? 12 : 10 };
   });
-  sheet.getRow(5).values = ["STT", "Số phiếu", "Ngày đề nghị", "Loại", "Kỳ mua", "Tên hàng", "Đơn vị", "SL đề xuất", "Tồn kho", "SL đặt mua", "Đơn giá", "Thành tiền", "Bộ phận đề nghị", "Phê duyệt / Ghi chú"];
+  sheet.getRow(5).values = ["STT", "Số kế hoạch", "Ngày lập", "Loại", "Kỳ mua", "Tên hàng", "Đơn vị", "SL đề xuất", "Tồn kho", "SL đã duyệt", "Đơn giá đã duyệt", "Thành tiền", "Bộ phận đề nghị", "Ghi chú hồ sơ giấy"];
   const header = sheet.getRow(5);
   header.height = 28;
   header.eachCell((cell) => {

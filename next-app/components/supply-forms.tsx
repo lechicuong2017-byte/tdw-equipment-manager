@@ -60,7 +60,7 @@ export function SupplyImportForm() {
     <div className="supply-workbook-import-flow" data-unsaved-changes={state.workbookPreview ? "true" : undefined}>
       <form action={action} className="data-form import-upload-form">
         <ActionStateToast notifyBoundary={!state.workbookPreview} state={state} />
-        <WorkbookFilePicker label="File phiếu tổng hợp XLSX *" name="workbook" />
+        <WorkbookFilePicker label="File tổng hợp đã duyệt XLSX *" name="workbook" />
         <div className="import-hint supply-import-hint"><strong>Bước 1 · Chỉ đọc và kiểm tra</strong><p>Chưa có dữ liệu nào được lưu. Hệ thống đọc loại hàng, quý/năm, số lượng và đơn giá; bạn sẽ review, kiểm tra trùng và tick từng dòng ở bước kế tiếp.</p></div>
         {state.error ? <p className="form-error">{state.error}</p> : null}
         <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang phân tích…" : "Đọc file và xem trước"}</button></div>
@@ -89,13 +89,13 @@ function SupplyWorkbookReviewForm({ preview }: { preview: SupplyWorkbookPreview 
     <>
       <ActionStateToast state={state} />
       {state.success ? (
-        <div className="import-preview-summary"><strong>{state.success}</strong><span>Danh mục và phiếu yêu cầu đã được cập nhật.</span></div>
+        <div className="import-preview-summary"><strong>{state.success}</strong><span>Danh mục và kế hoạch mua đã được cập nhật; tồn kho chưa thay đổi.</span></div>
       ) : (
         <form action={action} className="import-preview-form supply-workbook-review">
           <input name="review" type="hidden" value={JSON.stringify(selectedPayload)} />
           <div className="import-preview-summary"><div><strong>Bước 2 · Duyệt trước khi nhập</strong><span>Quý {preview.periodQuarter}/{preview.periodYear} · {rows.length} dòng · {duplicateCount} dòng đã có trong danh mục</span></div><b>{selectedCount} đã chọn</b></div>
           <div className="supply-review-toolbar"><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: true })))} type="button">Chọn tất cả</button><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button><span>Chỉ các dòng đã tick mới được ghi vào cơ sở dữ liệu.</span></div>
-          <div className="table-wrap import-preview-table supply-review-table supply-workbook-review-table"><table><thead><tr><th>Chọn</th><th>Mã đề xuất</th><th>Tên hàng</th><th>Loại hàng</th><th>Đơn vị</th><th>SL đề xuất</th><th>SL đặt mua</th><th>Đơn giá</th><th>Kiểm tra trùng</th></tr></thead><tbody>{rows.map((row) => (
+          <div className="table-wrap import-preview-table supply-review-table supply-workbook-review-table"><table><thead><tr><th>Chọn</th><th>Mã đề xuất</th><th>Tên hàng</th><th>Loại hàng</th><th>Đơn vị</th><th>SL đề xuất</th><th>SL đã duyệt</th><th>Đơn giá đã duyệt</th><th>Kiểm tra trùng</th></tr></thead><tbody>{rows.map((row) => (
             <tr className={row.selected ? "selected" : ""} key={row.key}>
               <td><label className="supply-review-check"><input aria-label={`Chọn ${row.itemName}`} checked={row.selected} className="software-asset-checkbox" onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, selected: event.target.checked } : item))} type="checkbox" /><span aria-hidden="true" className="software-asset-checkmark">✓</span></label></td>
               <td><code>{row.itemCode}</code></td>
@@ -211,7 +211,7 @@ export function SupplyInventoryMovementForm({
         <label className="span-2">Số chứng từ<input maxLength={120} name="reference_no" placeholder="Ví dụ: NK-2026-001" /></label>
         <label className="span-2">Ghi chú<textarea maxLength={2000} name="note" rows={3} /></label>
       </div>
-      <div className="import-hint"><strong>Luồng tự động vẫn được ưu tiên</strong><p>Báo giá XLSX đã duyệt sẽ tự nhập kho; phiếu yêu cầu chỉ tự xuất kho khi chuyển sang Đã duyệt, Đã đặt mua hoặc Hoàn tất. Form này dùng cho tồn đầu kỳ và điều chỉnh thực tế.</p></div>
+      <div className="import-hint"><strong>Chỉ ghi nhận giao dịch kho thực tế</strong><p>Kế hoạch đã duyệt và báo giá không tự nhập hoặc xuất kho. Hãy chọn Nhập kho khi thực nhận hàng, hoặc Xuất kho khi thực cấp cho bộ phận.</p></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
       <div className="form-actions"><button className="primary-button" disabled={pending || !selectedItemId} type="submit">{pending ? "Đang ghi nhận…" : initialDirection === "IN" ? "Thêm số lượng vào kho" : "Ghi nhận xuất kho"}</button></div>
     </form>
@@ -285,7 +285,7 @@ function SupplierQuoteReviewForm({ preview }: { preview: SupplierQuotePreview })
   return (
     <>
       <ActionStateToast state={state} />
-      {state.success ? <div className="import-preview-summary"><strong>{state.success}</strong><span>Danh mục và báo giá đã được cập nhật.</span></div> : <form action={action} className="import-preview-form supply-quote-review">
+      {state.success ? <div className="import-preview-summary"><strong>{state.success}</strong><span>Danh mục và báo giá đã được cập nhật; tồn kho chưa thay đổi.</span></div> : <form action={action} className="import-preview-form supply-quote-review">
       <input name="review" type="hidden" value={JSON.stringify(selectedPayload)} />
       <div className="import-preview-summary"><div><strong>Bước 2 · Duyệt trước khi nhập</strong><span>{preview.vendorName} · {rows.length} dòng · {duplicateCount} dòng đã có trong danh mục</span></div><b>{selectedCount} đã chọn</b></div>
       <div className="supply-review-toolbar"><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: true })))} type="button">Chọn tất cả</button><button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button><span>Mã mới được cấp theo loại hàng và năm {preview.codeYear}.</span></div>
@@ -330,7 +330,7 @@ export type SupplyRequestMetadata = {
   requester_name?: string | null;
   checker_name?: string | null;
   approver_name?: string | null;
-  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "ORDERED" | "CLOSED" | "REJECTED";
+  status: "DRAFT" | "READY_TO_BUY" | "ORDERED" | "PARTIALLY_RECEIVED" | "RECEIVED" | "COMPLETED" | "CANCELLED";
   note?: string | null;
 };
 
@@ -341,16 +341,16 @@ export function SupplyRequestEditForm({ initial }: { initial: SupplyRequestMetad
       <ActionStateToast state={state} />
       <input name="id" type="hidden" value={initial.id} />
       <div className="form-grid">
-        <label>Số phiếu *<input defaultValue={initial.request_no} maxLength={80} name="request_no" required /></label>
+        <label>Số kế hoạch / hồ sơ *<input defaultValue={initial.request_no} maxLength={80} name="request_no" required /></label>
         <label>Ngày đề nghị *<input defaultValue={initial.requested_on} name="requested_on" required type="date" /></label>
-        <label>Trạng thái<select defaultValue={initial.status} name="status"><option value="DRAFT">Nháp</option><option value="SUBMITTED">Đã trình</option><option value="APPROVED">Đã duyệt</option><option value="ORDERED">Đã đặt mua</option><option value="CLOSED">Hoàn tất</option><option value="REJECTED">Không duyệt</option></select></label>
+        <label>Trạng thái<select defaultValue={initial.status} name="status"><option value="DRAFT">Nháp nhập liệu</option><option value="READY_TO_BUY">Sẵn sàng mua</option><option value="ORDERED">Đã đặt mua</option><option value="PARTIALLY_RECEIVED">Nhận một phần</option><option value="RECEIVED">Đã nhận đủ</option><option value="COMPLETED">Hoàn tất</option><option value="CANCELLED">Hủy / chuyển kỳ</option></select></label>
         <label>Người đề nghị<input defaultValue={initial.requester_name ?? ""} maxLength={160} name="requester_name" /></label>
-        <label>Người kiểm tra<input defaultValue={initial.checker_name ?? ""} maxLength={160} name="checker_name" /></label>
-        <label>Người duyệt<input defaultValue={initial.approver_name ?? ""} maxLength={160} name="approver_name" /></label>
+        <label>Người kiểm tra hồ sơ<input defaultValue={initial.checker_name ?? ""} maxLength={160} name="checker_name" /></label>
+        <label>Người ký trên hồ sơ giấy<input defaultValue={initial.approver_name ?? ""} maxLength={160} name="approver_name" /></label>
         <label className="span-3">Ghi chú<textarea defaultValue={initial.note ?? ""} maxLength={3000} name="note" rows={3} /></label>
       </div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
-      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang lưu…" : "Lưu phiếu"}</button></div>
+      <div className="form-actions"><button className="primary-button" disabled={pending} type="submit">{pending ? "Đang lưu…" : "Lưu kế hoạch"}</button></div>
     </form>
   );
 }
@@ -362,7 +362,7 @@ export function SupplyRequestForm({ departments, items }: { departments: Array<{
     <form action={action} className="data-form">
       <ActionStateToast state={state} />
       <div className="form-grid">
-        <label>Số phiếu *<input defaultValue={`01/${currentYear}`} maxLength={80} name="request_no" required /></label>
+        <label>Số kế hoạch / hồ sơ *<input defaultValue={`01/${currentYear}`} maxLength={80} name="request_no" required /></label>
         <label>Loại hàng *<select name="category"><option value="OFFICE_SUPPLY">Văn phòng phẩm</option><option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option></select></label>
         <label>Chu kỳ mua *<select defaultValue="QUARTER" name="period_type"><option value="MONTH">Theo tháng</option><option value="QUARTER">Theo quý</option><option value="YEAR">Theo năm</option></select></label>
         <label>Năm *<input defaultValue={currentYear} min={2000} max={2200} name="period_year" required type="number" /></label>
@@ -373,10 +373,10 @@ export function SupplyRequestForm({ departments, items }: { departments: Array<{
         <label>Phòng ban<select defaultValue="" name="department_id"><option value="">Chưa gắn phòng ban</option>{departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <label>Bộ phận yêu cầu<input defaultValue="P. Hành chính-Nhân sự" maxLength={300} name="requesting_department" /></label>
         <label>Người đề nghị<input maxLength={160} name="requester_name" /></label>
-        <label>Người kiểm tra<input maxLength={160} name="checker_name" /></label>
-        <label>Người duyệt<input maxLength={160} name="approver_name" /></label>
-        <label>Trạng thái<select defaultValue="DRAFT" name="status"><option value="DRAFT">Nháp</option><option value="SUBMITTED">Đã trình</option><option value="APPROVED">Đã duyệt</option><option value="ORDERED">Đã đặt mua</option><option value="CLOSED">Hoàn tất</option><option value="REJECTED">Không duyệt</option></select></label>
-        <label className="span-3">Ghi chú phiếu<textarea maxLength={3000} name="note" rows={2} /></label>
+        <label>Người kiểm tra hồ sơ<input maxLength={160} name="checker_name" /></label>
+        <label>Người ký trên hồ sơ giấy<input maxLength={160} name="approver_name" /></label>
+        <label>Trạng thái<select defaultValue="DRAFT" name="status"><option value="DRAFT">Nháp nhập liệu</option><option value="READY_TO_BUY">Sẵn sàng mua</option><option value="ORDERED">Đã đặt mua</option><option value="PARTIALLY_RECEIVED">Nhận một phần</option><option value="RECEIVED">Đã nhận đủ</option><option value="COMPLETED">Hoàn tất</option><option value="CANCELLED">Hủy / chuyển kỳ</option></select></label>
+        <label className="span-3">Ghi chú hồ sơ giấy<textarea maxLength={3000} name="note" rows={2} /></label>
       </div>
       <fieldset className="form-fieldset">
         <legend>Dòng hàng đầu tiên</legend>
@@ -384,15 +384,15 @@ export function SupplyRequestForm({ departments, items }: { departments: Array<{
           <label className="span-2">Hàng hóa *<select name="item_id" required><option value="">Chọn hàng hóa</option>{items.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.category === "OFFICE_SUPPLY" ? "VPP" : "Vệ sinh"} · {item.item_name} · {item.unit}</option>)}</select></label>
           <label>Số lượng đề xuất<input defaultValue={1} min={0} name="proposed_quantity" step="0.001" type="number" /></label>
           <label>Số lượng tồn<input defaultValue={0} min={0} name="stock_quantity" step="0.001" type="number" /></label>
-          <label>Số lượng đặt mua<input defaultValue={1} min={0} name="ordered_quantity" step="0.001" type="number" /></label>
-          <label>Đơn giá được duyệt<input defaultValue={0} min={0} name="approved_unit_price" type="number" /></label>
+          <label>Số lượng đã duyệt<input defaultValue={1} min={0} name="ordered_quantity" step="0.001" type="number" /></label>
+          <label>Đơn giá đã duyệt<input defaultValue={0} min={0} name="approved_unit_price" type="number" /></label>
           <label>Bộ phận đề nghị<input maxLength={1000} name="requested_departments" /></label>
-          <label>Phê duyệt<input defaultValue="Duyệt mua" maxLength={1000} name="approval_note" /></label>
+          <label>Ghi chú trên hồ sơ giấy<input maxLength={1000} name="approval_note" /></label>
           <label className="span-3">Ghi chú dòng hàng<textarea maxLength={2000} name="line_note" rows={2} /></label>
         </div>
       </fieldset>
       {state.error ? <p className="form-error">{state.error}</p> : null}
-      <div className="form-actions"><button className="primary-button" disabled={pending || !items.length} type="submit">{pending ? "Đang tạo…" : "Tạo phiếu yêu cầu"}</button></div>
+      <div className="form-actions"><button className="primary-button" disabled={pending || !items.length} type="submit">{pending ? "Đang tạo…" : "Tạo kế hoạch mua"}</button></div>
     </form>
   );
 }

@@ -98,7 +98,7 @@ const requestSchema = z.object({
   requester_name: z.string().trim().max(160),
   checker_name: z.string().trim().max(160),
   approver_name: z.string().trim().max(160),
-  status: z.enum(["DRAFT", "SUBMITTED", "APPROVED", "ORDERED", "CLOSED", "REJECTED"]),
+  status: z.enum(["DRAFT", "READY_TO_BUY", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED", "CANCELLED"]),
   note: z.string().trim().max(3000),
   item_id: z.string().uuid(),
   proposed_quantity: z.coerce.number().min(0),
@@ -130,7 +130,7 @@ const requestMetadataSchema = z.object({
   requester_name: z.string().trim().max(160),
   checker_name: z.string().trim().max(160),
   approver_name: z.string().trim().max(160),
-  status: z.enum(["DRAFT", "SUBMITTED", "APPROVED", "ORDERED", "CLOSED", "REJECTED"]),
+  status: z.enum(["DRAFT", "READY_TO_BUY", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED", "CANCELLED"]),
   note: z.string().trim().max(3000),
 });
 
@@ -518,17 +518,17 @@ export async function saveSupplyItem(_state: SupplyActionState, formData: FormDa
 
 export async function saveSupplyRequest(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
   const { access, supabase } = await requireAccess();
-  if (!can(access, "supplies.manage")) return { error: "Bạn không có quyền tạo phiếu yêu cầu." };
+  if (!can(access, "supplies.manage")) return { error: "Bạn không có quyền tạo kế hoạch mua." };
   const parsed = requestSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu phiếu chưa hợp lệ." };
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu kế hoạch chưa hợp lệ." };
   const { item_id, proposed_quantity, stock_quantity, ordered_quantity, approved_unit_price, requested_departments, approval_note, line_note, ...request } = parsed.data;
   const { data: item, error: itemError } = await supabase.from("supply_items").select("item_name,item_code,unit,category").eq("id", item_id).single();
   if (itemError || !item) return { error: "Không tìm thấy hàng hóa đã chọn." };
-  if (item.category !== request.category) return { error: "Loại phiếu phải trùng với loại hàng hóa đã chọn." };
+  if (item.category !== request.category) return { error: "Loại kế hoạch phải trùng với loại hàng hóa đã chọn." };
   const periodMonth = request.period_type === "MONTH" ? Number(request.period_month) : null;
   const periodQuarter = request.period_type === "QUARTER" ? Number(request.period_quarter) : null;
-  if (request.period_type === "MONTH" && (!periodMonth || periodMonth > 12)) return { error: "Hãy chọn tháng của phiếu." };
-  if (request.period_type === "QUARTER" && (!periodQuarter || periodQuarter > 4)) return { error: "Hãy chọn quý của phiếu." };
+  if (request.period_type === "MONTH" && (!periodMonth || periodMonth > 12)) return { error: "Hãy chọn tháng của kế hoạch." };
+  if (request.period_type === "QUARTER" && (!periodQuarter || periodQuarter > 4)) return { error: "Hãy chọn quý của kế hoạch." };
   const { data: saved, error } = await supabase.from("supply_requests").insert({
     ...request,
     period_month: periodMonth,
@@ -538,7 +538,7 @@ export async function saveSupplyRequest(_state: SupplyActionState, formData: For
     created_by: access.user_id,
     updated_by: access.user_id,
   }).select("id").single();
-  if (error || !saved) return { error: "Không thể tạo phiếu yêu cầu." };
+  if (error || !saved) return { error: "Không thể tạo kế hoạch mua." };
   const lineResult = await supabase.from("supply_request_lines").insert({
     request_id: saved.id, item_id, item_code: item.item_code, item_name: item.item_name, unit: item.unit,
     proposed_quantity, stock_quantity, ordered_quantity, approved_unit_price,
@@ -547,10 +547,10 @@ export async function saveSupplyRequest(_state: SupplyActionState, formData: For
   });
   if (lineResult.error) {
     await supabase.from("supply_requests").update({ deleted_at: new Date().toISOString(), updated_by: access.user_id }).eq("id", saved.id);
-    return { error: lineResult.error.message.includes("Kho không đủ") ? lineResult.error.message : "Chưa thể thêm dòng hàng vào phiếu." };
+    return { error: "Chưa thể thêm dòng hàng vào kế hoạch mua." };
   }
   revalidatePath("/supplies");
-  return { success: "Đã tạo phiếu yêu cầu." };
+  return { success: "Đã tạo kế hoạch mua. Tồn kho chưa thay đổi." };
 }
 
 export async function archiveSupplyItem(formData: FormData): Promise<SupplyActionState> {
@@ -654,7 +654,7 @@ export async function commitSupplyWorkbookReview(_state: SupplyActionState, form
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu duyệt chưa hợp lệ." };
   const review = parsed.data;
   const categories = new Set(review.lines.map((line) => line.category));
-  if (categories.size !== 1) return { error: "Một phiếu nhập chỉ được chứa một loại hàng." };
+  if (categories.size !== 1) return { error: "Một kế hoạch nhập chỉ được chứa một loại hàng." };
   const category = review.lines[0].category;
   const { data: duplicate } = await supabase.from("supply_requests").select("id").eq("import_fingerprint", review.fingerprint).maybeSingle();
   if (duplicate) return { error: "Phiếu từ file này đã được nhập trước đó." };
@@ -713,11 +713,11 @@ export async function commitSupplyWorkbookReview(_state: SupplyActionState, form
     period_year: review.periodYear, period_quarter: review.periodQuarter,
     requested_on: review.requestedOn, requesting_department: review.requestingDepartment,
     requester_name: review.requesterName, checker_name: review.checkerName,
-    approver_name: review.approverName, status: "APPROVED", source_file: review.sourceFile,
+    approver_name: review.approverName, status: "READY_TO_BUY", source_file: review.sourceFile,
     source_sheet: review.sourceSheet, import_fingerprint: review.fingerprint,
     created_by: access.user_id, updated_by: access.user_id,
   }).select("id").single();
-  if (requestError || !request) return { error: "Không thể tạo phiếu từ file." };
+  if (requestError || !request) return { error: "Không thể tạo kế hoạch từ file." };
   const { error: lineError } = await supabase.from("supply_request_lines").insert(review.lines.map((line, index) => {
     const catalogItem = byKey.get(`${line.category}|${normalizeText(line.itemName)}`);
     return {
@@ -741,10 +741,10 @@ export async function commitSupplyWorkbookReview(_state: SupplyActionState, form
   }));
   if (lineError) {
     await supabase.from("supply_requests").update({ deleted_at: new Date().toISOString(), updated_by: access.user_id }).eq("id", request.id);
-    return { error: lineError.message.includes("Kho không đủ") ? lineError.message : "Không thể lưu các dòng hàng của phiếu." };
+    return { error: "Không thể lưu các dòng hàng của kế hoạch." };
   }
   revalidatePath("/supplies");
-  return { success: `Đã nhập ${review.lines.length} dòng đã chọn từ ${category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh"}.` };
+  return { success: `Đã nhập kế hoạch mua gồm ${review.lines.length} dòng đã duyệt từ ${category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh"}. Tồn kho chưa thay đổi.` };
 }
 
 export async function previewSupplierQuoteWorkbook(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
@@ -981,23 +981,23 @@ export async function deleteSupplyQuote(formData: FormData): Promise<SupplyActio
 
 export async function saveSupplyRequestMetadata(_state: SupplyActionState, formData: FormData): Promise<SupplyActionState> {
   const { access, supabase } = await requireAccess();
-  if (!can(access, "supplies.manage")) return { error: "Bạn không có quyền sửa phiếu yêu cầu." };
+  if (!can(access, "supplies.manage")) return { error: "Bạn không có quyền sửa kế hoạch mua." };
   const parsed = requestMetadataSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin phiếu chưa hợp lệ." };
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Thông tin kế hoạch chưa hợp lệ." };
   const { id, ...values } = parsed.data;
   const { error } = await supabase.from("supply_requests").update({ ...values, updated_by: access.user_id }).eq("id", id);
-  if (error) return { error: "Không thể cập nhật phiếu yêu cầu." };
+  if (error) return { error: "Không thể cập nhật kế hoạch mua." };
   revalidatePath("/supplies");
-  return { success: "Đã cập nhật phiếu yêu cầu." };
+  return { success: "Đã cập nhật kế hoạch mua. Tồn kho chưa thay đổi." };
 }
 
 export async function deleteSupplyRequest(formData: FormData): Promise<SupplyActionState> {
   const { access, supabase } = await requireAccess();
-  if (!can(access, "supplies.delete")) return { error: "Bạn không có quyền xóa phiếu yêu cầu." };
+  if (!can(access, "supplies.delete")) return { error: "Bạn không có quyền xóa kế hoạch mua." };
   const id = z.string().uuid().safeParse(formData.get("id"));
-  if (!id.success) return { error: "Phiếu yêu cầu không hợp lệ." };
+  if (!id.success) return { error: "Kế hoạch mua không hợp lệ." };
   const { error } = await supabase.from("supply_requests").update({ deleted_at: new Date().toISOString(), updated_by: access.user_id }).eq("id", id.data);
-  if (error) return { error: "Không thể xóa phiếu yêu cầu." };
+  if (error) return { error: "Không thể xóa kế hoạch mua." };
   revalidatePath("/supplies");
-  return { success: "Đã xóa phiếu yêu cầu và giữ nhật ký kiểm toán." };
+  return { success: "Đã xóa kế hoạch mua và giữ nhật ký kiểm toán." };
 }
