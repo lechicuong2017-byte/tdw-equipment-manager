@@ -32,6 +32,7 @@ export function AppModal({
 }: AppModalProps) {
   const [mounted, setMounted] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
+  const [formDirty, setFormDirty] = useState(false);
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const modalRef = useRef<HTMLElement>(null);
@@ -45,12 +46,12 @@ export function AppModal({
       modal?.querySelector('[data-unsaved-changes="true"]'),
     );
 
-    if (hasSelectedFile || hasUnsavedReview) {
+    if (formDirty || hasSelectedFile || hasUnsavedReview) {
       setConfirmingClose(true);
       return;
     }
     onClose();
-  }, [onClose]);
+  }, [formDirty, onClose]);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -71,7 +72,10 @@ export function AppModal({
   }, [confirmingClose, open, requestClose]);
 
   useEffect(() => {
-    if (!open) setConfirmingClose(false);
+    if (!open) {
+      setConfirmingClose(false);
+      setFormDirty(false);
+    }
   }, [open]);
 
   if (!mounted || !open) return null;
@@ -88,6 +92,8 @@ export function AppModal({
         aria-labelledby={titleId}
         aria-modal="true"
         className={`app-modal app-modal-${size}`}
+        onChangeCapture={() => setFormDirty(true)}
+        onInputCapture={() => setFormDirty(true)}
         ref={modalRef}
         role="dialog"
       >
@@ -121,7 +127,7 @@ export function AppModal({
               <div>
                 <p className="eyebrow">DỮ LIỆU CHƯA LƯU</p>
                 <h3 id={`${titleId}-unsaved-title`}>Đóng và bỏ dữ liệu đang nhập?</h3>
-                <p id={`${titleId}-unsaved-description`}>File hoặc danh sách xem trước vẫn chưa được lưu. Nếu đóng popup, các lựa chọn hiện tại sẽ bị mất.</p>
+                <p id={`${titleId}-unsaved-description`}>Dữ liệu bạn vừa nhập hoặc lựa chọn vẫn chưa được lưu. Nếu đóng popup, các thay đổi hiện tại sẽ bị mất.</p>
               </div>
               <div className="app-modal-unsaved-actions">
                 <button className="secondary-button" onClick={() => setConfirmingClose(false)} type="button">Tiếp tục chỉnh sửa</button>
