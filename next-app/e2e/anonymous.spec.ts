@@ -16,6 +16,21 @@ test("route được bảo vệ chuyển người chưa đăng nhập về trang
   expect(contentSecurityPolicy).toContain("frame-ancestors 'none'");
 });
 
+test("mã recovery trong URL được chuyển tới màn hình tạo mật khẩu", async ({
+  page,
+}) => {
+  const expiresAt = Math.floor(Date.now() / 1000) + 300;
+
+  await page.goto(
+    `/login#access_token=test-access-token&type=recovery&expires_at=${expiresAt}`,
+  );
+
+  await expect(page).toHaveURL(/\/auth\/set-password$/);
+  await expect(
+    page.getByRole("heading", { name: "Tạo mật khẩu" }),
+  ).toBeVisible();
+});
+
 test("endpoint cron từ chối request không có secret", async ({ request }) => {
   const response = await request.get("/api/jobs/maintenance-reminders");
 

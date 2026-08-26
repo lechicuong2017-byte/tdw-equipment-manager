@@ -60,6 +60,50 @@ export async function inviteUser(formData: FormData) {
   redirect(`/admin/users?ok=${encodeURIComponent("Đã gửi lời mời")}`);
 }
 
+export async function sendPasswordRecovery(formData: FormData) {
+  const { access } = await requireAccess();
+  requireAdmin(access.roles);
+
+  const parsed = z.object({
+    email: z.email().transform((value) => value.trim().toLowerCase()),
+  }).safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    redirect(
+      `/admin/users?error=${encodeURIComponent("Email đặt lại mật khẩu không hợp lệ")}`,
+    );
+  }
+
+  const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  if (!appUrl) {
+    redirect(
+      `/admin/users?error=${encodeURIComponent("NEXT_PUBLIC_APP_URL chưa được cấu hình")}`,
+    );
+  }
+
+  let adminClient;
+  try {
+    adminClient = createAdminClient();
+  } catch {
+    redirect(
+      `/admin/users?error=${encodeURIComponent("Server chưa có service role key")}`,
+    );
+  }
+
+  const { error } = await adminClient.auth.resetPasswordForEmail(
+    parsed.data.email,
+    { redirectTo: `${appUrl}/auth/set-password` },
+  );
+  if (error) {
+    redirect(
+      `/admin/users?error=${encodeURIComponent("Không thể gửi email đặt lại mật khẩu: " + error.message)}`,
+    );
+  }
+
+  redirect(
+    `/admin/users?ok=${encodeURIComponent(`Đã gửi email đặt lại mật khẩu tới ${parsed.data.email}`)}`,
+  );
+}
+
 export async function updateUserAccess(formData: FormData) {
   const { supabase, access } = await requireAccess();
   requireAdmin(access.roles);

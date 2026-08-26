@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { ModalTrigger } from "@/components/app-modal";
 import { PageHeader } from "@/components/page-header";
 import { requireAccess } from "@/lib/auth";
-import { inviteUser, updateUserAccess } from "./actions";
+import {
+  inviteUser,
+  sendPasswordRecovery,
+  updateUserAccess,
+} from "./actions";
 
 export const metadata = { title: "Người dùng" };
 
@@ -195,6 +199,12 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                 </button>
                 </form>
               </ModalTrigger>
+              <form action={sendPasswordRecovery}>
+                <input name="email" type="hidden" value={profile.email} />
+                <button className="secondary-button" type="submit">
+                  Gửi link đặt lại mật khẩu
+                </button>
+              </form>
             </article>
           );
         })}

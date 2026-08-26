@@ -1,12 +1,26 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { login, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
 
 export function LoginForm({ nextPath }: { nextPath?: string }) {
   const [state, formAction, pending] = useActionState(login, initialState);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+
+    // Supabase recovery links deliver the access token in the URL fragment.
+    // Fragments never reach the server, so bridge the login fallback to the
+    // client-side recovery screen while keeping the token out of application
+    // state and preserving the hand-off expected by that screen.
+    const params = new URLSearchParams(hash.slice(1));
+    if (!params.get("access_token")) return;
+
+    window.location.replace(`/auth/set-password${hash}`);
+  }, []);
 
   return (
     <form action={formAction} className="auth-form">
