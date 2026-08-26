@@ -116,10 +116,21 @@ function SupplyWorkbookReviewForm({ preview }: { preview: SupplyWorkbookPreview 
   );
 }
 
-export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption[] }) {
+export function SupplyInventoryMovementForm({
+  items,
+  initialDirection = "IN",
+  initialItemId = "",
+  lockItem = false,
+}: {
+  items: SupplyItemOption[];
+  initialDirection?: "IN" | "OUT";
+  initialItemId?: string;
+  lockItem?: boolean;
+}) {
   const [state, action, pending] = useActionState(recordSupplyInventoryMovement, initialState);
   const [itemSearch, setItemSearch] = useState("");
-  const [selectedItemId, setSelectedItemId] = useState("");
+  const [itemCategory, setItemCategory] = useState("");
+  const [selectedItemId, setSelectedItemId] = useState(initialItemId);
   const activeItems = useMemo(
     () => items
       .filter((item) => item.active)
@@ -128,13 +139,20 @@ export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption
   );
   const normalizedItemSearch = normalizeSearchText(itemSearch);
   const filteredItems = useMemo(() => {
-    if (!normalizedItemSearch) return activeItems;
-    return activeItems.filter((item) => normalizeSearchText([
-      item.item_name,
-      item.item_code,
-      item.unit,
-    ].filter(Boolean).join(" ")).includes(normalizedItemSearch));
-  }, [activeItems, normalizedItemSearch]);
+    const searchTokens = normalizedItemSearch.split(" ").filter(Boolean);
+    return activeItems.filter((item) => {
+      if (itemCategory && item.category !== itemCategory) return false;
+      if (!searchTokens.length) return true;
+      const haystack = normalizeSearchText([
+        item.item_name,
+        item.item_code,
+        item.unit,
+        item.description,
+        item.category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh",
+      ].filter(Boolean).join(" "));
+      return searchTokens.every((token) => haystack.includes(token));
+    });
+  }, [activeItems, itemCategory, normalizedItemSearch]);
   const selectedItem = activeItems.find((item) => item.id === selectedItemId);
   const visibleItems = selectedItem && !filteredItems.some((item) => item.id === selectedItem.id)
     ? [selectedItem, ...filteredItems]
@@ -144,9 +162,12 @@ export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption
     <form action={action} className="data-form">
       <ActionStateToast state={state} />
       <div className="form-grid">
-        <label>Hình thức *<select defaultValue="IN" name="direction"><option value="IN">Nhập kho</option><option value="OUT">Xuất kho</option></select></label>
+        <label>Hình thức *<select defaultValue={initialDirection} name="direction"><option value="IN">Nhập kho</option><option value="OUT">Xuất kho</option></select></label>
         <label>Ngày ghi nhận *<input defaultValue={new Date().toISOString().slice(0, 10)} name="movement_date" required type="date" /></label>
-        <div className="span-2 supply-inventory-item-picker">
+        {lockItem && selectedItem ? <div className="span-2 supply-locked-inventory-item">
+          <input name="item_id" type="hidden" value={selectedItem.id} />
+          <span><strong>{selectedItem.item_name}</strong><small>{selectedItem.item_code || "Chưa có mã"} · {selectedItem.category === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh"} · {selectedItem.unit}</small></span>
+        </div> : <div className="span-2 supply-inventory-item-picker">
           <label>
             Tìm hàng hóa
             <input
@@ -156,6 +177,14 @@ export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption
               type="search"
               value={itemSearch}
             />
+          </label>
+          <label>
+            Loại hàng
+            <select onChange={(event) => setItemCategory(event.target.value)} value={itemCategory}>
+              <option value="">Tất cả loại</option>
+              <option value="OFFICE_SUPPLY">Văn phòng phẩm</option>
+              <option value="CLEANING_SUPPLY">Dụng cụ vệ sinh</option>
+            </select>
           </label>
           <label>
             Hàng hóa *
@@ -176,7 +205,7 @@ export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption
                 : "Không tìm thấy mặt hàng phù hợp. Hãy thử tên hoặc mã khác."
               : `${activeItems.length} mặt hàng đang sử dụng.`}
           </small>
-        </div>
+        </div>}
         <label>Số lượng *<input min="0.001" name="quantity" required step="0.001" type="number" /></label>
         <label>Đơn giá<input defaultValue={0} min={0} name="unit_price" step="1" type="number" /></label>
         <label className="span-2">Số chứng từ<input maxLength={120} name="reference_no" placeholder="Ví dụ: NK-2026-001" /></label>
@@ -184,7 +213,7 @@ export function SupplyInventoryMovementForm({ items }: { items: SupplyItemOption
       </div>
       <div className="import-hint"><strong>Luồng tự động vẫn được ưu tiên</strong><p>Báo giá XLSX đã duyệt sẽ tự nhập kho; phiếu yêu cầu chỉ tự xuất kho khi chuyển sang Đã duyệt, Đã đặt mua hoặc Hoàn tất. Form này dùng cho tồn đầu kỳ và điều chỉnh thực tế.</p></div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
-      <div className="form-actions"><button className="primary-button" disabled={pending || !selectedItemId} type="submit">{pending ? "Đang ghi nhận…" : "Ghi nhận kho"}</button></div>
+      <div className="form-actions"><button className="primary-button" disabled={pending || !selectedItemId} type="submit">{pending ? "Đang ghi nhận…" : initialDirection === "IN" ? "Thêm số lượng vào kho" : "Ghi nhận xuất kho"}</button></div>
     </form>
   );
 }

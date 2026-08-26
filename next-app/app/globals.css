@@ -78,7 +78,7 @@
 .supply-data-table { min-width: 1040px; table-layout: fixed; }
 .supply-catalog-table { min-width: 980px; }
 .supply-report-table { min-width: 960px; }
-.supply-warehouse-table { min-width: 1100px; }
+.supply-warehouse-table { min-width: 1220px; }
 .supply-movement-table { min-width: 1020px; }
 .supply-data-table th,
 .supply-data-table td { vertical-align: middle; }
@@ -211,17 +211,19 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .supply-report-table th:nth-child(6),
 .supply-report-table td:nth-child(6) { width: 13%; }
 .supply-warehouse-table th:first-child,
-.supply-warehouse-table td:first-child { width: 28%; }
+.supply-warehouse-table td:first-child { width: 25%; }
 .supply-warehouse-table th:nth-child(2),
-.supply-warehouse-table td:nth-child(2) { width: 15%; }
+.supply-warehouse-table td:nth-child(2) { width: 13%; }
 .supply-warehouse-table th:nth-child(3),
-.supply-warehouse-table td:nth-child(3) { width: 20%; }
+.supply-warehouse-table td:nth-child(3) { width: 18%; }
 .supply-warehouse-table th:nth-child(4),
-.supply-warehouse-table td:nth-child(4) { width: 9%; }
+.supply-warehouse-table td:nth-child(4) { width: 8%; }
 .supply-warehouse-table th:nth-child(5),
-.supply-warehouse-table td:nth-child(5) { width: 13%; }
+.supply-warehouse-table td:nth-child(5) { width: 12%; }
 .supply-warehouse-table th:nth-child(6),
-.supply-warehouse-table td:nth-child(6) { width: 15%; }
+.supply-warehouse-table td:nth-child(6) { width: 14%; }
+.supply-warehouse-table th:nth-child(7),
+.supply-warehouse-table td:nth-child(7) { width: 10%; }
 .supply-movement-table th:first-child,
 .supply-movement-table td:first-child { width: 30%; }
 .supply-movement-table th:nth-child(2),
@@ -267,7 +269,7 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .supply-inventory-item-picker {
   display: grid;
   gap: 0.45rem 0.8rem;
-  grid-template-columns: minmax(220px, 0.78fr) minmax(320px, 1.22fr);
+  grid-template-columns: minmax(190px, 0.85fr) minmax(170px, 0.68fr) minmax(300px, 1.25fr);
   min-width: 0;
 }
 .supply-inventory-item-picker > label { min-width: 0; }
@@ -280,6 +282,15 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 }
 .supply-inventory-item-picker > small.is-empty { color: var(--danger); }
 .supply-inventory-item-picker input[type="search"] { padding-right: 2.2rem; }
+.supply-locked-inventory-item { align-items: center; background: #f0faf5; border: 1px solid #bde7d3; border-radius: 14px; display: flex; min-height: 72px; padding: 0.85rem 1rem; }
+.supply-locked-inventory-item span, .supply-locked-inventory-item strong, .supply-locked-inventory-item small { display: block; }
+.supply-locked-inventory-item strong { color: var(--ink); font-size: 0.8rem; }
+.supply-locked-inventory-item small { color: var(--ink-soft); font-size: 0.68rem; margin-top: 0.2rem; }
+.supply-stock-entry-panel { background: linear-gradient(135deg, #f7fcfa, #eef9f4); border: 1px solid #bde7d3; border-radius: 18px; display: grid; gap: 1rem; padding: 1rem; }
+.supply-stock-entry-panel h3 { font-size: 1rem; margin: 0.2rem 0; }
+.supply-stock-entry-panel > div > p:last-child { color: var(--ink-soft); font-size: 0.72rem; margin: 0; }
+.supply-stock-entry-panel .data-form { background: transparent; }
+.supply-detail-empty { border: 1px dashed var(--line); border-radius: 14px; margin: 0; padding: 1.3rem; }
 .form-fieldset { border: 1px solid var(--line); border-radius: 18px; margin-top: 1rem; padding: 1.25rem; }
 .form-fieldset legend { font-weight: 800; padding: 0 0.5rem; }
 .import-hint { background: var(--brand-soft); border-radius: 14px; color: var(--ink-soft); margin-top: 1rem; padding: 1rem; }
