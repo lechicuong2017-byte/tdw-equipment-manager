@@ -1789,7 +1789,7 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
 }
 
 .asset-actions-column {
-  min-width: 76px;
+  min-width: 122px;
   text-align: right;
   white-space: nowrap;
 }

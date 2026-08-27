@@ -267,6 +267,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                   : (asset.departments as { name?: string } | null)?.name;
                 const tone = statusTone(asset.status);
                 const liquidation = liquidationByAsset.get(asset.id);
+                const returnTo = pageHref(page);
+                const detailHref = `/assets/${asset.id}?returnTo=${encodeURIComponent(returnTo)}`;
+                const editHref = `/assets/${asset.id}/edit?returnTo=${encodeURIComponent(returnTo)}`;
                 return (
                   <InteractiveTableRow className={`asset-row asset-row--${tone}`} key={asset.id}>
                     <td>
@@ -329,21 +332,43 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
                             ) : null}
                             <div className="modal-actions">
                               <Link
-                                className="primary-button"
-                                href={`/assets/${asset.id}?returnTo=${encodeURIComponent(pageHref(page))}`}
+                                className="secondary-button"
+                                href={detailHref}
                                 prefetch={false}
                               >
                                 Mở hồ sơ đầy đủ
                               </Link>
+                              {can(access, "assets.manage") ? (
+                                <Link className="primary-button" href={editHref} prefetch={false}>
+                                  Sửa thiết bị
+                                </Link>
+                              ) : null}
+                              {can(access, "assets.delete") ? (
+                                <ConfirmAction
+                                  action={archiveAsset}
+                                  confirmLabel="Xóa thiết bị"
+                                  description={`Thiết bị ${asset.asset_code} · ${asset.asset_name} sẽ được ẩn khỏi hệ thống. Lịch sử bảo trì, luân chuyển và các hồ sơ liên quan vẫn được giữ lại.`}
+                                  fields={{ id: asset.id, return_to: returnTo }}
+                                  title="Xóa thiết bị?"
+                                  triggerAriaLabel={`Xóa thiết bị ${asset.asset_code}`}
+                                  triggerClassName="danger-button"
+                                  triggerLabel="Xóa thiết bị"
+                                />
+                              ) : null}
                             </div>
                           </div>
                         </ModalTrigger>
+                        {can(access, "assets.manage") ? (
+                          <Link className="text-button" href={editHref} prefetch={false}>
+                            Sửa
+                          </Link>
+                        ) : null}
                         {can(access, "assets.delete") ? (
                           <ConfirmAction
                             action={archiveAsset}
                             confirmLabel="Xóa thiết bị"
                             description={`Thiết bị ${asset.asset_code} · ${asset.asset_name} sẽ được ẩn khỏi hệ thống. Lịch sử bảo trì, luân chuyển và các hồ sơ liên quan vẫn được giữ lại.`}
-                            fields={{ id: asset.id, return_to: pageHref(page) }}
+                            fields={{ id: asset.id, return_to: returnTo }}
                             title="Xóa thiết bị?"
                             triggerAriaLabel={`Xóa thiết bị ${asset.asset_code}`}
                             triggerLabel="Xóa"
