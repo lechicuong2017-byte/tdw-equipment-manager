@@ -350,14 +350,16 @@ export function AssetComponentManager({
             <p className="eyebrow">GẮN LINH KIỆN</p>
             <h3>Thêm vào cấu hình hiện tại</h3>
           </div>
-          {availableComponents.length ? (
-            <ModalTrigger
-              description="Chọn linh kiện đang rời, ngày lắp và vị trí trong thiết bị."
-              eyebrow="CẤU HÌNH PHẦN CỨNG"
-              size="medium"
-              title="Gắn linh kiện"
-              triggerLabel="+ Gắn linh kiện"
-            >
+          <ModalTrigger
+            description={availableComponents.length
+              ? "Chọn linh kiện đang rời, ngày lắp và vị trí trong thiết bị."
+              : "Hiện chưa có linh kiện rời. Bạn có thể tạo linh kiện mới rồi quay lại lắp vào thiết bị này."}
+            eyebrow="CẤU HÌNH PHẦN CỨNG"
+            size="medium"
+            title={activeComponents.length ? "Lắp thêm linh kiện" : "Gắn linh kiện"}
+            triggerLabel={activeComponents.length ? "+ Lắp thêm linh kiện" : "+ Gắn linh kiện"}
+          >
+            {availableComponents.length ? (
               <form action={installAssetComponent} className="component-install-form">
                 <input name="host_asset_id" type="hidden" value={asset.id} />
                 <label className="span-2">
@@ -384,16 +386,22 @@ export function AssetComponentManager({
                   Ghi chú
                   <input maxLength={1000} name="note" />
                 </label>
-                <button className="primary-button" type="submit">Gắn linh kiện</button>
+                <button className="primary-button" type="submit">
+                  {activeComponents.length ? "Lắp thêm linh kiện" : "Gắn linh kiện"}
+                </button>
               </form>
-            </ModalTrigger>
-          ) : (
-            <p className="form-help">
-              Chưa có linh kiện rời phù hợp. Hãy <Link href="/assets/new?kind=component">tạo linh kiện mới</Link>,
-              chọn phân loại “Linh kiện bên trong”. Một bản ghi có thể là một linh kiện đơn hoặc một cụm
-              cùng được gắn vào thiết bị này.
-            </p>
-          )}
+            ) : (
+              <div className="component-install-empty">
+                <p className="form-help">
+                  Chưa có linh kiện rời phù hợp. Hãy tạo linh kiện mới, chọn phân loại
+                  “Linh kiện bên trong”, sau đó quay lại thiết bị này để lắp thêm.
+                </p>
+                <Link className="primary-button" href="/assets/new?kind=component">
+                  + Tạo linh kiện mới
+                </Link>
+              </div>
+            )}
+          </ModalTrigger>
         </div>
       ) : null}
     </section>

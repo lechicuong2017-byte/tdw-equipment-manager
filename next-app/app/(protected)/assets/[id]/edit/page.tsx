@@ -31,6 +31,7 @@ export default async function EditAssetPage({ params, searchParams }: EditAssetP
     { data: responsibleUsers },
     { data: responsibles },
     { data: settings },
+    { data: purchaseInvoice },
   ] = await Promise.all([
     supabase.from("assets").select("*").eq("id", id).is("deleted_at", null).single(),
     supabase.from("departments").select("id, name").order("name"),
@@ -49,6 +50,12 @@ export default async function EditAssetPage({ params, searchParams }: EditAssetP
       .select("id,setting_type,setting_value,display_name,sort_order,active")
       .in("setting_type", ["asset_group", "asset_type", "status"])
       .order("sort_order"),
+    supabase
+      .from("asset_documents")
+      .select("file_name")
+      .eq("asset_id", id)
+      .eq("document_kind", "PURCHASE_INVOICE")
+      .maybeSingle(),
   ]);
   if (!asset) notFound();
 
@@ -64,6 +71,7 @@ export default async function EditAssetPage({ params, searchParams }: EditAssetP
         <AssetForm
           asset={asset as Asset}
           departments={(departments ?? []) as Department[]}
+          purchaseInvoiceFileName={purchaseInvoice?.file_name}
           responsibleUsers={
             isAdmin ? (responsibleUsers ?? []) as ResponsibleUser[] : []
           }

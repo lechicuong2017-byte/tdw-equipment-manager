@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
+import { PDFArray, PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { z } from "zod";
 import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
@@ -63,10 +64,182 @@ export type LiquidationActionState = {
   success?: string;
 };
 
+type AssetInvoiceCompressionMethod = "LOSSLESS" | "RASTERIZED";
+
+const maxAssetInvoicePdfBytes = 5 * 1024 * 1024;
+
+function getAssetPurchasePdf(formData: FormData): {
+  compressionMethod?: AssetInvoiceCompressionMethod;
+  error?: string;
+  file?: File;
+  originalByteSize?: number;
+} {
+  const fieldName = "purchase_invoice_pdf";
+  if (formData.get(`${fieldName}_optimizing`) === "1") {
+    return { error: "PDF hóa đơn mua vẫn đang được tối ưu. Hãy chờ hoàn tất rồi lưu lại." };
+  }
+  const value = formData.get(fieldName);
+  if (!(value instanceof File) || !value.size) return {};
+  if (value.type !== "application/pdf" || !value.name.toLowerCase().endsWith(".pdf")) {
+    return { error: "Hóa đơn mua chỉ chấp nhận tệp PDF." };
+  }
+  if (value.size > maxAssetInvoicePdfBytes) {
+    return { error: "PDF hóa đơn sau khi tối ưu không được vượt quá 5 MB." };
+  }
+  const methodValue = formData.get(`${fieldName}_compression_method`);
+  const originalSizeValue = Number(formData.get(`${fieldName}_original_byte_size`));
+  const originalByteSize = Number.isFinite(originalSizeValue)
+    && originalSizeValue >= value.size
+    && originalSizeValue <= 20 * 1024 * 1024
+    ? Math.trunc(originalSizeValue)
+    : value.size;
+  return {
+    compressionMethod: methodValue === "RASTERIZED" ? "RASTERIZED" : "LOSSLESS",
+    file: value,
+    originalByteSize,
+  };
+}
+
+async function optimizeAssetPurchasePdf(file: File) {
+  const originalBytes = new Uint8Array(await file.arrayBuffer());
+  const header = new TextDecoder("ascii").decode(originalBytes.slice(0, 1024));
+  if (!header.includes("%PDF-")) throw new Error("Nội dung tệp không phải PDF hợp lệ.");
+
+  const document = await PDFDocument.load(originalBytes, {
+    ignoreEncryption: false,
+    updateMetadata: false,
+  });
+  const pageCount = document.getPageCount();
+  if (!pageCount || pageCount > 200) {
+    throw new Error("Hóa đơn mua phải có từ 1 đến 200 trang.");
+  }
+
+  document.catalog.delete(PDFName.of("OpenAction"));
+  document.catalog.delete(PDFName.of("AA"));
+  const names = document.catalog.lookupMaybe(PDFName.of("Names"), PDFDict);
+  names?.delete(PDFName.of("JavaScript"));
+  names?.delete(PDFName.of("EmbeddedFiles"));
+  document.getPages().forEach((page) => {
+    const annotations = page.node.lookupMaybe(PDFName.of("Annots"), PDFArray);
+    annotations?.asArray().forEach((reference) => {
+      const annotation = document.context.lookup(reference, PDFDict);
+      annotation?.delete(PDFName.of("A"));
+      annotation?.delete(PDFName.of("AA"));
+    });
+  });
+
+  const optimizedBytes = await document.save({
+    addDefaultPage: false,
+    objectsPerTick: 50,
+    updateFieldAppearances: false,
+    useObjectStreams: true,
+  });
+  if (optimizedBytes.byteLength > maxAssetInvoicePdfBytes) {
+    throw new Error("PDF hóa đơn vẫn vượt quá 5 MB sau khi kiểm tra và tối ưu trên máy chủ.");
+  }
+  return {
+    bytes: optimizedBytes,
+    checksum: createHash("sha256").update(optimizedBytes).digest("hex"),
+    originalByteSize: originalBytes.byteLength,
+    pageCount,
+    storedByteSize: optimizedBytes.byteLength,
+  };
+}
+
+async function storeAssetPurchaseDocument({
+  access,
+  assetCode,
+  assetId,
+  assetKind,
+  compressionMethod,
+  file,
+  originalByteSize,
+  purchaseDate,
+  supabase,
+}: {
+  access: Awaited<ReturnType<typeof requireAccess>>["access"];
+  assetCode: string;
+  assetId: string;
+  assetKind: "DEVICE" | "COMPONENT";
+  compressionMethod: AssetInvoiceCompressionMethod;
+  file: File;
+  originalByteSize: number;
+  purchaseDate: string | null;
+  supabase: Awaited<ReturnType<typeof requireAccess>>["supabase"];
+}): Promise<{ error?: string; success?: string }> {
+  let optimized: Awaited<ReturnType<typeof optimizeAssetPurchasePdf>>;
+  try {
+    optimized = await optimizeAssetPurchasePdf(file);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Không thể đọc hoặc tối ưu PDF hóa đơn." };
+  }
+
+  const { data: existing } = await supabase
+    .from("asset_documents")
+    .select("id,object_path")
+    .eq("asset_id", assetId)
+    .eq("document_kind", "PURCHASE_INVOICE")
+    .maybeSingle();
+  const documentId = existing?.id ?? crypto.randomUUID();
+  const objectPath = `${access.user_id}/${assetId}/PURCHASE_INVOICE/${crypto.randomUUID()}.pdf`;
+  const { error: uploadError } = await supabase.storage
+    .from("asset-documents")
+    .upload(objectPath, optimized.bytes, {
+      cacheControl: "3600",
+      contentType: "application/pdf",
+      upsert: false,
+    });
+  if (uploadError) return { error: "Không thể tải PDF hóa đơn lên kho lưu trữ riêng tư." };
+
+  const preferredBaseName = [
+    assetCode,
+    assetKind === "COMPONENT" ? "LINH-KIEN" : "THIET-BI",
+    "HOA-DON-MUA",
+    compactDateForFileName(purchaseDate ?? undefined),
+  ].filter(Boolean).join("_");
+  const metadata = {
+    asset_id: assetId,
+    bucket_id: "asset-documents",
+    checksum: optimized.checksum,
+    compression_method: compressionMethod,
+    created_by: access.user_id,
+    document_kind: "PURCHASE_INVOICE",
+    file_name: normalizeUploadedFileName({
+      fallbackExtension: "pdf",
+      originalFileName: file.name,
+      preferredBaseName,
+    }),
+    mime_type: "application/pdf",
+    object_path: objectPath,
+    original_byte_size: Math.max(originalByteSize, optimized.originalByteSize),
+    page_count: optimized.pageCount,
+    stored_byte_size: optimized.storedByteSize,
+  };
+  const metadataResult = existing
+    ? await supabase.from("asset_documents").update(metadata).eq("id", documentId)
+    : await supabase.from("asset_documents").insert({ id: documentId, ...metadata });
+  if (metadataResult.error) {
+    await supabase.storage.from("asset-documents").remove([objectPath]);
+    return { error: "Thiết bị đã lưu nhưng chưa thể liên kết PDF hóa đơn mua." };
+  }
+  if (existing?.object_path && existing.object_path !== objectPath) {
+    await supabase.storage.from("asset-documents").remove([existing.object_path]);
+  }
+  const sourceSize = Math.max(originalByteSize, optimized.originalByteSize);
+  const savedPercent = Math.max(0, Math.round((1 - optimized.storedByteSize / sourceSize) * 100));
+  return {
+    success: savedPercent
+      ? `Đã lưu hóa đơn mua và giảm ${savedPercent}% dung lượng PDF.`
+      : "Đã lưu hóa đơn mua ở dung lượng tối ưu.",
+  };
+}
+
 export async function saveAsset(
   _previousState: AssetFormState,
   formData: FormData,
 ): Promise<AssetFormState> {
+  const purchasePdf = getAssetPurchasePdf(formData);
+  if (purchasePdf.error) return { error: purchasePdf.error };
   const parsed = assetSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
@@ -132,13 +305,62 @@ export async function saveAsset(
 
   revalidatePath("/dashboard");
   revalidatePath("/assets");
-  const successMessage = id ? "Đã cập nhật thiết bị." : "Đã thêm thiết bị.";
+  const documentResult = purchasePdf.file
+    ? await storeAssetPurchaseDocument({
+        access,
+        assetCode: payload.asset_code,
+        assetId: data.id,
+        assetKind: payload.asset_kind,
+        compressionMethod: purchasePdf.compressionMethod ?? "LOSSLESS",
+        file: purchasePdf.file,
+        originalByteSize: purchasePdf.originalByteSize ?? purchasePdf.file.size,
+        purchaseDate: payload.purchase_date,
+        supabase,
+      })
+    : {};
+  const baseSuccessMessage = id ? "Đã cập nhật thiết bị." : "Đã thêm thiết bị.";
+  const successMessage = documentResult.error
+    ? `${baseSuccessMessage} Tuy nhiên ${documentResult.error} Bạn có thể mở Chỉnh sửa để tải lại.`
+    : [baseSuccessMessage, documentResult.success].filter(Boolean).join(" ");
   const returnTo = safeAssetsReturnTo(formData.get("return_to"));
   if (returnTo) {
     const separator = returnTo.includes("?") ? "&" : "?";
     redirect(`${returnTo}${separator}ok=${encodeURIComponent(successMessage)}`);
   }
   redirect(`/assets/${data.id}?ok=${encodeURIComponent(successMessage)}`);
+}
+
+export async function deleteAssetPurchaseDocument(formData: FormData) {
+  const parsed = z.object({
+    asset_id: z.uuid(),
+    id: z.uuid(),
+  }).safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: "Hồ sơ hóa đơn mua không hợp lệ." };
+
+  const { supabase, access } = await requireAccess();
+  if (!can(access, "assets.manage")) {
+    return { error: "Bạn không có quyền xóa hóa đơn mua." };
+  }
+  const { data: document } = await supabase
+    .from("asset_documents")
+    .select("id,object_path")
+    .eq("id", parsed.data.id)
+    .eq("asset_id", parsed.data.asset_id)
+    .eq("document_kind", "PURCHASE_INVOICE")
+    .maybeSingle();
+  if (!document) return { error: "Không tìm thấy hóa đơn mua cần xóa." };
+
+  const { error: storageError } = await supabase.storage
+    .from("asset-documents")
+    .remove([document.object_path]);
+  if (storageError) return { error: "Không thể xóa PDF hóa đơn khỏi kho riêng tư." };
+  const { error } = await supabase.from("asset_documents").delete().eq("id", document.id);
+  if (error) return { error: "PDF đã được xóa nhưng chưa thể dọn bản ghi hồ sơ." };
+
+  revalidatePath("/assets");
+  revalidatePath(`/assets/${parsed.data.asset_id}`);
+  revalidatePath(`/assets/${parsed.data.asset_id}/edit`);
+  return { success: "Đã xóa hóa đơn mua." };
 }
 
 export async function archiveAsset(formData: FormData) {
@@ -418,16 +640,18 @@ export async function replaceAssetComponent(formData: FormData) {
   componentRedirect(parsed.data.host_asset_id, "replaced");
 }
 
+const assetMediaFileSchema = z
+  .instanceof(File)
+  .refine((file) => file.size > 0, "Hãy chọn ít nhất một hình ảnh")
+  .refine((file) => file.size <= 5 * 1024 * 1024, "Mỗi ảnh không được vượt quá 5 MB")
+  .refine(
+    (file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type),
+    "Chỉ chấp nhận JPEG, PNG hoặc WebP",
+  );
+
 const mediaSchema = z.object({
   asset_id: z.uuid(),
-  file: z
-    .instanceof(File)
-    .refine((file) => file.size > 0, "Hãy chọn một hình ảnh")
-    .refine((file) => file.size <= 5 * 1024 * 1024, "Ảnh không được vượt quá 5 MB")
-    .refine(
-      (file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type),
-      "Chỉ chấp nhận JPEG, PNG hoặc WebP",
-    ),
+  files: z.array(assetMediaFileSchema).min(1).max(5, "Chỉ được chọn tối đa 5 ảnh"),
 });
 
 export type MediaFormState = {
@@ -441,7 +665,7 @@ export async function uploadAssetMedia(
 ): Promise<MediaFormState> {
   const parsed = mediaSchema.safeParse({
     asset_id: formData.get("asset_id"),
-    file: formData.get("file"),
+    files: formData.getAll("files"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ảnh chưa hợp lệ" };
@@ -457,109 +681,141 @@ export async function uploadAssetMedia(
     return { error: "Không tìm thấy thiết bị hoặc bạn không có quyền tải ảnh." };
   }
 
-  const extension =
-    parsed.data.file.type === "image/png"
+  const { count: existingCount, error: countError } = await supabase
+    .from("media_files")
+    .select("id", { count: "exact", head: true })
+    .eq("asset_id", asset.id)
+    .eq("owner_type", "ASSET")
+    .eq("owner_id", asset.id);
+  if (countError) {
+    return { error: "Không thể kiểm tra số lượng ảnh hiện tại." };
+  }
+  const remainingSlots = Math.max(0, 5 - (existingCount ?? 0));
+  if (parsed.data.files.length > remainingSlots) {
+    return {
+      error: remainingSlots
+        ? `Thiết bị chỉ còn chỗ cho ${remainingSlots} ảnh.`
+        : "Thiết bị đã đủ 5 ảnh. Hãy xóa ảnh cũ trước khi tải ảnh khác lên.",
+    };
+  }
+
+  const insertedIds: string[] = [];
+  const uploadedPaths: string[] = [];
+  const rollbackUploads = async () => {
+    if (uploadedPaths.length) {
+      await supabase.storage.from("asset-media").remove(uploadedPaths);
+    }
+    if (insertedIds.length) {
+      await supabase.from("media_files").delete().in("id", insertedIds);
+    }
+  };
+
+  for (const file of parsed.data.files) {
+    const extension = file.type === "image/png"
       ? "png"
-      : parsed.data.file.type === "image/webp"
+      : file.type === "image/webp"
         ? "webp"
         : "jpg";
-  const mediaId = crypto.randomUUID();
-  const objectPath = `${access.user_id}/${asset.id}/${mediaId}.${extension}`;
-  const thumbnailPath = `${access.user_id}/${asset.id}/${mediaId}.thumb.webp`;
-  const bytes = await parsed.data.file.arrayBuffer();
-  const checksum = createHash("sha256")
-    .update(Buffer.from(bytes))
-    .digest("hex");
-  let thumbnailBytes: Buffer;
-  let imageWidth: number | null = null;
-  let imageHeight: number | null = null;
-  try {
-    const image = sharp(bytes, {
-      failOn: "error",
-      limitInputPixels: 40_000_000,
-    }).rotate();
-    const metadata = await image.metadata();
-    const detectedMime = metadata.format === "jpeg"
-      ? "image/jpeg"
-      : metadata.format === "png"
-        ? "image/png"
-        : metadata.format === "webp"
-          ? "image/webp"
-          : null;
-    if (
-      detectedMime !== parsed.data.file.type
-      || !metadata.width
-      || !metadata.height
-      || (metadata.pages ?? 1) > 1
-    ) {
-      throw new Error("Unsupported image content");
+    const mediaId = crypto.randomUUID();
+    const objectPath = `${access.user_id}/${asset.id}/${mediaId}.${extension}`;
+    const thumbnailPath = `${access.user_id}/${asset.id}/${mediaId}.thumb.webp`;
+    const bytes = await file.arrayBuffer();
+    const checksum = createHash("sha256").update(Buffer.from(bytes)).digest("hex");
+    let thumbnailBytes: Buffer;
+    let imageWidth: number | null = null;
+    let imageHeight: number | null = null;
+    try {
+      const image = sharp(bytes, {
+        failOn: "error",
+        limitInputPixels: 40_000_000,
+      }).rotate();
+      const metadata = await image.metadata();
+      const detectedMime = metadata.format === "jpeg"
+        ? "image/jpeg"
+        : metadata.format === "png"
+          ? "image/png"
+          : metadata.format === "webp"
+            ? "image/webp"
+            : null;
+      if (
+        detectedMime !== file.type
+        || !metadata.width
+        || !metadata.height
+        || (metadata.pages ?? 1) > 1
+      ) {
+        throw new Error("Unsupported image content");
+      }
+      imageWidth = metadata.width;
+      imageHeight = metadata.height;
+      thumbnailBytes = await image
+        .clone()
+        .resize(480, 360, { fit: "inside", withoutEnlargement: true })
+        .webp({ effort: 4, quality: 78 })
+        .toBuffer();
+    } catch {
+      await rollbackUploads();
+      return { error: `Ảnh “${file.name}” không hợp lệ hoặc có kích thước xử lý quá lớn.` };
     }
-    imageWidth = metadata.width ?? null;
-    imageHeight = metadata.height ?? null;
-    thumbnailBytes = await image
-      .clone()
-      .resize(480, 360, { fit: "inside", withoutEnlargement: true })
-      .webp({ effort: 4, quality: 78 })
-      .toBuffer();
-  } catch {
-    return { error: "Tệp ảnh không hợp lệ hoặc có kích thước xử lý quá lớn." };
-  }
-  const { error: metadataError } = await supabase.from("media_files").insert({
-    id: mediaId,
-    owner_type: "ASSET",
-    owner_id: asset.id,
-    asset_id: asset.id,
-    object_path: objectPath,
-    thumbnail_path: thumbnailPath,
-    file_name: normalizeUploadedFileName({
-      fallbackExtension: extension,
-      originalFileName: parsed.data.file.name,
-      preferredBaseName: `${asset.asset_code}_ANH-THIET-BI_${compactDateForFileName()}_${mediaId.slice(0, 8)}`,
-    }),
-    mime_type: parsed.data.file.type,
-    byte_size: parsed.data.file.size,
-    checksum,
-    width: imageWidth,
-    height: imageHeight,
-    created_by: access.user_id,
-  });
 
-  if (metadataError) {
-    return { error: "Không thể chuẩn bị metadata cho hình ảnh." };
-  }
-
-  const { error: uploadError } = await supabase.storage
-    .from("asset-media")
-    .upload(objectPath, bytes, {
-      contentType: parsed.data.file.type,
-      cacheControl: "31536000",
-      upsert: false,
+    const { error: metadataError } = await supabase.from("media_files").insert({
+      id: mediaId,
+      owner_type: "ASSET",
+      owner_id: asset.id,
+      asset_id: asset.id,
+      object_path: objectPath,
+      thumbnail_path: thumbnailPath,
+      file_name: normalizeUploadedFileName({
+        fallbackExtension: extension,
+        originalFileName: file.name,
+        preferredBaseName: `${asset.asset_code}_ANH-THIET-BI_${compactDateForFileName()}_${mediaId.slice(0, 8)}`,
+      }),
+      mime_type: file.type,
+      byte_size: file.size,
+      checksum,
+      width: imageWidth,
+      height: imageHeight,
+      created_by: access.user_id,
     });
-  if (uploadError) {
-    await supabase.from("media_files").delete().eq("id", mediaId);
-    return { error: "Không thể tải ảnh lên Storage." };
-  }
+    if (metadataError) {
+      await rollbackUploads();
+      return { error: "Không thể chuẩn bị metadata cho hình ảnh." };
+    }
+    insertedIds.push(mediaId);
 
-  const { error: thumbnailUploadError } = await supabase.storage
-    .from("asset-media")
-    .upload(thumbnailPath, thumbnailBytes, {
-      contentType: "image/webp",
-      cacheControl: "31536000",
-      upsert: false,
-    });
-  if (thumbnailUploadError) {
-    const { error: cleanupError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("asset-media")
-      .remove([objectPath]);
-    if (!cleanupError) {
-      await supabase.from("media_files").delete().eq("id", mediaId);
+      .upload(objectPath, bytes, {
+        contentType: file.type,
+        cacheControl: "31536000",
+        upsert: false,
+      });
+    if (uploadError) {
+      await rollbackUploads();
+      return { error: `Không thể tải ảnh “${file.name}” lên Storage.` };
     }
-    return { error: "Không thể tạo ảnh xem nhanh; ảnh tải lên đã được hoàn tác." };
+    uploadedPaths.push(objectPath);
+
+    const { error: thumbnailUploadError } = await supabase.storage
+      .from("asset-media")
+      .upload(thumbnailPath, thumbnailBytes, {
+        contentType: "image/webp",
+        cacheControl: "31536000",
+        upsert: false,
+      });
+    if (thumbnailUploadError) {
+      await rollbackUploads();
+      return { error: "Không thể tạo ảnh xem nhanh; các ảnh trong lần tải này đã được hoàn tác." };
+    }
+    uploadedPaths.push(thumbnailPath);
   }
 
   revalidatePath("/assets");
   revalidatePath(`/assets/${asset.id}`);
-  return { success: "Đã tải ảnh lên." };
+  return {
+    success: parsed.data.files.length > 1
+      ? `Đã tải ${parsed.data.files.length} ảnh lên.`
+      : "Đã tải ảnh lên.",
+  };
 }
 
 export async function deleteAssetMedia(formData: FormData) {

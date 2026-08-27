@@ -9,6 +9,7 @@ import { MediaUpload } from "@/components/media-upload";
 import { PageHeader } from "@/components/page-header";
 import {
   archiveAsset,
+  deleteAssetPurchaseDocument,
   deleteAssetMedia,
   restoreLiquidatedAsset,
 } from "../actions";
@@ -41,6 +42,12 @@ function relatedSummary(
   return Array.isArray(value) ? value[0] : value;
 }
 
+function formatFileSize(value: number | null | undefined) {
+  if (!value) return "—";
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+  return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 export default async function AssetDetailPage({ params, searchParams }: AssetDetailProps) {
   const { id } = await params;
   const routeParams = await searchParams;
@@ -53,6 +60,7 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
     { data: configuredSettings },
     { data: liquidationData },
     { data: maintenanceMediaData },
+    { data: purchaseInvoice },
   ] = await Promise.all([
     supabase
       .from("assets")
@@ -84,6 +92,12 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
       .select("file_name,byte_size,checksum")
       .eq("asset_id", id)
       .eq("owner_type", "MAINTENANCE"),
+    supabase
+      .from("asset_documents")
+      .select("id,file_name,original_byte_size,stored_byte_size,compression_method,page_count,created_at")
+      .eq("asset_id", id)
+      .eq("document_kind", "PURCHASE_INVOICE")
+      .maybeSingle(),
   ]);
 
   if (!assetData) notFound();
@@ -223,6 +237,50 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
           {asset.status === "DA_THANH_LY" && liquidationData?.note ? (
             <p className="profile-note"><strong>Ghi chú thanh lý:</strong><br />{liquidationData.note}</p>
           ) : null}
+          <section className="asset-purchase-document">
+            <div className="asset-purchase-document__heading">
+              <div>
+                <p className="eyebrow">HỒ SƠ MUA HÀNG</p>
+                <h3>Hóa đơn mua {asset.asset_kind === "COMPONENT" ? "linh kiện" : "thiết bị"}</h3>
+              </div>
+              <span className="asset-purchase-document__icon" aria-hidden="true">PDF</span>
+            </div>
+            {purchaseInvoice ? (
+              <>
+                <strong className="asset-purchase-document__name">{purchaseInvoice.file_name}</strong>
+                <p>
+                  {formatFileSize(purchaseInvoice.stored_byte_size)}
+                  {purchaseInvoice.original_byte_size > purchaseInvoice.stored_byte_size
+                    ? ` · bản gốc ${formatFileSize(purchaseInvoice.original_byte_size)}`
+                    : ""}
+                  {purchaseInvoice.page_count ? ` · ${purchaseInvoice.page_count} trang` : ""}
+                </p>
+                <div className="asset-purchase-document__actions">
+                  <a className="secondary-button" href={`/api/asset-documents/${purchaseInvoice.id}`} rel="noreferrer" target="_blank">Xem hóa đơn</a>
+                  <a className="secondary-button" href={`/api/asset-documents/${purchaseInvoice.id}?download=1`}>Tải PDF</a>
+                  {can(access, "assets.manage") ? (
+                    <>
+                      <Link className="text-button" href={`/assets/${asset.id}/edit`}>Thay thế</Link>
+                      <ConfirmAction
+                        action={deleteAssetPurchaseDocument}
+                        description={`Hóa đơn “${purchaseInvoice.file_name}” sẽ bị xóa khỏi hồ sơ và kho riêng tư.`}
+                        fields={{ id: purchaseInvoice.id, asset_id: asset.id }}
+                        title="Xóa hóa đơn mua?"
+                        triggerLabel="Xóa"
+                      />
+                    </>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <div className="asset-purchase-document__empty">
+                <p>Chưa đính kèm hóa đơn mua PDF.</p>
+                {can(access, "assets.manage") ? (
+                  <Link className="text-button" href={`/assets/${asset.id}/edit`}>Thêm hóa đơn</Link>
+                ) : null}
+              </div>
+            )}
+          </section>
           <AssetQrCard asset={{
             id: asset.id,
             asset_code: asset.asset_code,
@@ -323,7 +381,9 @@ export default async function AssetDetailPage({ params, searchParams }: AssetDet
               <p className="empty-state">Chưa có hình ảnh cho thiết bị này.</p>
             ) : null}
           </div>
-          {can(access, "assets.manage") ? <MediaUpload assetId={asset.id} /> : null}
+          {can(access, "assets.manage") ? (
+            <MediaUpload assetId={asset.id} existingCount={signedMedia.length} />
+          ) : null}
         </article>
       </section>
 

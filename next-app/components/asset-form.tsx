@@ -10,6 +10,7 @@ import {
   currentAssetCodeYear,
   suggestedAssetCode,
 } from "@/lib/asset-code";
+import { PdfInvoicePicker } from "@/components/pdf-invoice-picker";
 import { statusLabels } from "@/lib/format";
 import type {
   Asset,
@@ -26,6 +27,7 @@ export function AssetForm({
   defaultKind = "DEVICE",
   departments,
   existingAssetCodes = [],
+  purchaseInvoiceFileName,
   returnTo,
   responsibleUsers = [],
   responsibles = [],
@@ -35,6 +37,7 @@ export function AssetForm({
   defaultKind?: "DEVICE" | "COMPONENT";
   departments: Department[];
   existingAssetCodes?: string[];
+  purchaseInvoiceFileName?: string | null;
   returnTo?: string;
   responsibleUsers?: ResponsibleUser[];
   responsibles?: AssetResponsible[];
@@ -289,6 +292,22 @@ export function AssetForm({
           Ghi chú
           <textarea defaultValue={asset?.note} maxLength={3000} name="note" rows={4} />
         </label>
+      </div>
+
+      <div className="form-section-heading">
+        <div>
+          <p className="eyebrow">HỒ SƠ MUA HÀNG</p>
+          <h2>Hóa đơn mua {assetKind === "COMPONENT" ? "linh kiện" : "thiết bị"}</h2>
+        </div>
+        <span>PDF riêng tư · tự động tối ưu dung lượng</span>
+      </div>
+
+      <div className="form-grid">
+        <PdfInvoicePicker
+          existingFileName={purchaseInvoiceFileName}
+          fieldName="purchase_invoice_pdf"
+          label={`Hóa đơn mua ${assetKind === "COMPONENT" ? "linh kiện" : "thiết bị"} (PDF)`}
+        />
       </div>
 
       {asset && responsibleUsers.length ? (
