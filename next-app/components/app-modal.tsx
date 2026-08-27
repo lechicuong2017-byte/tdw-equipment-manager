@@ -185,6 +185,14 @@ export function ModalPage({
   title,
 }: Omit<AppModalProps, "onClose" | "open"> & { closeHref: string }) {
   const router = useRouter();
+  const handleSuccess = useCallback(() => {
+    // Route-backed modals must leave the intercepted route after a successful
+    // mutation. Replacing avoids reopening the completed form with Back, while
+    // refresh makes the destination list read the newly persisted data.
+    router.replace(closeHref);
+    router.refresh();
+  }, [closeHref, router]);
+
   return (
     <AppModal
       description={description}
@@ -194,7 +202,9 @@ export function ModalPage({
       size={size}
       title={title}
     >
-      {children}
+      <ActionSuccessBoundary onSuccess={handleSuccess}>
+        {children}
+      </ActionSuccessBoundary>
     </AppModal>
   );
 }

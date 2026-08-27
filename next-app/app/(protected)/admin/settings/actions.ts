@@ -91,6 +91,21 @@ export async function saveSetting(
     }
     if (error) return { error: "Không thể cập nhật cấu hình." };
 
+    const { data: persisted, error: verificationError } = await supabase
+      .from("settings")
+      .select("setting_type,setting_value,display_name")
+      .eq("id", id.data)
+      .maybeSingle();
+    if (
+      verificationError
+      || !persisted
+      || persisted.setting_type !== settingType.data
+      || persisted.setting_value !== settingValue
+      || persisted.display_name !== displayName.data
+    ) {
+      return { error: "Cấu hình chưa được lưu đầy đủ. Vui lòng thử lại." };
+    }
+
     revalidateSettingsConsumers();
     const migratedRecords = Number(updatedCount || 0);
     return {
