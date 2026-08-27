@@ -446,6 +446,7 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-document-link small { color: var(--ink-soft); font-size: 0.6rem; font-weight: 650; }
 .vehicle-document-empty { color: var(--ink-muted); }
 .vehicle-record-detail { display: grid; gap: 1rem; }
+.vehicle-detail-actions { border-top: 1px solid var(--line); display: flex; justify-content: flex-end; padding-top: 1.1rem; }
 .vehicle-record-detail-grid { display: grid; gap: 0.7rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
 .vehicle-record-detail-field { background: #f7fafc; border: 1px solid var(--line); border-radius: 12px; min-width: 0; padding: 0.8rem 0.9rem; }
 .vehicle-record-detail-field--wide { grid-column: 1 / -1; }

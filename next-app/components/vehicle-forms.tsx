@@ -42,7 +42,7 @@ export type VehicleFormInitial = {
 };
 
 export type InspectionFormInitial = {
-  id: string;
+  id?: string;
   vehicle_id: string;
   inspection_date: string;
   expires_on: string;
@@ -141,12 +141,20 @@ export function VehicleForm({ departments, users, initial }: { departments: Depa
   );
 }
 
-export function InspectionForm({ vehicles, initial }: { vehicles: VehicleOption[]; initial?: InspectionFormInitial }) {
+export function InspectionForm({
+  vehicles,
+  initial,
+  mode = initial?.id ? "edit" : "create",
+}: {
+  vehicles: VehicleOption[];
+  initial?: InspectionFormInitial;
+  mode?: "create" | "edit" | "renew";
+}) {
   const [state, action, pending] = useActionState(saveVehicleInspection, initialState);
   return (
     <form action={action} className="data-form vehicle-form">
       <ActionStateToast state={state} />
-      {initial ? <input name="id" type="hidden" value={initial.id} /> : null}
+      {initial?.id ? <input name="id" type="hidden" value={initial.id} /> : null}
       <div className="form-grid">
         <label className="span-2">Xe *<VehicleSelect defaultValue={initial?.vehicle_id} vehicles={vehicles} /></label>
         <label>Ngày đăng kiểm *<input defaultValue={initial?.inspection_date ?? ""} name="inspection_date" type="date" required /></label>
@@ -161,7 +169,9 @@ export function InspectionForm({ vehicles, initial }: { vehicles: VehicleOption[
         <label className="span-3">Ghi chú<textarea defaultValue={initial?.note ?? ""} name="note" rows={3} maxLength={3000} /></label>
       </div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
-      <div className="form-actions"><SaveButton label="Lưu đăng kiểm" pending={pending} /></div>
+      <div className="form-actions">
+        <SaveButton label={mode === "renew" ? "Lưu lần gia hạn" : "Lưu đăng kiểm"} pending={pending} />
+      </div>
     </form>
   );
 }

@@ -337,6 +337,35 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     ]} />
                     <VehicleDetailNote note={item.note} />
                     <VehicleDocumentDetail document={document} />
+                    {canManage ? (
+                      <div className="vehicle-detail-actions">
+                        <ModalTrigger
+                          description={`Tạo lần đăng kiểm kế tiếp cho ${vehicle?.license_plate ?? vehicle?.vehicle_name ?? "xe này"}. Hồ sơ hiện tại vẫn được giữ nguyên trong lịch sử.`}
+                          eyebrow="GIA HẠN ĐĂNG KIỂM"
+                          size="large"
+                          title="Gia hạn đăng kiểm"
+                          triggerClassName="primary-button"
+                          triggerLabel="Gia hạn đăng kiểm"
+                        >
+                          <InspectionForm
+                            mode="renew"
+                            vehicles={vehicleOptions}
+                            initial={{
+                              vehicle_id: item.vehicle_id,
+                              inspection_date: "",
+                              expires_on: "",
+                              cost: 0,
+                              reminder_days: item.reminder_days,
+                              certificate_number: "",
+                              inspection_center: item.inspection_center,
+                              seat_count: item.seat_count,
+                              odometer_km: item.odometer_km,
+                              note: `Gia hạn từ hồ sơ đăng kiểm ngày ${formatDate(item.inspection_date)}.`,
+                            }}
+                          />
+                        </ModalTrigger>
+                      </div>
+                    ) : null}
                   </div>
                 </ModalTrigger>
                 {canManage ? <ModalTrigger description="Cập nhật thời hạn, số chỗ, chi phí và thông tin đăng kiểm." eyebrow="ĐĂNG KIỂM" size="large" title="Sửa đăng kiểm" triggerClassName="text-button" triggerLabel="Sửa"><InspectionForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, inspection_date: item.inspection_date, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, certificate_number: item.certificate_number, inspection_center: item.inspection_center, seat_count: item.seat_count, odometer_km: item.odometer_km, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
