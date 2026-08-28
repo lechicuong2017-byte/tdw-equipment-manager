@@ -425,6 +425,27 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-section-panel .row-actions { justify-content: flex-start; min-width: 82px; }
 .vehicle-section-panel .vehicle-actions-column { background: var(--surface); box-shadow: -8px 0 14px -14px rgba(15, 39, 58, 0.55); position: sticky; right: 0; z-index: 2; }
 .vehicle-section-panel tbody tr:hover .vehicle-actions-column { background: #fbfcfd; }
+.vehicle-record-table { table-layout: fixed; }
+.vehicle-repair-table { min-width: 1280px !important; }
+.vehicle-fuel-table { min-width: 1220px !important; }
+.vehicle-repair-table .vehicle-date-col { width: 245px; }
+.vehicle-repair-table .vehicle-description-col { width: auto; }
+.vehicle-repair-table .vehicle-vendor-col { width: 165px; }
+.vehicle-repair-table .vehicle-odometer-col { width: 105px; }
+.vehicle-fuel-table .vehicle-date-col { width: 260px; }
+.vehicle-fuel-table .vehicle-liters-col { width: 90px; }
+.vehicle-fuel-table .vehicle-journey-col { width: 170px; }
+.vehicle-fuel-table .vehicle-purchaser-col { width: auto; }
+.vehicle-record-table .vehicle-cost-col { width: 135px; }
+.vehicle-record-table .vehicle-document-col { width: 125px; }
+.vehicle-record-table .vehicle-action-col { width: 158px; }
+.vehicle-record-table .vehicle-description-cell,
+.vehicle-record-table .vehicle-description-cell > strong,
+.vehicle-record-table .vehicle-description-cell > small { white-space: normal; }
+.vehicle-record-table .vehicle-description-cell > strong,
+.vehicle-record-table .vehicle-description-cell > small { overflow-wrap: anywhere; }
+.vehicle-record-table .vehicle-cost-cell { font-variant-numeric: tabular-nums; font-weight: 760; min-width: 135px; padding-right: 1.15rem; text-align: right; white-space: nowrap; }
+.vehicle-record-table .vehicle-actions-column { min-width: 158px; }
 .vehicle-pagination { align-items: center; border-top: 1px solid var(--line); display: flex; justify-content: space-between; margin-top: 0.8rem; padding-top: 1rem; }
 .vehicle-pagination > span { color: var(--ink-soft); font-size: 0.7rem; }
 .vehicle-pagination > div { align-items: center; display: flex; gap: 0.65rem; }

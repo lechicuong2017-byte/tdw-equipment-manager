@@ -433,16 +433,16 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
 
       {section === "repairs" ? <section className="panel vehicle-section-panel vehicle-section-panel--repairs">
         <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><small>{repairs.length} bản ghi</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
+        <div className="table-wrap"><table className="vehicle-record-table vehicle-repair-table"><colgroup><col className="vehicle-date-col" /><col className="vehicle-description-col" /><col className="vehicle-vendor-col" /><col className="vehicle-odometer-col" /><col className="vehicle-cost-col" /><col className="vehicle-document-col" /><col className="vehicle-action-col" /></colgroup><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th className="vehicle-cost-cell">Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleRepairs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
             const document = documentByRecord.get(`REPAIR:${item.id}:INVOICE`);
             return <InteractiveTableRow key={item.id}>
               <td><strong>{formatDate(item.service_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td>
-              <td><strong>{item.description}</strong><small>{settingLabel(maintenanceTypeLabels, item.service_type)}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td>
+              <td className="vehicle-description-cell"><strong>{item.description}</strong><small>{settingLabel(maintenanceTypeLabels, item.service_type)}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td>
               <td>{item.vendor || "—"}<small>{item.invoice_number}</small></td>
               <td>{item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : "—"}</td>
-              <td>{formatMoney(Number(item.vat_amount))}</td>
+              <td className="vehicle-cost-cell">{formatMoney(Number(item.vat_amount))}</td>
               <td><VehicleDocumentLink document={document} /></td>
               <td className="vehicle-actions-column"><div className="row-actions">
                 <ModalTrigger description={`${vehicle?.license_plate ?? "Chưa có biển số"} · ${vehicle?.vehicle_name ?? "Chưa rõ xe"}`} eyebrow="CHI TIẾT BẢO DƯỠNG" size="medium" title={settingLabel(maintenanceTypeLabels, item.service_type)} triggerClassName="text-button row-detail-trigger" triggerLabel="Xem">
@@ -475,7 +475,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
 
       {section === "fuel" ? <section className="panel vehicle-section-panel vehicle-section-panel--fuel">
         <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><small>{fuelLogs.length} bản ghi</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
+        <div className="table-wrap"><table className="vehicle-record-table vehicle-fuel-table"><colgroup><col className="vehicle-date-col" /><col className="vehicle-liters-col" /><col className="vehicle-journey-col" /><col className="vehicle-purchaser-col" /><col className="vehicle-cost-col" /><col className="vehicle-document-col" /><col className="vehicle-action-col" /></colgroup><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th className="vehicle-cost-cell">Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleFuelLogs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
             const document = documentByRecord.get(`FUEL:${item.id}:INVOICE`);
@@ -484,8 +484,8 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
               <td><strong>{formatDate(item.payment_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td>
               <td>{Number(item.liters).toLocaleString("vi-VN")} lít</td>
               <td>{item.odometer_from ?? "—"} → {item.odometer_to ?? "—"}<small>{distance != null ? `${distance.toLocaleString("vi-VN")} km` : ""}</small></td>
-              <td>{item.purchaser || "—"}<small>{item.source_file ? `Nhập từ ${item.source_file}` : item.note}</small></td>
-              <td>{formatMoney(Number(item.amount))}</td>
+              <td className="vehicle-description-cell">{item.purchaser || "—"}<small>{item.source_file ? `Nhập từ ${item.source_file}` : item.note}</small></td>
+              <td className="vehicle-cost-cell">{formatMoney(Number(item.amount))}</td>
               <td><VehicleDocumentLink document={document} /></td>
               <td className="vehicle-actions-column"><div className="row-actions">
                 <ModalTrigger description={`${vehicle?.license_plate ?? "Chưa có biển số"} · ${vehicle?.vehicle_name ?? "Chưa rõ xe"}`} eyebrow="CHI TIẾT NHIÊN LIỆU" size="medium" title={`Mua nhiên liệu ngày ${formatDate(item.payment_date)}`} triggerClassName="text-button row-detail-trigger" triggerLabel="Xem">
