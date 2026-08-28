@@ -136,14 +136,15 @@ function SoftwareLicenseDetail({
 
 export default async function SoftwarePage() {
   const { supabase, access } = await requireAccess();
+  const canManage = can(access, "software.manage");
   const [{ data: assets }, { data: licenses }, { data: softwareNames }] = await Promise.all([
-    supabase
+    canManage ? supabase
       .from("assets")
       .select("id, asset_code, asset_name, asset_group, asset_group_label, asset_type, assigned_to_name, department_legacy_name, departments(name)")
       .is("deleted_at", null)
       .neq("status", "DA_THANH_LY")
       .order("asset_code")
-      .limit(5000),
+      .limit(5000) : Promise.resolve({ data: [] }),
     supabase
       .from("software_licenses")
       .select(
@@ -152,15 +153,14 @@ export default async function SoftwarePage() {
       .order("expiry_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(100),
-    supabase
+    canManage ? supabase
       .from("settings")
       .select("display_name")
       .eq("setting_type", "software_name")
       .eq("active", true)
-      .order("sort_order"),
+      .order("sort_order") : Promise.resolve({ data: [] }),
   ]);
 
-  const canManage = can(access, "software.manage");
   const canDelete = can(access, "software.delete");
   const showActions = canManage || canDelete;
   const today = new Intl.DateTimeFormat("en-CA", {

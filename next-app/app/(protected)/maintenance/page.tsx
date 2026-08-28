@@ -33,13 +33,14 @@ function getRelatedAsset(value: RelatedAsset) {
 
 export default async function MaintenancePage() {
   const { supabase, access } = await requireAccess();
+  const canManage = can(access, "maintenance.manage");
   const [{ data: assets }, { data: plans }, { data: logs }, { data: settings }] = await Promise.all([
-    supabase
+    canManage ? supabase
       .from("assets")
       .select("id, asset_code, asset_name, asset_group, asset_group_label, asset_type, department_legacy_name, departments(name)")
       .is("deleted_at", null)
       .order("asset_code")
-      .limit(500),
+      .limit(500) : Promise.resolve({ data: [] }),
     supabase
       .from("maintenance_plans")
       .select("id, batch_id, scope_type, scope_value, asset_id, title, frequency, next_due_date, note, active, repeat_enabled, assets(id, asset_code, asset_name)")
@@ -95,7 +96,6 @@ export default async function MaintenancePage() {
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date());
-  const canManage = can(access, "maintenance.manage");
   const canDelete = can(access, "maintenance.delete");
   const assetOptions = assets ?? [];
   const settingRows = settings ?? [];

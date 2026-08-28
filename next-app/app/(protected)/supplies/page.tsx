@@ -46,15 +46,18 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const supplyVendor = String(params.vendor ?? "").trim().slice(0, 160);
   const supplyPriceMin = Math.max(0, Number(params.price_min) || 0);
   const supplyPriceMax = Math.max(0, Number(params.price_max) || 0);
+  const needsRequests = ["overview", "requests", "reports"].includes(section);
+  const needsQuotes = ["overview", "catalog", "warehouse", "quotes"].includes(section);
+  const needsInventory = ["catalog", "warehouse"].includes(section);
   const [itemsResult, requestsResult, linesResult, departmentsResult, quotesResult, quoteLinesResult, balancesResult, movementsResult] = await Promise.all([
     supabase.from("supply_items").select("id,category,item_code,item_name,unit,description,default_unit_price,active,updated_at").order("category").order("item_name"),
-    supabase.from("supply_requests").select("id,request_no,category,period_type,period_year,period_month,period_quarter,requested_on,requesting_department,requester_name,checker_name,approver_name,status,note,source_file,created_at").order("requested_on", { ascending: false }),
-    supabase.from("supply_request_lines").select("id,request_id,item_code,item_name,unit,proposed_quantity,stock_quantity,ordered_quantity,requested_departments,approval_note,approved_unit_price,amount,note,sort_order"),
+    needsRequests ? supabase.from("supply_requests").select("id,request_no,category,period_type,period_year,period_month,period_quarter,requested_on,requesting_department,requester_name,checker_name,approver_name,status,note,source_file,created_at").order("requested_on", { ascending: false }) : Promise.resolve({ data: [], error: null }),
+    needsRequests ? supabase.from("supply_request_lines").select("id,request_id,item_code,item_name,unit,proposed_quantity,stock_quantity,ordered_quantity,requested_departments,approval_note,approved_unit_price,amount,note,sort_order") : Promise.resolve({ data: [], error: null }),
     supabase.from("departments").select("id,name").order("name"),
-    supabase.from("supply_quotes").select("id,quote_no,vendor_name,vendor_address,vendor_contact,category,quote_date,valid_until,status,subtotal,tax_rate,tax_amount,total_amount,note,source_file,source_sheet,created_at").order("quote_date", { ascending: false, nullsFirst: false }),
-    supabase.from("supply_quote_lines").select("id,quote_id,item_id,item_code,category,item_name,unit,quantity,unit_price,old_unit_price,amount,note,sort_order").order("sort_order"),
-    supabase.from("supply_inventory_balances").select("item_id,category,item_code,item_name,unit,active,on_hand_quantity,total_receipt_value,last_movement_at").order("category").order("item_name"),
-    supabase.from("supply_inventory_movements").select("id,item_id,movement_type,quantity,unit_price,movement_date,source_type,reference_no,note,created_at,supply_items(item_code,item_name,unit,category)").order("movement_date", { ascending: false }).order("created_at", { ascending: false }).limit(100),
+    needsQuotes ? supabase.from("supply_quotes").select("id,quote_no,vendor_name,vendor_address,vendor_contact,category,quote_date,valid_until,status,subtotal,tax_rate,tax_amount,total_amount,note,source_file,source_sheet,created_at").order("quote_date", { ascending: false, nullsFirst: false }) : Promise.resolve({ data: [], error: null }),
+    needsQuotes ? supabase.from("supply_quote_lines").select("id,quote_id,item_id,item_code,category,item_name,unit,quantity,unit_price,old_unit_price,amount,note,sort_order").order("sort_order") : Promise.resolve({ data: [], error: null }),
+    needsInventory ? supabase.from("supply_inventory_balances").select("item_id,category,item_code,item_name,unit,active,on_hand_quantity,total_receipt_value,last_movement_at").order("category").order("item_name") : Promise.resolve({ data: [], error: null }),
+    needsInventory ? supabase.from("supply_inventory_movements").select("id,item_id,movement_type,quantity,unit_price,movement_date,source_type,reference_no,note,created_at,supply_items(item_code,item_name,unit,category)").order("movement_date", { ascending: false }).order("created_at", { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null }),
   ]);
   const queryError = itemsResult.error || requestsResult.error || linesResult.error || departmentsResult.error;
   const quoteQueryError = quotesResult.error || quoteLinesResult.error;

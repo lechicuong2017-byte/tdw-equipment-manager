@@ -221,17 +221,38 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const { access, supabase } = await requireAccess();
   const canManage = can(access, "vehicles.manage");
   const canDelete = can(access, "vehicles.delete");
+  const today = vietnamToday();
+  const needsVehicles = section !== "settings";
+  const needsInspections = ["overview", "inspections"].includes(section);
+  const needsInsurances = ["overview", "insurance"].includes(section);
+  const needsRepairs = ["overview", "repairs"].includes(section);
+  const needsFuel = ["overview", "fuel"].includes(section);
+  const needsPeople = ["overview", "fleet"].includes(section);
+  const pageFrom = (requestedPage - 1) * vehiclePageSize;
+  const pageTo = pageFrom + vehiclePageSize - 1;
+  const documentRecordType = section === "inspections" ? "INSPECTION"
+    : section === "insurance" ? "INSURANCE"
+      : section === "repairs" ? "REPAIR"
+        : section === "fuel" ? "FUEL"
+          : null;
+  const neededSettingTypes = section === "settings"
+    ? vehicleSettingTypes
+    : section === "insurance"
+      ? ["vehicle_insurance_type"]
+      : section === "repairs"
+        ? ["vehicle_maintenance_type"]
+        : [];
   const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult] = await Promise.all([
-    supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500),
-    supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("inspection_date", { ascending: false }).limit(500),
-    supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)").is("archived_at", null).order("starts_on", { ascending: false }).limit(500),
-    supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)").not("archived_at", "is", null).order("archived_at", { ascending: false }).limit(1000),
-    supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("service_date", { ascending: false }).limit(500),
-    supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("payment_date", { ascending: false }).limit(500),
-    supabase.from("departments").select("id,name").order("name").limit(500),
-    supabase.from("profiles").select("id,full_name,email").eq("active", true).order("full_name").limit(500),
-    supabase.from("vehicle_documents").select("id,file_name,record_id,record_type,document_kind,stored_byte_size").order("created_at", { ascending: false }).limit(1500),
-    supabase.from("settings").select("id,setting_type,setting_value,display_name,sort_order,active").in("setting_type", vehicleSettingTypes).order("setting_type").order("active", { ascending: false }).order("sort_order").order("display_name"),
+    needsVehicles ? supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500) : Promise.resolve({ data: [] }),
+    needsInspections ? (section === "inspections" ? supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).order("inspection_date", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("inspection_date", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
+    needsInsurances ? (section === "insurance" ? supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).is("archived_at", null).order("starts_on", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)").is("archived_at", null).order("starts_on", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
+    section === "insurance" ? supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)").not("archived_at", "is", null).order("archived_at", { ascending: false }).limit(1000) : Promise.resolve({ data: [] }),
+    needsRepairs ? (section === "repairs" ? supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).order("service_date", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("service_date", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
+    needsFuel ? (section === "fuel" ? supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).order("payment_date", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("payment_date", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
+    needsPeople ? supabase.from("departments").select("id,name").order("name").limit(500) : Promise.resolve({ data: [] }),
+    needsPeople ? supabase.from("profiles").select("id,full_name,email").eq("active", true).order("full_name").limit(500) : Promise.resolve({ data: [] }),
+    documentRecordType ? supabase.from("vehicle_documents").select("id,file_name,record_id,record_type,document_kind,stored_byte_size").eq("record_type", documentRecordType).order("created_at", { ascending: false }).limit(1500) : Promise.resolve({ data: [] }),
+    neededSettingTypes.length ? supabase.from("settings").select("id,setting_type,setting_value,display_name,sort_order,active").in("setting_type", neededSettingTypes).order("setting_type").order("active", { ascending: false }).order("sort_order").order("display_name") : Promise.resolve({ data: [] }),
   ]);
   const vehicles = vehiclesResult.data ?? [];
   const inspections = inspectionsResult.data ?? [];
@@ -256,15 +277,18 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const insuranceRecordsById = new Map<string, InsuranceRenewalRecord>(
     [...insurances, ...archivedInsurances].map((item) => [item.id, item as InsuranceRenewalRecord]),
   );
-  const inspectionsPage = boundedPage(requestedPage, inspections.length);
-  const insurancePage = boundedPage(requestedPage, insurances.length);
-  const repairsPage = boundedPage(requestedPage, repairs.length);
-  const fuelPage = boundedPage(requestedPage, fuelLogs.length);
-  const visibleInspections = pageRows(inspections, inspectionsPage);
-  const visibleInsurances = pageRows(insurances, insurancePage);
-  const visibleRepairs = pageRows(repairs, repairsPage);
-  const visibleFuelLogs = pageRows(fuelLogs, fuelPage);
-  const today = vietnamToday();
+  const inspectionsTotal = inspectionsResult.count ?? inspections.length;
+  const insurancesTotal = insurancesResult.count ?? insurances.length;
+  const repairsTotal = repairsResult.count ?? repairs.length;
+  const fuelTotal = fuelResult.count ?? fuelLogs.length;
+  const inspectionsPage = boundedPage(requestedPage, inspectionsTotal);
+  const insurancePage = boundedPage(requestedPage, insurancesTotal);
+  const repairsPage = boundedPage(requestedPage, repairsTotal);
+  const fuelPage = boundedPage(requestedPage, fuelTotal);
+  const visibleInspections = section === "inspections" ? inspections : pageRows(inspections, inspectionsPage);
+  const visibleInsurances = section === "insurance" ? insurances : pageRows(insurances, insurancePage);
+  const visibleRepairs = section === "repairs" ? repairs : pageRows(repairs, repairsPage);
+  const visibleFuelLogs = section === "fuel" ? fuelLogs : pageRows(fuelLogs, fuelPage);
   const latestInspectionByVehicle = new Map<string, (typeof inspections)[number]>();
   inspections.forEach((item) => { if (!latestInspectionByVehicle.has(item.vehicle_id)) latestInspectionByVehicle.set(item.vehicle_id, item); });
   const upcoming = [...latestInspectionByVehicle.values()].filter((item) => daysUntil(item.expires_on, today) <= item.reminder_days).sort((a, b) => a.expires_on.localeCompare(b.expires_on));
@@ -384,7 +408,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       </section> : null}
 
       {section === "inspections" ? <section className="panel vehicle-section-panel vehicle-section-panel--inspections">
-        <div className="panel-heading"><div><p className="eyebrow">ĐĂNG KIỂM</p><h2>Lịch sử và hạn sắp tới</h2></div><small>{inspections.length} lần</small></div>
+        <div className="panel-heading"><div><p className="eyebrow">ĐĂNG KIỂM</p><h2>Lịch sử và hạn sắp tới</h2></div><small>{inspectionsTotal} lần</small></div>
         <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Số chỗ</th><th>Chi phí</th><th>Thông tin</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInspections.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -459,11 +483,11 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           })}
           {!inspections.length ? <tr><td className="empty-cell" colSpan={8}>Chưa có lịch sử đăng kiểm.</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination page={inspectionsPage} section="inspections" totalRows={inspections.length} />
+        <VehiclePagination page={inspectionsPage} section="inspections" totalRows={inspectionsTotal} />
       </section> : null}
 
       {section === "insurance" ? <section className="panel vehicle-section-panel vehicle-section-panel--insurance">
-        <div className="panel-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>Hợp đồng và hồ sơ bảo hiểm</h2></div><small>{insurances.length} hợp đồng</small></div>
+        <div className="panel-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>Hợp đồng và hồ sơ bảo hiểm</h2></div><small>{insurancesTotal} hợp đồng</small></div>
         <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Bảo hiểm</th><th>Ngày bắt đầu</th><th>Ngày hết hạn</th><th>Hãng / chứng nhận</th><th>Chi phí</th><th>Hồ sơ PDF</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInsurances.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -515,11 +539,11 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           })}
           {!insurances.length ? <tr><td className="empty-cell" colSpan={8}>Chưa có hồ sơ bảo hiểm xe.</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination page={insurancePage} section="insurance" totalRows={insurances.length} />
+        <VehiclePagination page={insurancePage} section="insurance" totalRows={insurancesTotal} />
       </section> : null}
 
       {section === "repairs" ? <section className="panel vehicle-section-panel vehicle-section-panel--repairs">
-        <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><small>{repairs.length} bản ghi</small></div>
+        <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><small>{repairsTotal} bản ghi</small></div>
         <div className="table-wrap"><table className="vehicle-record-table vehicle-repair-table"><colgroup><col className="vehicle-date-col" /><col className="vehicle-description-col" /><col className="vehicle-cost-col" /><col className="vehicle-document-col" /><col className="vehicle-action-col" /></colgroup><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th className="vehicle-cost-cell">Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleRepairs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -559,11 +583,11 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           })}
           {!repairs.length ? <tr><td className="empty-cell" colSpan={5}>Chưa có lịch sử bảo dưỡng.</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination page={repairsPage} section="repairs" totalRows={repairs.length} />
+        <VehiclePagination page={repairsPage} section="repairs" totalRows={repairsTotal} />
       </section> : null}
 
       {section === "fuel" ? <section className="panel vehicle-section-panel vehicle-section-panel--fuel">
-        <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><small>{fuelLogs.length} bản ghi</small></div>
+        <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><small>{fuelTotal} bản ghi</small></div>
         <div className="table-wrap"><table className="vehicle-record-table vehicle-fuel-table"><colgroup><col className="vehicle-date-col" /><col className="vehicle-liters-col" /><col className="vehicle-journey-col" /><col className="vehicle-cost-col" /><col className="vehicle-document-col" /><col className="vehicle-action-col" /></colgroup><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th className="vehicle-cost-cell">Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleFuelLogs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -605,7 +629,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           })}
           {!fuelLogs.length ? <tr><td className="empty-cell" colSpan={6}>Chưa có lịch sử nhiên liệu.</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelLogs.length} />
+        <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelTotal} />
       </section> : null}
 
       {section === "settings" ? <section className="settings-catalog-grid vehicle-settings-grid">

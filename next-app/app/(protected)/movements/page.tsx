@@ -19,13 +19,14 @@ function getRelatedAsset(value: RelatedAsset) {
 
 export default async function MovementsPage() {
   const { supabase, access } = await requireAccess();
+  const canManage = can(access, "movement.manage");
   const [{ data: assets }, { data: movements }] = await Promise.all([
-    supabase
+    canManage ? supabase
       .from("assets")
       .select("id, asset_code, asset_name, assigned_to_name, location")
       .is("deleted_at", null)
       .order("asset_code")
-      .limit(500),
+      .limit(500) : Promise.resolve({ data: [] }),
     supabase
       .from("inventory_movements")
       .select(
@@ -46,7 +47,7 @@ export default async function MovementsPage() {
         eyebrow="LUÂN CHUYỂN"
         title="Luân chuyển thiết bị"
         description="Mỗi lần bàn giao được lưu bất biến và cập nhật hồ sơ thiết bị trong cùng một giao dịch."
-        actions={can(access, "movement.manage") ? (
+        actions={canManage ? (
           <ModalTrigger
             description="Ghi nhận người sử dụng, vị trí và lý do bàn giao thiết bị."
             eyebrow="LUÂN CHUYỂN"
