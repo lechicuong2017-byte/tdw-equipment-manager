@@ -21,6 +21,7 @@ const initialState: VehicleActionState = {};
 const initialImportState: VehicleImportState = {};
 
 export type VehicleOption = { id: string; vehicle_code: string; vehicle_name: string; license_plate: string };
+export type VehicleSettingOption = { value: string; label: string };
 type DepartmentOption = { id: string; name: string };
 type UserOption = { id: string; full_name: string; email: string };
 
@@ -110,6 +111,30 @@ function VehicleSelect({ vehicles, defaultValue = "" }: { vehicles: VehicleOptio
   );
 }
 
+function VehicleSettingSelect({
+  defaultValue = "",
+  name,
+  options,
+  placeholder,
+}: {
+  defaultValue?: string;
+  name: "service_type" | "insurance_type";
+  options: VehicleSettingOption[];
+  placeholder: string;
+}) {
+  const selectableOptions = defaultValue && !options.some((option) => option.value === defaultValue)
+    ? [{ value: defaultValue, label: `${defaultValue} (đã ngừng dùng)` }, ...options]
+    : options;
+  return (
+    <select defaultValue={defaultValue} name={name} required>
+      <option disabled value="">{placeholder}</option>
+      {selectableOptions.map((option) => (
+        <option key={option.value} value={option.value}>{option.label}</option>
+      ))}
+    </select>
+  );
+}
+
 function SaveButton({ pending, label }: { pending: boolean; label: string }) {
   return <button className="primary-button" disabled={pending} type="submit">{pending ? "Đang lưu…" : label}</button>;
 }
@@ -176,7 +201,7 @@ export function InspectionForm({
   );
 }
 
-export function RepairForm({ vehicles, initial }: { vehicles: VehicleOption[]; initial?: RepairFormInitial }) {
+export function RepairForm({ vehicles, maintenanceTypes, initial }: { vehicles: VehicleOption[]; maintenanceTypes: VehicleSettingOption[]; initial?: RepairFormInitial }) {
   const [state, action, pending] = useActionState(saveVehicleRepair, initialState);
   return (
     <form action={action} className="data-form vehicle-form">
@@ -185,10 +210,10 @@ export function RepairForm({ vehicles, initial }: { vehicles: VehicleOption[]; i
       <div className="form-grid">
         <label className="span-2">Xe *<VehicleSelect defaultValue={initial?.vehicle_id} vehicles={vehicles} /></label>
         <label>Ngày thực hiện *<input defaultValue={initial?.service_date ?? ""} name="service_date" type="date" required /></label>
-        <label>Hình thức<select name="service_type" defaultValue={initial?.service_type ?? "BAO_DUONG"}><option value="BAO_DUONG">Bảo dưỡng</option><option value="SUA_CHUA">Sửa chữa</option><option value="THAY_THE">Thay thế phụ tùng</option><option value="BAO_DUONG_SUA_CHUA">Bảo dưỡng / sửa chữa</option></select></label>
+        <label>Hình thức *<VehicleSettingSelect defaultValue={initial?.service_type ?? maintenanceTypes[0]?.value ?? ""} name="service_type" options={maintenanceTypes} placeholder="Chọn hình thức" /></label>
         <label className="span-3">Nội dung *<textarea defaultValue={initial?.description ?? ""} name="description" rows={3} required maxLength={3000} /></label>
         <label>Số km<input defaultValue={initial?.odometer_km ?? ""} name="odometer_km" type="number" min={0} /></label>
-        <label>Chi phí gồm VAT<input name="vat_amount" type="number" min={0} defaultValue={initial?.vat_amount ?? 0} /></label>
+        <label>Chi phí<input name="vat_amount" type="number" min={0} defaultValue={initial?.vat_amount ?? 0} /></label>
         <label>Đơn vị thực hiện<input defaultValue={initial?.vendor ?? ""} name="vendor" maxLength={200} /></label>
         <label>Số hóa đơn<input defaultValue={initial?.invoice_number ?? ""} name="invoice_number" maxLength={100} /></label>
         <PdfInvoicePicker existingFileName={initial?.invoice_file_name} />
@@ -212,7 +237,7 @@ export function FuelForm({ vehicles, initial }: { vehicles: VehicleOption[]; ini
         <label>Số lít *<input defaultValue={initial?.liters ?? ""} name="liters" type="number" min="0.001" step="0.001" required /></label>
         <label>Số km từ<input defaultValue={initial?.odometer_from ?? ""} name="odometer_from" type="number" min={0} /></label>
         <label>Số km đến<input defaultValue={initial?.odometer_to ?? ""} name="odometer_to" type="number" min={0} /></label>
-        <label>Số tiền<input name="amount" type="number" min={0} defaultValue={initial?.amount ?? 0} /></label>
+        <label>Chi phí<input name="amount" type="number" min={0} defaultValue={initial?.amount ?? 0} /></label>
         <label>Người mua / tài xế<input defaultValue={initial?.purchaser ?? ""} name="purchaser" maxLength={160} /></label>
         <PdfInvoicePicker existingFileName={initial?.invoice_file_name} />
         <label className="span-3">Ghi chú<textarea defaultValue={initial?.note ?? ""} name="note" rows={3} maxLength={3000} /></label>
@@ -223,7 +248,7 @@ export function FuelForm({ vehicles, initial }: { vehicles: VehicleOption[]; ini
   );
 }
 
-export function InsuranceForm({ vehicles, initial }: { vehicles: VehicleOption[]; initial?: InsuranceFormInitial }) {
+export function InsuranceForm({ vehicles, insuranceTypes, initial }: { vehicles: VehicleOption[]; insuranceTypes: VehicleSettingOption[]; initial?: InsuranceFormInitial }) {
   const [state, action, pending] = useActionState(saveVehicleInsurance, initialState);
   return (
     <form action={action} className="data-form vehicle-form">
@@ -232,7 +257,7 @@ export function InsuranceForm({ vehicles, initial }: { vehicles: VehicleOption[]
       <div className="form-grid">
         <label className="span-2">Xe *<VehicleSelect defaultValue={initial?.vehicle_id} vehicles={vehicles} /></label>
         <label>Tên bảo hiểm *<input defaultValue={initial?.insurance_name ?? ""} name="insurance_name" maxLength={200} required placeholder="Bảo hiểm vật chất xe" /></label>
-        <label>Loại bảo hiểm *<input defaultValue={initial?.insurance_type ?? ""} name="insurance_type" maxLength={160} required placeholder="TNDS / vật chất / tai nạn" /></label>
+        <label>Loại bảo hiểm *<VehicleSettingSelect defaultValue={initial?.insurance_type ?? ""} name="insurance_type" options={insuranceTypes} placeholder="Chọn loại bảo hiểm" /></label>
         <label className="span-2">Hãng bảo hiểm *<input defaultValue={initial?.insurance_company ?? ""} name="insurance_company" maxLength={200} required placeholder="Tên doanh nghiệp bảo hiểm" /></label>
         <label>Số giấy chứng nhận<input defaultValue={initial?.certificate_number ?? ""} name="certificate_number" maxLength={120} /></label>
         <label>Ngày bắt đầu *<input defaultValue={initial?.starts_on ?? ""} name="starts_on" type="date" required /></label>
@@ -270,7 +295,7 @@ function ImportWorkbook() {
             <input name="rows" type="hidden" value={JSON.stringify(preview.rows)} />
             <div className="import-preview-summary"><strong>{preview.rows.length} dòng hợp lệ</strong><span>{preview.rows.filter((row) => row.warning).length} dòng cần chú ý</span></div>
             <div className="table-wrap import-preview-table">
-              <table><thead><tr><th>Sheet / dòng</th><th>Xe</th><th>Ngày</th><th>Dữ liệu</th><th>Số tiền</th><th>Kiểm tra</th></tr></thead>
+              <table><thead><tr><th>Sheet / dòng</th><th>Xe</th><th>Ngày</th><th>Dữ liệu</th><th>Chi phí</th><th>Kiểm tra</th></tr></thead>
                 <tbody>{preview.rows.slice(0, 200).map((row) => <tr key={`${row.sheet}-${row.row}`}>
                   <td>{row.sheet}<small>Dòng {row.row}</small></td><td><strong>{row.vehicle_name}</strong><small>{row.license_plate}</small></td><td>{row.date}</td><td>{row.kind === "fuel" ? `${row.liters ?? 0} lít · ${row.odometer_from ?? "—"} → ${row.odometer_to ?? "—"} km` : row.description}</td><td>{new Intl.NumberFormat("vi-VN").format(row.amount)} đ</td><td>{row.warning ? <span className="status-pill status-pill--attention">{row.warning}</span> : <span className="status-pill status-pill--active">Hợp lệ</span>}</td>
                 </tr>)}</tbody></table>
@@ -284,7 +309,7 @@ function ImportWorkbook() {
   );
 }
 
-export function VehicleActions({ vehicles, departments, users, canManage, section }: { vehicles: VehicleOption[]; departments: DepartmentOption[]; users: UserOption[]; canManage: boolean; section: "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" }) {
+export function VehicleActions({ vehicles, departments, users, maintenanceTypes, insuranceTypes, canManage, section }: { vehicles: VehicleOption[]; departments: DepartmentOption[]; users: UserOption[]; maintenanceTypes: VehicleSettingOption[]; insuranceTypes: VehicleSettingOption[]; canManage: boolean; section: "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" }) {
   const canImport = canManage && ["overview", "repairs", "fuel"].includes(section);
   return (
     <div className="vehicle-actions">
@@ -294,8 +319,8 @@ export function VehicleActions({ vehicles, departments, users, canManage, sectio
       {canManage ? <div className="vehicle-action-group vehicle-action-group--primary"><small>GHI NHẬN MỚI</small><div>
         {["overview", "fleet"].includes(section) ? <ModalTrigger eyebrow="HỒ SƠ XE" title="Thêm xe" description="Khai báo xe để theo dõi đăng kiểm, bảo hiểm, bảo dưỡng và nhiên liệu." size="large" triggerLabel="+ Thêm xe"><VehicleForm departments={departments} users={users} /></ModalTrigger> : null}
         {section === "inspections" ? <ModalTrigger eyebrow="ĐĂNG KIỂM" title="Ghi nhận đăng kiểm" description="Theo dõi hạn và tự động cảnh báo trước 30 ngày." size="large" triggerLabel="+ Đăng kiểm"><InspectionForm vehicles={vehicles} /></ModalTrigger> : null}
-        {section === "insurance" ? <ModalTrigger eyebrow="BẢO HIỂM XE" title="Ghi nhận bảo hiểm" description="Lưu thời hạn, chi phí, thông tin hợp đồng và hai hồ sơ PDF riêng." size="large" triggerLabel="+ Bảo hiểm"><InsuranceForm vehicles={vehicles} /></ModalTrigger> : null}
-        {section === "repairs" ? <ModalTrigger eyebrow="BẢO DƯỠNG" title="Ghi nhận bảo dưỡng / sửa chữa" size="large" triggerLabel="+ Bảo dưỡng"><RepairForm vehicles={vehicles} /></ModalTrigger> : null}
+        {section === "insurance" ? <ModalTrigger eyebrow="BẢO HIỂM XE" title="Ghi nhận bảo hiểm" description="Lưu thời hạn, chi phí, thông tin hợp đồng và hai hồ sơ PDF riêng." size="large" triggerLabel="+ Bảo hiểm"><InsuranceForm insuranceTypes={insuranceTypes} vehicles={vehicles} /></ModalTrigger> : null}
+        {section === "repairs" ? <ModalTrigger eyebrow="BẢO DƯỠNG" title="Ghi nhận bảo dưỡng / sửa chữa" size="large" triggerLabel="+ Bảo dưỡng"><RepairForm maintenanceTypes={maintenanceTypes} vehicles={vehicles} /></ModalTrigger> : null}
         {section === "fuel" ? <ModalTrigger eyebrow="NHIÊN LIỆU" title="Ghi nhận mua nhiên liệu" size="large" triggerLabel="+ Nhiên liệu"><FuelForm vehicles={vehicles} /></ModalTrigger> : null}
       </div></div> : null}
     </div>

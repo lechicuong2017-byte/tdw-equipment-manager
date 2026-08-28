@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { PDFArray, PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
+import { settingValueFromDisplayName, vehicleSettingTypes } from "@/lib/settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { compactDateForFileName, normalizeUploadedFileName } from "@/lib/upload-file-name";
 
@@ -49,7 +50,7 @@ const repairSchema = z.object({
   id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
   vehicle_id: z.uuid("Xe không hợp lệ"),
   service_date: z.iso.date("Ngày bảo dưỡng không hợp lệ"),
-  service_type: z.string().trim().min(1).max(80),
+  service_type: z.string().trim().min(1).max(160),
   description: z.string().trim().min(1, "Nội dung là bắt buộc").max(3000),
   odometer_km: z.preprocess(emptyToNull, z.coerce.number().int().min(0).nullable().optional()),
   vat_amount: z.coerce.number().min(0).max(1000000000000),
@@ -89,6 +90,14 @@ const insuranceSchema = z.object({
 });
 
 export type VehicleActionState = { error?: string; success?: string };
+
+const vehicleSettingSchema = z.object({
+  id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
+  setting_type: z.enum(vehicleSettingTypes),
+  display_name: z.string().trim().min(1, "Tên hiển thị là bắt buộc").max(160),
+  setting_value: z.string().trim().max(160),
+  original_display_name: z.string().trim().max(160),
+});
 
 type VehicleDocumentType = "INSPECTION" | "REPAIR" | "FUEL" | "INSURANCE";
 type VehicleDocumentKind = "INVOICE" | "CERTIFICATE";
@@ -291,6 +300,78 @@ async function vehiclePlate(
     .eq("id", vehicleId)
     .maybeSingle();
   return data?.license_plate || "XE";
+}
+
+export async function saveVehicleSetting(
+  _state: VehicleActionState,
+  formData: FormData,
+): Promise<VehicleActionState> {
+  const parsed = vehicleSettingSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Cấu hình chưa hợp lệ." };
+  }
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "vehicles.manage")) {
+    return { error: "Bạn không có quyền cấu hình phân hệ xe." };
+  }
+  const settingValue = parsed.data.id && parsed.data.display_name === parsed.data.original_display_name
+    ? parsed.data.setting_value
+    : settingValueFromDisplayName(parsed.data.display_name);
+  if (!settingValue) return { error: "Tên hiển thị chưa tạo được mã nội bộ." };
+
+  const { data: migratedCount, error } = await supabase.rpc("save_vehicle_setting", {
+    target_display_name: parsed.data.display_name,
+    target_setting_id: parsed.data.id ?? null,
+    target_setting_type: parsed.data.setting_type,
+    target_setting_value: settingValue,
+  });
+  if (error?.message.includes("VEHICLE_SETTING_TYPE_IN_USE")) {
+    return { error: "Cấu hình đã được sử dụng nên không thể chuyển sang danh mục khác." };
+  }
+  if (error?.message.includes("VEHICLE_SETTING_VALUE_EXISTS") || error?.code === "23505") {
+    return { error: "Tên này tạo ra mã nội bộ đã tồn tại trong cùng danh mục." };
+  }
+  if (error) return { error: "Không thể lưu cấu hình xe." };
+
+  revalidatePath("/vehicles");
+  const migratedRecords = Number(migratedCount || 0);
+  return {
+    success: migratedRecords
+      ? `Đã lưu cấu hình và cập nhật ${migratedRecords} hồ sơ xe liên kết.`
+      : "Đã lưu cấu hình xe.",
+  };
+}
+
+export async function toggleVehicleSetting(formData: FormData) {
+  const parsed = z.object({
+    id: z.uuid(),
+    active: z.enum(["true", "false"]),
+  }).safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return;
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "vehicles.manage")) return;
+  const { error } = await supabase.rpc("toggle_vehicle_setting", {
+    target_active: parsed.data.active === "true",
+    target_setting_id: parsed.data.id,
+  });
+  if (error) return;
+  revalidatePath("/vehicles");
+}
+
+export async function moveVehicleSetting(formData: FormData) {
+  const parsed = z.object({
+    id: z.uuid(),
+    direction: z.enum(["up", "down"]),
+  }).safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return;
+  const { access, supabase } = await requireAccess();
+  if (!can(access, "vehicles.manage")) return;
+  const { error } = await supabase.rpc("reorder_vehicle_setting", {
+    move_direction: parsed.data.direction,
+    target_setting_id: parsed.data.id,
+  });
+  if (error) return;
+  revalidatePath("/vehicles");
 }
 
 export async function saveVehicle(_state: VehicleActionState, formData: FormData) {
@@ -711,9 +792,25 @@ export async function commitVehicleImport(_state: VehicleImportState, formData: 
     purchaser: row.purchaser, note: row.note, source_file: fileName, source_sheet: row.sheet,
     source_row: row.row, import_fingerprint: row.fingerprint,
   }));
+  let importedRepairType = "";
+  if (parsed.data.some((row) => row.kind === "repairs")) {
+    const { data: maintenanceTypes, error: maintenanceTypeError } = await supabase
+      .from("settings")
+      .select("setting_value")
+      .eq("setting_type", "vehicle_maintenance_type")
+      .eq("active", true)
+      .order("sort_order")
+      .order("display_name")
+      .limit(20);
+    if (maintenanceTypeError || !maintenanceTypes?.length) {
+      return { error: "Hãy cấu hình ít nhất một hình thức bảo dưỡng trước khi nhập lịch sử." };
+    }
+    importedRepairType = maintenanceTypes.find((item) => item.setting_value === "BAO_DUONG_SUA_CHUA")?.setting_value
+      ?? maintenanceTypes[0].setting_value;
+  }
   const repairRows = parsed.data.filter((row) => row.kind === "repairs").map((row) => ({
     vehicle_id: vehicleByPlate.get(normalizePlate(row.license_plate))!, service_date: row.date,
-    service_type: "BAO_DUONG_SUA_CHUA", description: row.description, vat_amount: row.amount,
+    service_type: importedRepairType, description: row.description, vat_amount: row.amount,
     note: row.note, source_file: fileName, source_sheet: row.sheet, source_row: row.row,
     import_fingerprint: row.fingerprint,
   }));

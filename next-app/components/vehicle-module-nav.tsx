@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 
-type VehicleNavSection = "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" | "reports";
+type VehicleNavSection = "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" | "settings" | "reports";
 
 const items: { key: VehicleNavSection; label: string; icon: AppIconName; href: string }[] = [
   { key: "overview", label: "Tổng quan", icon: "dashboard", href: "/vehicles" },
@@ -10,6 +10,7 @@ const items: { key: VehicleNavSection; label: string; icon: AppIconName; href: s
   { key: "insurance", label: "Bảo hiểm", icon: "insurance", href: "/vehicles?section=insurance" },
   { key: "repairs", label: "Bảo dưỡng", icon: "maintenance", href: "/vehicles?section=repairs" },
   { key: "fuel", label: "Nhiên liệu", icon: "fuel", href: "/vehicles?section=fuel" },
+  { key: "settings", label: "Cấu hình", icon: "settings", href: "/vehicles?section=settings" },
   { key: "reports", label: "Báo cáo xe", icon: "reports", href: "/vehicles/reports" },
 ];
 

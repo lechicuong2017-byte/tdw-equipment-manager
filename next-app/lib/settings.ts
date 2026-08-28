@@ -27,6 +27,23 @@ export const settingTypes = Object.keys(
   settingTypeDefinitions,
 ) as SettingType[];
 
+export const vehicleSettingTypeDefinitions = {
+  vehicle_maintenance_type: {
+    label: "Hình thức bảo dưỡng",
+    description: "Danh sách hình thức dùng khi ghi nhận bảo dưỡng hoặc sửa chữa xe.",
+  },
+  vehicle_insurance_type: {
+    label: "Loại bảo hiểm xe",
+    description: "Danh sách loại bảo hiểm dùng trong hồ sơ bảo hiểm xe.",
+  },
+} as const;
+
+export type VehicleSettingType = keyof typeof vehicleSettingTypeDefinitions;
+
+export const vehicleSettingTypes = Object.keys(
+  vehicleSettingTypeDefinitions,
+) as VehicleSettingType[];
+
 export function settingValueFromDisplayName(displayName: string) {
   return displayName
     .normalize("NFD")

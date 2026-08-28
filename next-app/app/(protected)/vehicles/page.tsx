@@ -6,13 +6,16 @@ import { AppIcon } from "@/components/app-icon";
 import { PageHeader } from "@/components/page-header";
 import { FuelForm, InspectionForm, InsuranceForm, RepairForm, VehicleActions, VehicleForm } from "@/components/vehicle-forms";
 import { VehicleModuleNav } from "@/components/vehicle-module-nav";
+import { VehicleSettingEditor } from "@/components/vehicle-setting-editor";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
-import { deleteVehicleRecord } from "./actions";
+import { vehicleSettingTypeDefinitions, vehicleSettingTypes } from "@/lib/settings";
+import type { Setting } from "@/lib/types";
+import { deleteVehicleRecord, moveVehicleSetting, toggleVehicleSetting } from "./actions";
 
 export const metadata = { title: "Quản lý xe" };
 
-type VehicleSection = "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel";
+type VehicleSection = "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" | "settings";
 
 type VehicleRelation = { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string } | { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string }[] | null;
 function relatedVehicle(value: VehicleRelation) { return Array.isArray(value) ? value[0] : value; }
@@ -96,14 +99,8 @@ function VehicleDocumentDetail({ document, label = "Hóa đơn / chứng từ PD
   );
 }
 
-function serviceTypeLabel(value: string) {
-  const labels: Record<string, string> = {
-    BAO_DUONG: "Bảo dưỡng",
-    SUA_CHUA: "Sửa chữa",
-    THAY_THE: "Thay thế phụ tùng",
-    BAO_DUONG_SUA_CHUA: "Bảo dưỡng / sửa chữa",
-  };
-  return labels[value] ?? value.replaceAll("_", " ");
+function settingLabel(labels: Map<string, string>, value: string) {
+  return labels.get(value) ?? value.replaceAll("_", " ");
 }
 
 function vietnamToday() {
@@ -154,13 +151,13 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const requestedSection = params.section;
   const requestedPage = Number.isFinite(Number(params.page)) ? Math.max(1, Math.trunc(Number(params.page))) : 1;
-  const section: VehicleSection = ["fleet", "inspections", "insurance", "repairs", "fuel"].includes(requestedSection ?? "")
+  const section: VehicleSection = ["fleet", "inspections", "insurance", "repairs", "fuel", "settings"].includes(requestedSection ?? "")
     ? requestedSection as VehicleSection
     : "overview";
   const { access, supabase } = await requireAccess();
   const canManage = can(access, "vehicles.manage");
   const canDelete = can(access, "vehicles.delete");
-  const [vehiclesResult, inspectionsResult, insurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult] = await Promise.all([
+  const [vehiclesResult, inspectionsResult, insurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult] = await Promise.all([
     supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500),
     supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("inspection_date", { ascending: false }).limit(500),
     supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("starts_on", { ascending: false }).limit(500),
@@ -169,12 +166,20 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     supabase.from("departments").select("id,name").order("name").limit(500),
     supabase.from("profiles").select("id,full_name,email").eq("active", true).order("full_name").limit(500),
     supabase.from("vehicle_documents").select("id,file_name,record_id,record_type,document_kind,stored_byte_size").order("created_at", { ascending: false }).limit(1500),
+    supabase.from("settings").select("id,setting_type,setting_value,display_name,sort_order,active").in("setting_type", vehicleSettingTypes).order("setting_type").order("active", { ascending: false }).order("sort_order").order("display_name"),
   ]);
   const vehicles = vehiclesResult.data ?? [];
   const inspections = inspectionsResult.data ?? [];
   const insurances = insurancesResult.data ?? [];
   const repairs = repairsResult.data ?? [];
   const fuelLogs = fuelResult.data ?? [];
+  const vehicleSettings = (settingsResult.data ?? []) as Setting[];
+  const maintenanceSettings = vehicleSettings.filter((item) => item.setting_type === "vehicle_maintenance_type");
+  const insuranceSettings = vehicleSettings.filter((item) => item.setting_type === "vehicle_insurance_type");
+  const activeMaintenanceTypes = maintenanceSettings.filter((item) => item.active).map((item) => ({ value: item.setting_value, label: item.display_name }));
+  const activeInsuranceTypes = insuranceSettings.filter((item) => item.active).map((item) => ({ value: item.setting_value, label: item.display_name }));
+  const maintenanceTypeLabels = new Map(maintenanceSettings.map((item) => [item.setting_value, item.display_name]));
+  const insuranceTypeLabels = new Map(insuranceSettings.map((item) => [item.setting_value, item.display_name]));
   const vehicleDocuments = (documentsResult.data ?? []) as VehicleDocument[];
   const documentByRecord = new Map(
     vehicleDocuments.map((item) => [
@@ -210,6 +215,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     { key: "insurance" as const, label: "Bảo hiểm", icon: "insurance" as const, description: "Hợp đồng, chứng nhận và cảnh báo hết hạn" },
     { key: "repairs" as const, label: "Bảo dưỡng", icon: "maintenance" as const, description: "Bảo dưỡng và sửa chữa phương tiện" },
     { key: "fuel" as const, label: "Nhiên liệu", icon: "fuel" as const, description: "Theo dõi các lần mua nhiên liệu" },
+    { key: "settings" as const, label: "Cấu hình", icon: "settings" as const, description: "Hình thức bảo dưỡng và loại bảo hiểm xe" },
   ];
   const activeSection = sections.find((item) => item.key === section) ?? sections[0];
 
@@ -224,7 +230,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           <span className="vehicle-command-icon"><AppIcon name={activeSection.icon} size={22} /></span>
           <div><small>KHU VỰC ĐANG LÀM VIỆC</small><strong>{activeSection.label}</strong><p>{activeSection.description}</p></div>
         </div>
-        {canManage ? <VehicleActions vehicles={vehicleOptions} departments={departmentsResult.data ?? []} users={usersResult.data ?? []} canManage={canManage} section={section} /> : null}
+        {canManage && section !== "settings" ? <VehicleActions vehicles={vehicleOptions} departments={departmentsResult.data ?? []} users={usersResult.data ?? []} maintenanceTypes={activeMaintenanceTypes} insuranceTypes={activeInsuranceTypes} canManage={canManage} section={section} /> : null}
       </section>
 
       {section === "overview" ? <>
@@ -388,7 +394,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
             const certificateDocument = documentByRecord.get(`INSURANCE:${item.id}:CERTIFICATE`);
             return <InteractiveTableRow key={item.id}>
               <td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td>
-              <td><strong>{item.insurance_name}</strong><small>{item.insurance_type}</small></td>
+              <td><strong>{item.insurance_name}</strong><small>{settingLabel(insuranceTypeLabels, item.insurance_type)}</small></td>
               <td>{formatDate(item.starts_on)}</td>
               <td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td>
               <td>{item.insurance_company}<small>{item.certificate_number || "Chưa có số chứng nhận"}</small></td>
@@ -401,7 +407,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                       { label: "Xe", value: vehicle?.vehicle_name },
                       { label: "Biển số", value: vehicle?.license_plate },
                       { label: "Tên bảo hiểm", value: item.insurance_name },
-                      { label: "Loại bảo hiểm", value: item.insurance_type },
+                      { label: "Loại bảo hiểm", value: settingLabel(insuranceTypeLabels, item.insurance_type) },
                       { label: "Hãng bảo hiểm", value: item.insurance_company },
                       { label: "Số giấy chứng nhận", value: item.certificate_number },
                       { label: "Ngày bắt đầu", value: formatDate(item.starts_on) },
@@ -415,7 +421,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     <VehicleDocumentDetail document={certificateDocument} label="Giấy chứng nhận bảo hiểm PDF" />
                   </div>
                 </ModalTrigger>
-                {canManage ? <ModalTrigger description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="text-button" triggerLabel="Sửa"><InsuranceForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
+                {canManage ? <ModalTrigger description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="text-button" triggerLabel="Sửa"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
                 {canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Hợp đồng bảo hiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "insurance" }} title="Xóa bảo hiểm?" /> : null}
               </div></td>
             </InteractiveTableRow>;
@@ -427,27 +433,27 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
 
       {section === "repairs" ? <section className="panel vehicle-section-panel vehicle-section-panel--repairs">
         <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><small>{repairs.length} bản ghi</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí VAT</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
+        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th>Đơn vị</th><th>Số km</th><th>Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleRepairs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
             const document = documentByRecord.get(`REPAIR:${item.id}:INVOICE`);
             return <InteractiveTableRow key={item.id}>
               <td><strong>{formatDate(item.service_date)}</strong><small>{vehicle?.license_plate} · {vehicle?.vehicle_name}</small></td>
-              <td><strong>{item.description}</strong><small>{serviceTypeLabel(item.service_type)}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td>
+              <td><strong>{item.description}</strong><small>{settingLabel(maintenanceTypeLabels, item.service_type)}{item.source_file ? ` · nhập từ ${item.source_file}` : ""}</small></td>
               <td>{item.vendor || "—"}<small>{item.invoice_number}</small></td>
               <td>{item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : "—"}</td>
               <td>{formatMoney(Number(item.vat_amount))}</td>
               <td><VehicleDocumentLink document={document} /></td>
               <td className="vehicle-actions-column"><div className="row-actions">
-                <ModalTrigger description={`${vehicle?.license_plate ?? "Chưa có biển số"} · ${vehicle?.vehicle_name ?? "Chưa rõ xe"}`} eyebrow="CHI TIẾT BẢO DƯỠNG" size="medium" title={serviceTypeLabel(item.service_type)} triggerClassName="text-button row-detail-trigger" triggerLabel="Xem">
+                <ModalTrigger description={`${vehicle?.license_plate ?? "Chưa có biển số"} · ${vehicle?.vehicle_name ?? "Chưa rõ xe"}`} eyebrow="CHI TIẾT BẢO DƯỠNG" size="medium" title={settingLabel(maintenanceTypeLabels, item.service_type)} triggerClassName="text-button row-detail-trigger" triggerLabel="Xem">
                   <div className="vehicle-record-detail">
                     <VehicleDetailGrid fields={[
                       { label: "Xe", value: vehicle?.vehicle_name },
                       { label: "Biển số", value: vehicle?.license_plate },
                       { label: "Ngày thực hiện", value: formatDate(item.service_date) },
-                      { label: "Hình thức", value: serviceTypeLabel(item.service_type) },
+                      { label: "Hình thức", value: settingLabel(maintenanceTypeLabels, item.service_type) },
                       { label: "Số km", value: item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : null },
-                      { label: "Chi phí gồm VAT", value: formatMoney(Number(item.vat_amount)) },
+                      { label: "Chi phí", value: formatMoney(Number(item.vat_amount)) },
                       { label: "Đơn vị thực hiện", value: item.vendor },
                       { label: "Số hóa đơn", value: item.invoice_number },
                       { label: "Nội dung thực hiện", value: item.description, wide: true },
@@ -457,7 +463,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     <VehicleDocumentDetail document={document} />
                   </div>
                 </ModalTrigger>
-                {canManage ? <ModalTrigger description="Cập nhật nội dung, đơn vị thực hiện, số km và chi phí." eyebrow="BẢO DƯỠNG" size="large" title="Sửa bảo dưỡng" triggerClassName="text-button" triggerLabel="Sửa"><RepairForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, service_date: item.service_date, service_type: item.service_type, description: item.description, odometer_km: item.odometer_km, vat_amount: item.vat_amount, vendor: item.vendor, invoice_number: item.invoice_number, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
+                {canManage ? <ModalTrigger description="Cập nhật nội dung, đơn vị thực hiện, số km và chi phí." eyebrow="BẢO DƯỠNG" size="large" title="Sửa bảo dưỡng" triggerClassName="text-button" triggerLabel="Sửa"><RepairForm maintenanceTypes={activeMaintenanceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, service_date: item.service_date, service_type: item.service_type, description: item.description, odometer_km: item.odometer_km, vat_amount: item.vat_amount, vendor: item.vendor, invoice_number: item.invoice_number, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
                 {canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Bản ghi bảo dưỡng sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "repair" }} title="Xóa bảo dưỡng?" /> : null}
               </div></td>
             </InteractiveTableRow>;
@@ -469,7 +475,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
 
       {section === "fuel" ? <section className="panel vehicle-section-panel vehicle-section-panel--fuel">
         <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><small>{fuelLogs.length} bản ghi</small></div>
-        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Số tiền</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
+        <div className="table-wrap"><table><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th>Người mua</th><th>Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleFuelLogs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
             const document = documentByRecord.get(`FUEL:${item.id}:INVOICE`);
@@ -492,7 +498,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                       { label: "Số km từ", value: item.odometer_from != null ? Number(item.odometer_from).toLocaleString("vi-VN") : null },
                       { label: "Số km đến", value: item.odometer_to != null ? Number(item.odometer_to).toLocaleString("vi-VN") : null },
                       { label: "Quãng đường", value: distance != null ? `${distance.toLocaleString("vi-VN")} km` : null },
-                      { label: "Số tiền", value: formatMoney(Number(item.amount)) },
+                      { label: "Chi phí", value: formatMoney(Number(item.amount)) },
                       { label: "Người mua / tài xế", value: item.purchaser },
                       { label: "Nguồn dữ liệu", value: item.source_file ? `Nhập từ ${item.source_file}` : null, wide: true },
                     ]} />
@@ -508,6 +514,56 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           {!fuelLogs.length ? <tr><td className="empty-cell" colSpan={7}>Chưa có lịch sử nhiên liệu.</td></tr> : null}
         </tbody></table></div>
         <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelLogs.length} />
+      </section> : null}
+
+      {section === "settings" ? <section className="settings-catalog-grid vehicle-settings-grid">
+        {vehicleSettingTypes.map((settingType) => {
+          const rows = vehicleSettings.filter((item) => item.setting_type === settingType);
+          const activeRows = rows.filter((item) => item.active);
+          const definition = vehicleSettingTypeDefinitions[settingType];
+          return <article className="panel setting-group-card" key={settingType}>
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">CẤU HÌNH XE</p>
+                <h2>{definition.label}</h2>
+                <small>{definition.description}</small>
+              </div>
+              {canManage ? <ModalTrigger description={definition.description} eyebrow="CẤU HÌNH XE" size="medium" title={`Thêm ${definition.label.toLowerCase()}`} triggerClassName="secondary-button" triggerLabel="+ Thêm"><VehicleSettingEditor settingType={settingType} /></ModalTrigger> : <span className="status-pill">{activeRows.length} đang dùng</span>}
+            </div>
+            <div className="setting-list">
+              {rows.map((setting) => {
+                const activeIndex = activeRows.findIndex((item) => item.id === setting.id);
+                return <div className={`setting-item ${setting.active ? "" : "setting-item-inactive"}`} key={setting.id}>
+                  <div className="setting-item-copy">
+                    <strong>{setting.display_name}</strong>
+                    <small>{setting.setting_value}</small>
+                  </div>
+                  {canManage ? <div className="row-actions">
+                    {setting.active ? <>
+                      <form action={moveVehicleSetting}>
+                        <input name="id" type="hidden" value={setting.id} />
+                        <input name="direction" type="hidden" value="up" />
+                        <button aria-label={`Đưa ${setting.display_name} lên`} className="order-button" disabled={activeIndex === 0} type="submit">↑</button>
+                      </form>
+                      <form action={moveVehicleSetting}>
+                        <input name="id" type="hidden" value={setting.id} />
+                        <input name="direction" type="hidden" value="down" />
+                        <button aria-label={`Đưa ${setting.display_name} xuống`} className="order-button" disabled={activeIndex === activeRows.length - 1} type="submit">↓</button>
+                      </form>
+                    </> : null}
+                    <ModalTrigger description="Đổi tên sẽ cập nhật các hồ sơ xe đang liên kết." eyebrow="SỬA CẤU HÌNH XE" size="medium" title={setting.display_name} triggerClassName="text-button" triggerLabel="Sửa"><VehicleSettingEditor setting={setting} settingType={settingType} /></ModalTrigger>
+                    <form action={toggleVehicleSetting}>
+                      <input name="id" type="hidden" value={setting.id} />
+                      <input name="active" type="hidden" value={String(!setting.active)} />
+                      <button className={`text-button ${setting.active ? "text-danger" : ""}`} type="submit">{setting.active ? "Ngừng dùng" : "Bật lại"}</button>
+                    </form>
+                  </div> : null}
+                </div>;
+              })}
+              {!rows.length ? <p className="empty-setting">Chưa có cấu hình.</p> : null}
+            </div>
+          </article>;
+        })}
       </section> : null}
     </>
   );

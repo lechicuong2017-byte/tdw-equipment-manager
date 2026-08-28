@@ -351,7 +351,7 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 }
 .vehicle-page-header .page-header { margin-bottom: 1.35rem; }
 .vehicle-page-header .muted { max-width: 760px; }
-.vehicle-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 37, 55, 0.04); display: grid; gap: 0.35rem; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-bottom: 1rem; padding: 0.4rem; }
+.vehicle-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 37, 55, 0.04); display: grid; gap: 0.35rem; grid-template-columns: repeat(8, minmax(0, 1fr)); margin-bottom: 1rem; padding: 0.4rem; }
 .vehicle-tabs a { align-items: center; border-radius: 11px; color: var(--ink-soft); display: flex; font-size: 0.8rem; font-weight: 800; gap: 0.55rem; justify-content: center; min-height: 46px; padding: 0 0.8rem; transition: background 160ms ease, color 160ms ease, transform 160ms ease; }
 .vehicle-tabs a:hover { background: var(--surface-muted); color: var(--ink); }
 .vehicle-tabs a.active { background: linear-gradient(135deg, #e2f4f8, #d8eef5); color: var(--brand-dark); }
