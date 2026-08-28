@@ -30,8 +30,15 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const { access, supabase } = await requireAccess();
   if (!can(access, "supplies.view")) redirect("/modules");
   const params = await searchParams;
+  const [currentYearText, currentMonthText] = new Intl.DateTimeFormat("en-CA", {
+    month: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+  }).format(new Date()).split("-");
+  const currentYear = Number(currentYearText);
+  const currentQuarter = Math.ceil(Number(currentMonthText) / 3);
   const section = ["overview", "catalog", "warehouse", "requests", "quotes", "reports"].includes(params.section ?? "") ? params.section! : "overview";
-  const year = Number(params.year) || new Date().getFullYear();
+  const year = Number(params.year) || currentYear;
   const quarter = Number(params.quarter) || 0;
   const month = Number(params.month) || 0;
   const category = params.category === "OFFICE_SUPPLY" || params.category === "CLEANING_SUPPLY" ? params.category : "";
@@ -95,9 +102,11 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
     const item = Array.isArray(movement.supply_items) ? movement.supply_items[0] : movement.supply_items;
     return matchesSupplyFilter({ ...item, item_id: movement.item_id, default_unit_price: movement.unit_price });
   });
-  const totalSpend = lines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
-  const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
-  const currentRequests = requests.filter((request) => request.period_year === new Date().getFullYear() && (request.period_type !== "QUARTER" || request.period_quarter === currentQuarter));
+  const currentYearRequests = requests.filter((request) => Number(request.period_year) === currentYear);
+  const currentYearRequestIds = new Set(currentYearRequests.map((request) => request.id));
+  const currentYearLines = lines.filter((line) => currentYearRequestIds.has(line.request_id));
+  const totalSpend = currentYearLines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  const currentRequests = currentYearRequests.filter((request) => request.period_type !== "QUARTER" || request.period_quarter === currentQuarter);
   const filteredRequests = requests.filter((request) => request.period_year === year && (!quarter || request.period_quarter === quarter) && (!month || request.period_month === month) && (!category || request.category === category));
   const filteredIds = new Set(filteredRequests.map((request) => request.id));
   const filteredLines = lines.filter((line) => filteredIds.has(line.request_id));
@@ -131,9 +140,9 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
     {section === "overview" ? <>
       <section className="metric-grid supply-metric-grid">
         <article className="metric-card supply-metric supply-metric--blue"><span><AppIcon name="supplies" /></span><small>Mặt hàng đang dùng</small><strong>{items.filter((item) => item.active).length}</strong><p>{items.filter((item) => item.category === "OFFICE_SUPPLY").length} VPP · {items.filter((item) => item.category === "CLEANING_SUPPLY").length} vệ sinh</p></article>
-        <article className="metric-card supply-metric supply-metric--amber"><span><AppIcon name="assets" /></span><small>Kế hoạch kỳ hiện tại</small><strong>{currentRequests.length}</strong><p>Quý {currentQuarter}/{new Date().getFullYear()}</p></article>
+        <article className="metric-card supply-metric supply-metric--amber"><span><AppIcon name="assets" /></span><small>Kế hoạch kỳ hiện tại</small><strong>{currentRequests.length}</strong><p>Quý {currentQuarter}/{currentYear}</p></article>
         <article className="metric-card supply-metric supply-metric--violet"><span><AppIcon name="value" /></span><small>Báo giá nhà cung cấp</small><strong>{quotes.length}</strong><p>{quoteLines.length} dòng hàng đã nhận</p></article>
-        <article className="metric-card supply-metric supply-metric--green"><span><AppIcon name="reports" /></span><small>Tổng chi phí ghi nhận</small><strong>{money.format(totalSpend)}</strong><p>{lines.length} dòng mua sắm</p></article>
+        <article className="metric-card supply-metric supply-metric--green"><span><AppIcon name="reports" /></span><small>Tổng chi phí ghi nhận</small><strong>{money.format(totalSpend)}</strong><p>Năm {currentYear} · {currentYearLines.length} dòng mua sắm</p></article>
       </section>
       <section className="supply-overview-grid"><article className="panel supply-panel supply-panel--requests"><div className="panel-heading"><div><p className="eyebrow">KẾ HOẠCH GẦN ĐÂY</p><h2>Số lượng đã duyệt trên giấy</h2></div>{can(access, "supplies.import") ? <ModalTrigger description="Đọc bảng tổng hợp đã được TGĐ duyệt trên giấy, kiểm tra trùng và duyệt từng dòng trước khi lưu. Thao tác này không thay đổi tồn kho." eyebrow="NHẬP DỮ LIỆU" size="wide" title="Xem trước kế hoạch XLSX" triggerClassName="secondary-button" triggerLabel="Nhập kế hoạch XLSX"><SupplyImportForm /></ModalTrigger> : null}</div><SupplyRequestTable access={access} requests={requests.slice(0, 6)} linesByRequest={linesByRequest} /></article><article className="panel supply-panel supply-panel--quotes"><div className="panel-heading"><div><p className="eyebrow">BÁO GIÁ MỚI</p><h2>Nhà cung cấp</h2></div>{can(access, "supplies.import") ? <ModalTrigger description="Đọc báo giá Lan Anh, Hưng Thịnh và các mẫu có cột tương đương." eyebrow="BÁO GIÁ" size="large" title="Nhập báo giá XLSX" triggerClassName="secondary-button" triggerLabel="+ Báo giá"><SupplierQuoteImportForm /></ModalTrigger> : null}</div>{quoteQueryError ? <p className="form-error">Chưa áp dụng cấu trúc báo giá mới trên Supabase.</p> : <SupplyQuoteCards quotes={quotes.slice(0, 5)} />}</article></section>
     </> : null}

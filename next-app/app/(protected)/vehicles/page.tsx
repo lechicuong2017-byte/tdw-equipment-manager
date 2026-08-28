@@ -202,8 +202,12 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const latestInsuranceByVehicle = new Map<string, (typeof insurances)[number]>();
   insurances.forEach((item) => { if (!latestInsuranceByVehicle.has(item.vehicle_id)) latestInsuranceByVehicle.set(item.vehicle_id, item); });
   const upcomingInsurance = [...latestInsuranceByVehicle.values()].filter((item) => daysUntil(item.expires_on, today) <= item.reminder_days).sort((a, b) => a.expires_on.localeCompare(b.expires_on));
-  const totalRepairCost = repairs.reduce((sum, item) => sum + Number(item.vat_amount || 0), 0);
-  const totalFuelCost = fuelLogs.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const currentYear = today.slice(0, 4);
+  const currentYearPrefix = `${currentYear}-`;
+  const currentYearRepairs = repairs.filter((item) => item.service_date.startsWith(currentYearPrefix));
+  const currentYearFuelLogs = fuelLogs.filter((item) => item.payment_date.startsWith(currentYearPrefix));
+  const totalRepairCost = currentYearRepairs.reduce((sum, item) => sum + Number(item.vat_amount || 0), 0);
+  const totalFuelCost = currentYearFuelLogs.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const activeVehicles = vehicles.filter((vehicle) => vehicle.status === "ACTIVE").length;
   const maintenanceVehicles = vehicles.filter((vehicle) => vehicle.status === "MAINTENANCE").length;
   const inactiveVehicles = vehicles.filter((vehicle) => !["ACTIVE", "MAINTENANCE"].includes(vehicle.status)).length;
@@ -238,8 +242,8 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           <article className="metric-card metric-primary"><span className="metric-icon"><AppIcon name="vehicle" /></span><p>Tổng số xe</p><strong>{vehicles.length}</strong><small>Hồ sơ đang quản lý</small></article>
           <article className="metric-card metric-tone-amber"><span className="metric-icon"><AppIcon name="inspection" /></span><p>Đăng kiểm cần chú ý</p><strong>{upcoming.length}</strong><small>Trong hạn nhắc hoặc đã quá hạn</small></article>
           <article className="metric-card metric-tone-blue"><span className="metric-icon"><AppIcon name="insurance" /></span><p>Bảo hiểm cần chú ý</p><strong>{upcomingInsurance.length}</strong><small>Theo ngày nhắc của từng hợp đồng</small></article>
-          <article className="metric-card metric-tone-violet"><span className="metric-icon"><AppIcon name="maintenance" /></span><p>Chi phí bảo dưỡng</p><strong className="metric-money">{formatMoney(totalRepairCost)}</strong><small>{repairs.length} lần ghi nhận</small></article>
-          <article className="metric-card metric-tone-green"><span className="metric-icon"><AppIcon name="fuel" /></span><p>Chi phí nhiên liệu</p><strong className="metric-money">{formatMoney(totalFuelCost)}</strong><small>{fuelLogs.length} lần mua</small></article>
+          <article className="metric-card metric-tone-violet"><span className="metric-icon"><AppIcon name="maintenance" /></span><p>Chi phí bảo dưỡng</p><strong className="metric-money">{formatMoney(totalRepairCost)}</strong><small>Năm {currentYear} · {currentYearRepairs.length} lần ghi nhận</small></article>
+          <article className="metric-card metric-tone-green"><span className="metric-icon"><AppIcon name="fuel" /></span><p>Chi phí nhiên liệu</p><strong className="metric-money">{formatMoney(totalFuelCost)}</strong><small>Năm {currentYear} · {currentYearFuelLogs.length} lần mua</small></article>
         </section>
         <section className="vehicle-overview-grid">
           <article className="panel vehicle-overview-card vehicle-overview-card--inspection">
