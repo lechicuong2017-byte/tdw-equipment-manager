@@ -75,6 +75,7 @@ const fuelSchema = z.object({
 
 const insuranceSchema = z.object({
   id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
+  renew_from_id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
   vehicle_id: z.uuid("Xe không hợp lệ"),
   insurance_name: z.string().trim().min(1, "Tên bảo hiểm là bắt buộc").max(200),
   insurance_type: z.string().trim().min(1, "Loại bảo hiểm là bắt buộc").max(160),
@@ -435,11 +436,41 @@ export async function saveVehicleInsurance(_state: VehicleActionState, formData:
   if (certificate.error) return { error: certificate.error };
   const parsed = insuranceSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
-  const saved = await saveRow(
-    "vehicle_insurances",
-    parsed.data,
-    parsed.data.id ? "Đã cập nhật bảo hiểm xe." : "Đã ghi nhận bảo hiểm xe.",
-  );
+  const { renew_from_id: renewFromId, ...insuranceData } = parsed.data;
+  let saved: SavedVehicleRow;
+  if (renewFromId) {
+    const { access, supabase } = await requireAccess();
+    if (!can(access, "vehicles.manage")) return { error: "Bạn không có quyền gia hạn bảo hiểm xe." };
+    const { data: renewedRecordId, error } = await supabase.rpc("renew_vehicle_insurance", {
+      target_certificate_number: insuranceData.certificate_number,
+      target_cost: insuranceData.cost,
+      target_expires_on: insuranceData.expires_on,
+      target_insurance_company: insuranceData.insurance_company,
+      target_insurance_name: insuranceData.insurance_name,
+      target_insurance_type: insuranceData.insurance_type,
+      target_note: insuranceData.note,
+      target_reminder_days: insuranceData.reminder_days,
+      target_source_insurance_id: renewFromId,
+      target_starts_on: insuranceData.starts_on,
+      target_vehicle_id: insuranceData.vehicle_id,
+    });
+    if (error?.message.includes("VEHICLE_INSURANCE_NOT_ACTIVE") || error?.message.includes("VEHICLE_INSURANCE_ALREADY_RENEWED")) {
+      return { error: "Hợp đồng này đã được gia hạn hoặc không còn hiệu lực trong danh sách." };
+    }
+    if (error?.message.includes("VEHICLE_INSURANCE_VEHICLE_MISMATCH")) {
+      return { error: "Không thể đổi xe khi gia hạn bảo hiểm." };
+    }
+    if (error) return { error: "Không thể gia hạn bảo hiểm. Hãy kiểm tra thông tin và thử lại." };
+    saved = { recordId: String(renewedRecordId), success: "Đã gia hạn bảo hiểm và lưu nhật ký kỳ cũ." };
+  } else {
+    saved = await saveRow(
+      "vehicle_insurances",
+      insuranceData,
+      insuranceData.id ? "Đã cập nhật bảo hiểm xe." : "Đã ghi nhận bảo hiểm xe.",
+    );
+  }
+  revalidatePath("/vehicles");
+  revalidatePath("/vehicles/reports");
   if (saved.error || !saved.recordId || (!invoice.file && !certificate.file)) return saved;
   const context = await requireAccess();
   const plate = await vehiclePlate(context.supabase, parsed.data.vehicle_id);

@@ -29,6 +29,16 @@ type VehicleDocument = {
   stored_byte_size: number | string;
 };
 
+type InsuranceRenewalRecord = {
+  id: string;
+  certificate_number: string;
+  starts_on: string;
+  expires_on: string;
+  renewed_from_id: string | null;
+  renewed_at: string | null;
+  renewed_by_name: string;
+};
+
 function formatFileSize(value: number | string) {
   const bytes = Number(value || 0);
   return bytes >= 1024 * 1024
@@ -99,6 +109,48 @@ function VehicleDocumentDetail({ document, label = "Hóa đơn / chứng từ PD
   );
 }
 
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(value));
+}
+
+function VehicleInsuranceRenewalHistory({
+  current,
+  records,
+}: {
+  current: InsuranceRenewalRecord;
+  records: Map<string, InsuranceRenewalRecord>;
+}) {
+  const entries: { previous: InsuranceRenewalRecord; renewed: InsuranceRenewalRecord }[] = [];
+  const visited = new Set<string>();
+  let renewed = current;
+  while (renewed.renewed_from_id && !visited.has(renewed.renewed_from_id)) {
+    visited.add(renewed.renewed_from_id);
+    const previous = records.get(renewed.renewed_from_id);
+    if (!previous) break;
+    entries.push({ previous, renewed });
+    renewed = previous;
+  }
+  if (!entries.length) return null;
+  return (
+    <section className="vehicle-renewal-history">
+      <strong>Nhật ký gia hạn</strong>
+      <div>
+        {entries.map(({ previous, renewed: renewal }) => (
+          <article key={renewal.id}>
+            <span>Gia hạn {renewal.renewed_at ? formatDateTime(renewal.renewed_at) : "—"}</span>
+            <b>{formatDate(previous.starts_on)}–{formatDate(previous.expires_on)} → {formatDate(renewal.starts_on)}–{formatDate(renewal.expires_on)}</b>
+            <small>{renewal.renewed_by_name || "Người dùng hệ thống"}{previous.certificate_number ? ` · Chứng nhận cũ ${previous.certificate_number}` : ""}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function settingLabel(labels: Map<string, string>, value: string) {
   return labels.get(value) ?? value.replaceAll("_", " ");
 }
@@ -109,6 +161,18 @@ function vietnamToday() {
 
 function daysUntil(date: string, today: string) {
   return Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+}
+
+function nextInsurancePeriod(expiresOn: string) {
+  const startsOn = new Date(`${expiresOn}T00:00:00Z`);
+  startsOn.setUTCDate(startsOn.getUTCDate() + 1);
+  const nextExpiresOn = new Date(startsOn);
+  nextExpiresOn.setUTCFullYear(nextExpiresOn.getUTCFullYear() + 1);
+  nextExpiresOn.setUTCDate(nextExpiresOn.getUTCDate() - 1);
+  return {
+    startsOn: startsOn.toISOString().slice(0, 10),
+    expiresOn: nextExpiresOn.toISOString().slice(0, 10),
+  };
 }
 
 function dueTone(days: number) {
@@ -157,10 +221,11 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const { access, supabase } = await requireAccess();
   const canManage = can(access, "vehicles.manage");
   const canDelete = can(access, "vehicles.delete");
-  const [vehiclesResult, inspectionsResult, insurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult] = await Promise.all([
+  const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult] = await Promise.all([
     supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500),
     supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("inspection_date", { ascending: false }).limit(500),
-    supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("starts_on", { ascending: false }).limit(500),
+    supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)").is("archived_at", null).order("starts_on", { ascending: false }).limit(500),
+    supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)").not("archived_at", "is", null).order("archived_at", { ascending: false }).limit(1000),
     supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("service_date", { ascending: false }).limit(500),
     supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("payment_date", { ascending: false }).limit(500),
     supabase.from("departments").select("id,name").order("name").limit(500),
@@ -171,6 +236,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const vehicles = vehiclesResult.data ?? [];
   const inspections = inspectionsResult.data ?? [];
   const insurances = insurancesResult.data ?? [];
+  const archivedInsurances = archivedInsurancesResult.data ?? [];
   const repairs = repairsResult.data ?? [];
   const fuelLogs = fuelResult.data ?? [];
   const vehicleSettings = (settingsResult.data ?? []) as Setting[];
@@ -186,6 +252,9 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       `${item.record_type}:${item.record_id}:${item.document_kind}`,
       item,
     ]),
+  );
+  const insuranceRecordsById = new Map<string, InsuranceRenewalRecord>(
+    [...insurances, ...archivedInsurances].map((item) => [item.id, item as InsuranceRenewalRecord]),
   );
   const inspectionsPage = boundedPage(requestedPage, inspections.length);
   const insurancePage = boundedPage(requestedPage, insurances.length);
@@ -398,7 +467,10 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
         <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Bảo hiểm</th><th>Ngày bắt đầu</th><th>Ngày hết hạn</th><th>Hãng / chứng nhận</th><th>Chi phí</th><th>Hồ sơ PDF</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInsurances.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
-            const due = dueTone(daysUntil(item.expires_on, today));
+            const remainingDays = daysUntil(item.expires_on, today);
+            const due = dueTone(remainingDays);
+            const canRenewNow = remainingDays <= item.reminder_days;
+            const renewalPeriod = nextInsurancePeriod(item.expires_on);
             const invoiceDocument = documentByRecord.get(`INSURANCE:${item.id}:INVOICE`);
             const certificateDocument = documentByRecord.get(`INSURANCE:${item.id}:CERTIFICATE`);
             return <InteractiveTableRow key={item.id}>
@@ -426,9 +498,11 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                       { label: "Chi phí", value: formatMoney(Number(item.cost)) },
                     ]} />
                     <VehicleDetailNote note={item.note} />
+                    <VehicleInsuranceRenewalHistory current={item as InsuranceRenewalRecord} records={insuranceRecordsById} />
                     <VehicleDocumentDetail document={invoiceDocument} label="Hóa đơn bảo hiểm PDF" />
                     <VehicleDocumentDetail document={certificateDocument} label="Giấy chứng nhận bảo hiểm PDF" />
                     {canManage || canDelete ? <div className="vehicle-detail-actions modal-actions">
+                      {canManage && canRenewNow ? <ModalTrigger closeParentOnSuccess description="Tạo kỳ bảo hiểm mới, ẩn kỳ cũ khỏi danh sách và lưu ngày, người thực hiện trong nhật ký gia hạn." eyebrow="GIA HẠN BẢO HIỂM" size="large" title="Gia hạn bảo hiểm" triggerClassName="secondary-button" triggerLabel="Gia hạn bảo hiểm"><InsuranceForm mode="renew" renewFromId={item.id} insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: "", starts_on: renewalPeriod.startsOn, expires_on: renewalPeriod.expiresOn, cost: item.cost, reminder_days: item.reminder_days, note: `Gia hạn từ hợp đồng hết hạn ngày ${formatDate(item.expires_on)}.` }} /></ModalTrigger> : null}
                       {canManage ? <ModalTrigger closeParentOnSuccess description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="primary-button" triggerLabel="Sửa bảo hiểm"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
                       {canDelete ? <ConfirmAction action={deleteVehicleRecord} closeParentOnSuccess confirmLabel="Xóa bảo hiểm" description="Hợp đồng bảo hiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "insurance" }} title="Xóa bảo hiểm?" triggerAriaLabel={`Xóa bảo hiểm ${item.insurance_name}`} triggerClassName="danger-button" triggerLabel="Xóa bảo hiểm" /> : null}
                     </div> : null}

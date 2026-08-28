@@ -539,7 +539,7 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-document-link small { color: var(--ink-soft); font-size: 0.6rem; font-weight: 650; }
 .vehicle-document-empty { color: var(--ink-muted); }
 .vehicle-record-detail { display: grid; gap: 1rem; }
-.vehicle-detail-actions { border-top: 1px solid var(--line); display: flex; justify-content: flex-end; padding-top: 1.1rem; }
+.vehicle-detail-actions { border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: flex-end; padding-top: 1.1rem; }
 .vehicle-record-detail-grid { display: grid; gap: 0.7rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
 .vehicle-record-detail-field { background: #f7fafc; border: 1px solid var(--line); border-radius: 12px; min-width: 0; padding: 0.8rem 0.9rem; }
 .vehicle-record-detail-field--wide { grid-column: 1 / -1; }
@@ -548,6 +548,13 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-record-detail-note { background: #fffaf0; border: 1px solid #ead6ae; border-radius: 12px; padding: 0.85rem 0.95rem; }
 .vehicle-record-detail-note strong { color: var(--ink); display: block; font-size: 0.72rem; margin-bottom: 0.3rem; }
 .vehicle-record-detail-note p { color: var(--ink-soft); font-size: 0.74rem; line-height: 1.55; margin: 0; white-space: pre-wrap; }
+.vehicle-renewal-history { background: #f1fbf8; border: 1px solid #b8dfd2; border-radius: 12px; padding: 0.85rem 0.95rem; }
+.vehicle-renewal-history > strong { color: var(--ink); display: block; font-size: 0.72rem; margin-bottom: 0.65rem; }
+.vehicle-renewal-history > div { display: grid; gap: 0.55rem; }
+.vehicle-renewal-history article { border-left: 3px solid #169873; display: grid; gap: 0.2rem; padding-left: 0.7rem; }
+.vehicle-renewal-history span { color: #08785c; font-size: 0.7rem; font-weight: 800; }
+.vehicle-renewal-history b { color: var(--ink); font-size: 0.74rem; line-height: 1.45; }
+.vehicle-renewal-history small { color: var(--ink-soft); font-size: 0.68rem; line-height: 1.45; }
 .vehicle-record-document { align-items: center; background: #f7fafc; border: 1px dashed #c9d5df; border-radius: 14px; display: grid; gap: 0.75rem; grid-template-columns: auto minmax(0, 1fr) auto; padding: 0.85rem; }
 .vehicle-record-document--ready { background: linear-gradient(135deg, #f0fbf6, #f5fbf8); border-color: #b8dfcc; }
 .vehicle-record-document-icon { align-items: center; background: #e8f5f8; border-radius: 11px; color: var(--brand); display: flex; height: 42px; justify-content: center; width: 42px; }

@@ -777,7 +777,8 @@ async function buildReportPayload(
 
   if (reportType === "vehicle_insurance") {
     let query = supabase.from("vehicle_insurances")
-      .select("insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,vehicles(vehicle_code,vehicle_name,license_plate)");
+      .select("insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,vehicles(vehicle_code,vehicle_name,license_plate)")
+      .is("archived_at", null);
     if (filters.vehicle_id) query = query.eq("vehicle_id", filters.vehicle_id);
     const dateRange = vehicleReportDateRange(filters);
     if (dateRange) query = query.gte("starts_on", dateRange.start).lte("starts_on", dateRange.end);

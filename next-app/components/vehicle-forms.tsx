@@ -85,7 +85,7 @@ export type FuelFormInitial = {
 };
 
 export type InsuranceFormInitial = {
-  id: string;
+  id?: string;
   vehicle_id: string;
   insurance_name: string;
   insurance_type: string;
@@ -248,12 +248,25 @@ export function FuelForm({ vehicles, initial }: { vehicles: VehicleOption[]; ini
   );
 }
 
-export function InsuranceForm({ vehicles, insuranceTypes, initial }: { vehicles: VehicleOption[]; insuranceTypes: VehicleSettingOption[]; initial?: InsuranceFormInitial }) {
+export function InsuranceForm({
+  vehicles,
+  insuranceTypes,
+  initial,
+  mode = initial?.id ? "edit" : "create",
+  renewFromId,
+}: {
+  vehicles: VehicleOption[];
+  insuranceTypes: VehicleSettingOption[];
+  initial?: InsuranceFormInitial;
+  mode?: "create" | "edit" | "renew";
+  renewFromId?: string;
+}) {
   const [state, action, pending] = useActionState(saveVehicleInsurance, initialState);
   return (
     <form action={action} className="data-form vehicle-form">
       <ActionStateToast state={state} />
-      {initial ? <input name="id" type="hidden" value={initial.id} /> : null}
+      {mode === "edit" && initial?.id ? <input name="id" type="hidden" value={initial.id} /> : null}
+      {mode === "renew" && renewFromId ? <input name="renew_from_id" type="hidden" value={renewFromId} /> : null}
       <div className="form-grid">
         <label className="span-2">Xe *<VehicleSelect defaultValue={initial?.vehicle_id} vehicles={vehicles} /></label>
         <label>Tên bảo hiểm *<input defaultValue={initial?.insurance_name ?? ""} name="insurance_name" maxLength={200} required placeholder="Bảo hiểm vật chất xe" /></label>
@@ -269,7 +282,9 @@ export function InsuranceForm({ vehicles, insuranceTypes, initial }: { vehicles:
         <label className="span-3">Ghi chú<textarea defaultValue={initial?.note ?? ""} name="note" rows={3} maxLength={3000} /></label>
       </div>
       {state.error ? <p className="form-error">{state.error}</p> : null}
-      <div className="form-actions"><SaveButton label="Lưu bảo hiểm" pending={pending} /></div>
+      <div className="form-actions">
+        <SaveButton label={mode === "renew" ? "Lưu lần gia hạn" : "Lưu bảo hiểm"} pending={pending} />
+      </div>
     </form>
   );
 }
