@@ -54,6 +54,17 @@ export default async function ModulesPage() {
           </Link>
         ) : null)}
       </div>
+      <div className="module-system-panel module-account-panel">
+        <div className="module-system-copy">
+          <span className="module-picker-icon"><AppIcon name="settings" size={28} /></span>
+          <div>
+            <p className="eyebrow">TÀI KHOẢN CỦA TÔI</p>
+            <h2>Cài đặt & mật khẩu</h2>
+            <p>Tự đổi mật khẩu hoặc gửi email đặt lại mật khẩu cho tài khoản đang đăng nhập.</p>
+          </div>
+        </div>
+        <Link className="secondary-button" href="/account">Mở cài đặt →</Link>
+      </div>
       {access.roles.includes("admin") ? (
         <div className="module-system-panel">
           <div className="module-system-copy">

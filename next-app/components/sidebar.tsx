@@ -60,6 +60,7 @@ const supplyNavItems: ReadonlyArray<{
 export function Sidebar({ access }: { access: AccessProfile }) {
   const pathname = usePathname();
   const isAdminArea = pathname.startsWith("/admin");
+  const isAccountArea = pathname.startsWith("/account");
   const isVehicleModule = pathname.startsWith("/vehicles");
   const isSupplyModule = pathname.startsWith("/supplies");
   const navItems = isVehicleModule ? vehicleNavItems : isSupplyModule ? supplyNavItems : equipmentNavItems;
@@ -81,7 +82,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           src="/tdw-logo.webp"
           width={126}
         />
-        <small>{isAdminArea ? "System Administration" : isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
+        <small>{isAdminArea ? "System Administration" : isAccountArea ? "Account Settings" : isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
       </div>
 
       <nav aria-label="Điều hướng chính">
@@ -89,7 +90,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           <span className="nav-icon nav-icon-rose"><AppIcon name="dashboard" /></span>
           Đổi phân hệ
         </Link>
-        {!isAdminArea ? (
+        {!isAdminArea && !isAccountArea ? (
           <>
             <p className="nav-label">QUẢN LÝ</p>
             {navItems
@@ -100,6 +101,13 @@ export function Sidebar({ access }: { access: AccessProfile }) {
                   {item.label}
                 </Link>
               ))}
+          </>
+        ) : null}
+
+        {isAccountArea ? (
+          <>
+            <p className="nav-label">TÀI KHOẢN</p>
+            <Link href="/account"><span className="nav-icon nav-icon-cyan"><AppIcon name="settings" /></span>Tài khoản & mật khẩu</Link>
           </>
         ) : null}
 
@@ -120,6 +128,14 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           <strong>{access.full_name || "Người dùng TDW"}</strong>
           <small>{access.roles.join(", ") || "viewer"}</small>
         </div>
+        <Link
+          aria-label="Cài đặt tài khoản"
+          className="sidebar-account-button"
+          href="/account"
+          title="Cài đặt tài khoản"
+        >
+          <AppIcon name="settings" size={18} />
+        </Link>
         <form action={logout}>
           <button aria-label="Đăng xuất" title="Đăng xuất" type="submit"><AppIcon name="logout" size={18} /></button>
         </form>
