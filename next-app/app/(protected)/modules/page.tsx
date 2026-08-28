@@ -53,31 +53,31 @@ export default async function ModulesPage() {
             <strong>Mở phân hệ <span aria-hidden="true">→</span></strong>
           </Link>
         ) : null)}
+        <Link
+          aria-label="Mở cài đặt tài khoản và mật khẩu"
+          className="module-picker-card module-picker-cyan"
+          href="/account"
+        >
+          <span className="module-picker-icon"><AppIcon name="settings" size={34} /></span>
+          <p className="eyebrow">TÀI KHOẢN CỦA TÔI</p>
+          <h2>Cài đặt & mật khẩu</h2>
+          <p>Tự đổi mật khẩu hoặc gửi email đặt lại mật khẩu cho tài khoản đang đăng nhập.</p>
+          <strong>Mở cài đặt <span aria-hidden="true">→</span></strong>
+        </Link>
+        {access.roles.includes("admin") ? (
+          <Link
+            aria-label="Mở quản trị người dùng và quyền phân hệ"
+            className="module-picker-card module-picker-violet"
+            href="/admin/users"
+          >
+            <span className="module-picker-icon"><AppIcon name="users" size={34} /></span>
+            <p className="eyebrow">QUẢN TRỊ HỆ THỐNG</p>
+            <h2>Người dùng và quyền phân hệ</h2>
+            <p>Quản lý tài khoản, vai trò, MFA và phạm vi dữ liệu cho từng phân hệ.</p>
+            <strong>Mở quản trị <span aria-hidden="true">→</span></strong>
+          </Link>
+        ) : null}
       </div>
-      <div className="module-system-panel module-account-panel">
-        <div className="module-system-copy">
-          <span className="module-picker-icon"><AppIcon name="settings" size={28} /></span>
-          <div>
-            <p className="eyebrow">TÀI KHOẢN CỦA TÔI</p>
-            <h2>Cài đặt & mật khẩu</h2>
-            <p>Tự đổi mật khẩu hoặc gửi email đặt lại mật khẩu cho tài khoản đang đăng nhập.</p>
-          </div>
-        </div>
-        <Link className="secondary-button" href="/account">Mở cài đặt →</Link>
-      </div>
-      {access.roles.includes("admin") ? (
-        <div className="module-system-panel">
-          <div className="module-system-copy">
-            <span className="module-picker-icon"><AppIcon name="users" size={28} /></span>
-            <div>
-              <p className="eyebrow">QUẢN TRỊ HỆ THỐNG</p>
-              <h2>Người dùng và quyền phân hệ</h2>
-              <p>Quản lý tài khoản, vai trò, MFA và phạm vi dữ liệu cho từng phân hệ.</p>
-            </div>
-          </div>
-          <Link className="secondary-button" href="/admin/users">Mở quản trị →</Link>
-        </div>
-      ) : null}
     </section>
   );
 }

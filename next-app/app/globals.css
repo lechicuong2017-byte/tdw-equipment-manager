@@ -37,22 +37,20 @@
 .module-picker-page { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 9rem); }
 .module-picker-heading { margin-bottom: 2rem; max-width: 720px; text-align: center; }
 .module-picker-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1280px; width: 100%; }
-.module-picker-card { -webkit-backdrop-filter: blur(24px) saturate(118%); backdrop-filter: blur(24px) saturate(118%); background: rgba(255, 255, 255, 0.82); border: 1px solid rgba(255, 255, 255, 0.74); border-radius: 24px; box-shadow: 0 22px 58px rgba(15, 37, 55, 0.12); min-height: 300px; overflow: hidden; padding: 2rem; position: relative; transition: transform 160ms ease, box-shadow 160ms ease; }
+.module-picker-card { -webkit-backdrop-filter: blur(24px) saturate(118%); backdrop-filter: blur(24px) saturate(118%); background: rgba(255, 255, 255, 0.82); border: 1px solid rgba(255, 255, 255, 0.74); border-radius: 24px; box-shadow: 0 22px 58px rgba(15, 37, 55, 0.12); cursor: pointer; display: flex; flex-direction: column; min-height: 300px; overflow: hidden; padding: 2rem; position: relative; transition: background 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
 .module-picker-card::before { background: currentColor; content: ""; height: 5px; inset: 0 0 auto; position: absolute; }
-.module-picker-card:hover { box-shadow: 0 24px 56px rgba(15, 37, 55, 0.14); transform: translateY(-4px); }
+.module-picker-card:hover { background: rgba(255, 255, 255, 0.96); border-color: color-mix(in srgb, currentColor 30%, white); box-shadow: 0 26px 62px rgba(15, 37, 55, 0.17); transform: translateY(-5px); }
+.module-picker-card:focus-visible { outline: 3px solid color-mix(in srgb, currentColor 34%, transparent); outline-offset: 4px; }
 .module-picker-card > p:not(.eyebrow) { color: var(--ink-soft); min-height: 54px; }
-.module-picker-card > strong { color: var(--brand); display: block; margin-top: 1.8rem; }
+.module-picker-card > strong { color: var(--brand); display: block; margin-top: auto; padding-top: 1.8rem; transition: color 160ms ease, transform 160ms ease; }
+.module-picker-card:hover > strong,
+.module-picker-card:focus-visible > strong { color: currentColor; transform: translateX(4px); }
 .module-picker-blue { color: #3379d4; }
 .module-picker-green { color: #15845d; }
 .module-picker-amber { color: #b36a08; }
+.module-picker-cyan { color: #168397; }
+.module-picker-violet { color: #7657c8; }
 .module-picker-icon { align-items: center; background: color-mix(in srgb, currentColor 12%, white); border-radius: 18px; display: flex; height: 68px; justify-content: center; margin-bottom: 1.8rem; width: 68px; }
-.module-system-panel { -webkit-backdrop-filter: blur(24px) saturate(118%); align-items: center; backdrop-filter: blur(24px) saturate(118%); background: rgba(255, 255, 255, 0.78); border: 1px solid rgba(255, 255, 255, 0.72); border-radius: 22px; box-shadow: 0 18px 48px rgba(15, 37, 55, 0.1); display: flex; gap: 1.25rem; justify-content: space-between; margin-top: 1.25rem; max-width: 1280px; padding: 1.35rem 1.5rem; width: 100%; }
-.module-system-copy { align-items: center; display: flex; gap: 1rem; }
-.module-system-copy .module-picker-icon { color: var(--brand); flex: 0 0 56px; height: 56px; margin: 0; width: 56px; }
-.module-system-copy h2 { font-size: 1.08rem; margin: 0.15rem 0; }
-.module-system-copy p:last-child { color: var(--ink-soft); margin: 0; }
-.module-account-panel { border-left: 4px solid #168397; }
-.module-account-panel .module-picker-icon { color: #168397; }
 
 .account-settings-grid {
   display: grid;
@@ -413,7 +411,6 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 @media (max-width: 720px) {
   .module-picker-main { padding: 1.25rem; }
   .module-picker-grid { grid-template-columns: 1fr; }
-  .module-system-panel, .module-system-copy { align-items: flex-start; flex-direction: column; }
   .account-recovery-card { align-items: stretch; grid-template-columns: 1fr; }
   .account-recovery-card form { grid-column: 1; grid-row: auto; }
   .account-password-form .primary-button,
