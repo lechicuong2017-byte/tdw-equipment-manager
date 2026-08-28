@@ -343,33 +343,37 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     ]} />
                     <VehicleDetailNote note={item.note} />
                     <VehicleDocumentDetail document={document} />
-                    {canManage ? (
-                      <div className="vehicle-detail-actions">
-                        <ModalTrigger
-                          description={`Tạo lần đăng kiểm kế tiếp cho ${vehicle?.license_plate ?? vehicle?.vehicle_name ?? "xe này"}. Hồ sơ hiện tại vẫn được giữ nguyên trong lịch sử.`}
-                          eyebrow="GIA HẠN ĐĂNG KIỂM"
-                          size="large"
-                          title="Gia hạn đăng kiểm"
-                          triggerClassName="primary-button"
-                          triggerLabel="Gia hạn đăng kiểm"
-                        >
-                          <InspectionForm
-                            mode="renew"
-                            vehicles={vehicleOptions}
-                            initial={{
-                              vehicle_id: item.vehicle_id,
-                              inspection_date: "",
-                              expires_on: "",
-                              cost: 0,
-                              reminder_days: item.reminder_days,
-                              certificate_number: "",
-                              inspection_center: item.inspection_center,
-                              seat_count: item.seat_count,
-                              odometer_km: item.odometer_km,
-                              note: `Gia hạn từ hồ sơ đăng kiểm ngày ${formatDate(item.inspection_date)}.`,
-                            }}
-                          />
-                        </ModalTrigger>
+                    {canManage || canDelete ? (
+                      <div className="vehicle-detail-actions modal-actions">
+                        {canManage ? <>
+                          <ModalTrigger
+                            description={`Tạo lần đăng kiểm kế tiếp cho ${vehicle?.license_plate ?? vehicle?.vehicle_name ?? "xe này"}. Hồ sơ hiện tại vẫn được giữ nguyên trong lịch sử.`}
+                            eyebrow="GIA HẠN ĐĂNG KIỂM"
+                            size="large"
+                            title="Gia hạn đăng kiểm"
+                            triggerClassName="secondary-button"
+                            triggerLabel="Gia hạn đăng kiểm"
+                          >
+                            <InspectionForm
+                              mode="renew"
+                              vehicles={vehicleOptions}
+                              initial={{
+                                vehicle_id: item.vehicle_id,
+                                inspection_date: "",
+                                expires_on: "",
+                                cost: 0,
+                                reminder_days: item.reminder_days,
+                                certificate_number: "",
+                                inspection_center: item.inspection_center,
+                                seat_count: item.seat_count,
+                                odometer_km: item.odometer_km,
+                                note: `Gia hạn từ hồ sơ đăng kiểm ngày ${formatDate(item.inspection_date)}.`,
+                              }}
+                            />
+                          </ModalTrigger>
+                          <ModalTrigger description="Cập nhật thời hạn, số chỗ, chi phí và thông tin đăng kiểm." eyebrow="ĐĂNG KIỂM" size="large" title="Sửa đăng kiểm" triggerClassName="primary-button" triggerLabel="Sửa đăng kiểm"><InspectionForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, inspection_date: item.inspection_date, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, certificate_number: item.certificate_number, inspection_center: item.inspection_center, seat_count: item.seat_count, odometer_km: item.odometer_km, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger>
+                        </> : null}
+                        {canDelete ? <ConfirmAction action={deleteVehicleRecord} confirmLabel="Xóa đăng kiểm" description="Bản ghi đăng kiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "inspection" }} title="Xóa đăng kiểm?" triggerAriaLabel={`Xóa đăng kiểm ngày ${formatDate(item.inspection_date)}`} triggerClassName="danger-button" triggerLabel="Xóa đăng kiểm" /> : null}
                       </div>
                     ) : null}
                   </div>
@@ -419,6 +423,10 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     <VehicleDetailNote note={item.note} />
                     <VehicleDocumentDetail document={invoiceDocument} label="Hóa đơn bảo hiểm PDF" />
                     <VehicleDocumentDetail document={certificateDocument} label="Giấy chứng nhận bảo hiểm PDF" />
+                    {canManage || canDelete ? <div className="vehicle-detail-actions modal-actions">
+                      {canManage ? <ModalTrigger description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="primary-button" triggerLabel="Sửa bảo hiểm"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
+                      {canDelete ? <ConfirmAction action={deleteVehicleRecord} confirmLabel="Xóa bảo hiểm" description="Hợp đồng bảo hiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "insurance" }} title="Xóa bảo hiểm?" triggerAriaLabel={`Xóa bảo hiểm ${item.insurance_name}`} triggerClassName="danger-button" triggerLabel="Xóa bảo hiểm" /> : null}
+                    </div> : null}
                   </div>
                 </ModalTrigger>
                 {canManage ? <ModalTrigger description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="text-button" triggerLabel="Sửa"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
@@ -459,6 +467,10 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     ]} />
                     <VehicleDetailNote note={item.note} />
                     <VehicleDocumentDetail document={document} />
+                    {canManage || canDelete ? <div className="vehicle-detail-actions modal-actions">
+                      {canManage ? <ModalTrigger description="Cập nhật nội dung, đơn vị thực hiện, số km và chi phí." eyebrow="BẢO DƯỠNG" size="large" title="Sửa bảo dưỡng" triggerClassName="primary-button" triggerLabel="Sửa bảo dưỡng"><RepairForm maintenanceTypes={activeMaintenanceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, service_date: item.service_date, service_type: item.service_type, description: item.description, odometer_km: item.odometer_km, vat_amount: item.vat_amount, vendor: item.vendor, invoice_number: item.invoice_number, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
+                      {canDelete ? <ConfirmAction action={deleteVehicleRecord} confirmLabel="Xóa bảo dưỡng" description="Bản ghi bảo dưỡng sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "repair" }} title="Xóa bảo dưỡng?" triggerAriaLabel={`Xóa bảo dưỡng ngày ${formatDate(item.service_date)}`} triggerClassName="danger-button" triggerLabel="Xóa bảo dưỡng" /> : null}
+                    </div> : null}
                   </div>
                 </ModalTrigger>
                 {canManage ? <ModalTrigger description="Cập nhật nội dung, đơn vị thực hiện, số km và chi phí." eyebrow="BẢO DƯỠNG" size="large" title="Sửa bảo dưỡng" triggerClassName="text-button" triggerLabel="Sửa"><RepairForm maintenanceTypes={activeMaintenanceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, service_date: item.service_date, service_type: item.service_type, description: item.description, odometer_km: item.odometer_km, vat_amount: item.vat_amount, vendor: item.vendor, invoice_number: item.invoice_number, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
@@ -501,6 +513,10 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     ]} />
                     <VehicleDetailNote note={item.note} />
                     <VehicleDocumentDetail document={document} />
+                    {canManage || canDelete ? <div className="vehicle-detail-actions modal-actions">
+                      {canManage ? <ModalTrigger description="Cập nhật số lít, hành trình, người mua và số tiền." eyebrow="NHIÊN LIỆU" size="large" title="Sửa nhiên liệu" triggerClassName="primary-button" triggerLabel="Sửa nhiên liệu"><FuelForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, payment_date: item.payment_date, liters: item.liters, odometer_from: item.odometer_from, odometer_to: item.odometer_to, amount: item.amount, purchaser: item.purchaser, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
+                      {canDelete ? <ConfirmAction action={deleteVehicleRecord} confirmLabel="Xóa nhiên liệu" description="Bản ghi nhiên liệu sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "fuel" }} title="Xóa nhiên liệu?" triggerAriaLabel={`Xóa nhiên liệu ngày ${formatDate(item.payment_date)}`} triggerClassName="danger-button" triggerLabel="Xóa nhiên liệu" /> : null}
+                    </div> : null}
                   </div>
                 </ModalTrigger>
                 {canManage ? <ModalTrigger description="Cập nhật số lít, hành trình, người mua và số tiền." eyebrow="NHIÊN LIỆU" size="large" title="Sửa nhiên liệu" triggerClassName="text-button" triggerLabel="Sửa"><FuelForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, payment_date: item.payment_date, liters: item.liters, odometer_from: item.odometer_from, odometer_to: item.odometer_to, amount: item.amount, purchaser: item.purchaser, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
