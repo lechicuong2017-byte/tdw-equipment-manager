@@ -87,6 +87,10 @@ export function AppModal({
   useEffect(() => {
     if (!open) return;
     closeButtonRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (confirmingClose) setConfirmingClose(false);
