@@ -59,6 +59,7 @@ const supplyNavItems: ReadonlyArray<{
 
 export function Sidebar({ access }: { access: AccessProfile }) {
   const pathname = usePathname();
+  const isAdminArea = pathname.startsWith("/admin");
   const isVehicleModule = pathname.startsWith("/vehicles");
   const isSupplyModule = pathname.startsWith("/supplies");
   const navItems = isVehicleModule ? vehicleNavItems : isSupplyModule ? supplyNavItems : equipmentNavItems;
@@ -80,7 +81,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           src="/tdw-logo.webp"
           width={126}
         />
-        <small>{isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
+        <small>{isAdminArea ? "System Administration" : isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
       </div>
 
       <nav aria-label="Điều hướng chính">
@@ -88,19 +89,23 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           <span className="nav-icon nav-icon-rose"><AppIcon name="dashboard" /></span>
           Đổi phân hệ
         </Link>
-        <p className="nav-label">QUẢN LÝ</p>
-        {navItems
-          .filter((item) => can(access, item.permission))
-          .map((item) => (
-            <Link href={item.href} key={item.href}>
-              <span className={`nav-icon nav-icon-${item.tone}`}><AppIcon name={item.icon} /></span>
-              {item.label}
-            </Link>
-          ))}
-
-        {!isVehicleModule && !isSupplyModule && access.roles.includes("admin") ? (
+        {!isAdminArea ? (
           <>
-            <p className="nav-label nav-label-spaced">HỆ THỐNG</p>
+            <p className="nav-label">QUẢN LÝ</p>
+            {navItems
+              .filter((item) => can(access, item.permission))
+              .map((item) => (
+                <Link href={item.href} key={item.href}>
+                  <span className={`nav-icon nav-icon-${item.tone}`}><AppIcon name={item.icon} /></span>
+                  {item.label}
+                </Link>
+              ))}
+          </>
+        ) : null}
+
+        {isAdminArea && access.roles.includes("admin") ? (
+          <>
+            <p className="nav-label">HỆ THỐNG</p>
             <Link href="/admin/users"><span className="nav-icon nav-icon-cyan"><AppIcon name="users" /></span>Người dùng</Link>
             <Link href="/admin/settings"><span className="nav-icon nav-icon-amber"><AppIcon name="settings" /></span>Cấu hình</Link>
             <Link href="/admin/audit"><span className="nav-icon nav-icon-violet"><AppIcon name="timeline" /></span>Nhật ký</Link>

@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAccess } from "@/lib/auth";
+import { systemModuleCodes } from "@/lib/system-modules";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const modules = ["assets", "maintenance", "movement", "software", "vehicles", "supplies"] as const;
+const scopeModules = ["assets", "maintenance", "movement", "software", "vehicles", "supplies"] as const;
 const scopeTypes = ["none", "all", "department", "assigned", "owned"] as const;
 
 function requireAdmin(roles: string[]) {
@@ -120,13 +121,26 @@ export async function updateUserAccess(formData: FormData) {
     );
   }
 
+  const submittedModules = formData
+    .getAll("module_access")
+    .map((value) => String(value));
+  const parsedModules = z.array(z.enum(systemModuleCodes)).safeParse(submittedModules);
+  if (!parsedModules.success) {
+    redirect(
+      `/admin/users?error=${encodeURIComponent("Phân hệ được cấp quyền chưa hợp lệ")}`,
+    );
+  }
+  const grantedModules = base.data.role_code === "admin"
+    ? [...systemModuleCodes]
+    : [...new Set(parsedModules.data)];
+
   const scopes: Array<{
-    module: (typeof modules)[number];
+    module: (typeof scopeModules)[number];
     scope_type: Exclude<(typeof scopeTypes)[number], "none">;
     department_id: string | null;
   }> = [];
 
-  for (const module of modules) {
+  for (const module of scopeModules) {
     const scope = z.enum(scopeTypes).safeParse(formData.get(`scope_${module}`));
     if (!scope.success || scope.data === "none") continue;
 
@@ -153,6 +167,7 @@ export async function updateUserAccess(formData: FormData) {
     target_active: base.data.active === "on",
     target_must_enroll_mfa:
       base.data.role_code === "admin" || base.data.must_enroll_mfa === "on",
+    target_modules: grantedModules,
     target_scopes: scopes,
   });
   if (error) {
@@ -160,6 +175,7 @@ export async function updateUserAccess(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidatePath("/modules");
   revalidatePath("/dashboard");
   redirect(`/admin/users?ok=${encodeURIComponent("Đã cập nhật quyền")}`);
 }

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { SystemModule } from "@/lib/system-modules";
 import type { AccessProfile } from "@/lib/types";
 
 const getAccessSession = cache(async (): Promise<{
@@ -52,4 +53,19 @@ export function can(access: AccessProfile, permission: string) {
     access.roles.includes("admin") ||
     access.permissions.includes(permission)
   );
+}
+
+export function hasModule(access: AccessProfile, module: SystemModule) {
+  return (
+    access.roles.includes("admin") ||
+    (access.modules ?? []).includes(module)
+  );
+}
+
+export async function requireModuleAccess(module: SystemModule) {
+  const session = await requireAccess();
+  if (!hasModule(session.access, module)) {
+    redirect("/modules");
+  }
+  return session;
 }

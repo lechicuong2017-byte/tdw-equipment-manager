@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
-import { can, requireAccess } from "@/lib/auth";
+import { hasModule, requireAccess } from "@/lib/auth";
 
 export const metadata = { title: "Chọn phân hệ" };
 
@@ -13,7 +13,7 @@ export default async function ModulesPage() {
       eyebrow: "TÀI SẢN",
       title: "Quản lý thiết bị",
       description: "Thiết bị, linh kiện, bảo trì, luân chuyển, phần mềm và báo cáo.",
-      available: can(access, "assets.view"),
+      available: hasModule(access, "equipment"),
       tone: "blue",
     },
     {
@@ -22,7 +22,7 @@ export default async function ModulesPage() {
       eyebrow: "PHƯƠNG TIỆN",
       title: "Quản lý xe",
       description: "Hồ sơ xe, đăng kiểm, bảo dưỡng sửa chữa, nhiên liệu và nhắc hạn.",
-      available: can(access, "vehicles.view"),
+      available: hasModule(access, "vehicles"),
       tone: "green",
     },
     {
@@ -31,7 +31,7 @@ export default async function ModulesPage() {
       eyebrow: "HÀNH CHÍNH",
       title: "Văn phòng phẩm & vệ sinh",
       description: "Danh mục hàng hóa, phiếu yêu cầu, mua sắm theo kỳ và báo cáo chi phí.",
-      available: can(access, "supplies.view"),
+      available: hasModule(access, "supplies"),
       tone: "amber",
     },
   ];

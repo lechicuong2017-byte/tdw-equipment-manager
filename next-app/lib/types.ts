@@ -5,6 +5,7 @@ export type AccessProfile = {
   active: boolean;
   must_enroll_mfa: boolean;
   roles: string[];
+  modules: string[];
   permissions: string[];
 };
 

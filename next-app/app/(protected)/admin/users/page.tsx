@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { ModalTrigger } from "@/components/app-modal";
 import { PageHeader } from "@/components/page-header";
 import { requireAccess } from "@/lib/auth";
+import { systemModuleDefinitions } from "@/lib/system-modules";
 import {
   inviteUser,
   sendPasswordRecovery,
@@ -14,7 +15,7 @@ type UsersPageProps = {
   searchParams: Promise<{ ok?: string; error?: string }>;
 };
 
-const modules = [
+const scopeModules = [
   ["assets", "Thiết bị"],
   ["maintenance", "Bảo trì"],
   ["movement", "Luân chuyển"],
@@ -33,6 +34,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     rolesResult,
     userRolesResult,
     scopesResult,
+    moduleAccessResult,
     departmentsResult,
   ] = await Promise.all([
     supabase
@@ -44,6 +46,9 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     supabase
       .from("data_access_scopes")
       .select("user_id,module,scope_type,department_id"),
+    supabase
+      .from("user_module_access")
+      .select("user_id,module"),
     supabase.from("departments").select("id,name").order("name"),
   ]);
 
@@ -52,12 +57,14 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     rolesResult.error,
     userRolesResult.error,
     scopesResult.error,
+    moduleAccessResult.error,
     departmentsResult.error,
   ].find(Boolean);
   const profiles = profilesResult.data;
   const roles = rolesResult.data;
   const userRoles = userRolesResult.data;
   const scopes = scopesResult.data;
+  const moduleAccess = moduleAccessResult.data;
   const departments = departmentsResult.data;
 
   const roleCodeById = new Map((roles ?? []).map((role) => [role.id, role.code]));
@@ -72,8 +79,8 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     <>
       <PageHeader
         eyebrow="QUẢN TRỊ"
-        title="Người dùng và phạm vi dữ liệu"
-        description="Vai trò quyết định thao tác; phạm vi quyết định những bản ghi người dùng được truy cập."
+        title="Người dùng và quyền phân hệ"
+        description="Phân hệ quyết định khu vực được truy cập; vai trò và phạm vi dữ liệu quyết định thao tác bên trong."
         actions={(
           <ModalTrigger
             description="Gửi thư mời Supabase Auth và yêu cầu người dùng thiết lập tài khoản."
@@ -113,6 +120,12 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
           const userScopes = (scopes ?? []).filter(
             (scope) => scope.user_id === profile.id,
           );
+          const grantedModules = new Set(
+            (moduleAccess ?? [])
+              .filter((item) => item.user_id === profile.id)
+              .map((item) => item.module),
+          );
+          const isAdmin = roleCode === "admin";
           return (
             <article className="panel" key={profile.id}>
               <div className="panel-heading">
@@ -125,10 +138,18 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                       {profile.active ? "Đang hoạt động" : "Đã vô hiệu hóa"}
                     </span>
                   </p>
+                  <div className="module-access-summary" aria-label="Phân hệ được truy cập">
+                    {systemModuleDefinitions
+                      .filter((module) => isAdmin || grantedModules.has(module.code))
+                      .map((module) => (
+                        <span key={module.code}>{module.label}</span>
+                      ))}
+                    {!isAdmin && grantedModules.size === 0 ? <span>Chưa cấp phân hệ</span> : null}
+                  </div>
                 </div>
               </div>
               <ModalTrigger
-                description="Điều chỉnh vai trò, MFA và phạm vi dữ liệu theo từng phân hệ."
+                description="Điều chỉnh vai trò, phân hệ được phép truy cập, MFA và phạm vi dữ liệu."
                 eyebrow={roleCode.toUpperCase()}
                 size="large"
                 title={`Sửa quyền ${profile.full_name || profile.email}`}
@@ -161,8 +182,40 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                   </label>
                 </div>
 
+                <fieldset className="module-access-fieldset">
+                  <legend>Phân hệ được phép truy cập</legend>
+                  <p className="field-help">
+                    Tắt một phân hệ sẽ ẩn khỏi màn hình chọn phân hệ và chặn cả truy cập trực tiếp.
+                  </p>
+                  <div className="module-access-options">
+                    {systemModuleDefinitions.map((module) => (
+                      <label key={module.code}>
+                        <input
+                          defaultChecked={isAdmin || grantedModules.has(module.code)}
+                          disabled={isAdmin}
+                          name={isAdmin ? undefined : "module_access"}
+                          type="checkbox"
+                          value={module.code}
+                        />
+                        <span>
+                          <strong>{module.label}</strong>
+                          <small>{module.description}</small>
+                        </span>
+                        {isAdmin ? (
+                          <input name="module_access" type="hidden" value={module.code} />
+                        ) : null}
+                      </label>
+                    ))}
+                  </div>
+                  {isAdmin ? <p className="field-help">Tài khoản Admin luôn có quyền truy cập toàn bộ phân hệ.</p> : null}
+                </fieldset>
+
                 <div className="scope-grid">
-                  {modules.map(([module, label]) => {
+                  <div className="scope-grid-heading">
+                    <strong>Phạm vi dữ liệu chi tiết</strong>
+                    <span>Áp dụng bên trong các phân hệ đã được cấp ở trên.</span>
+                  </div>
+                  {scopeModules.map(([module, label]) => {
                     const current = userScopes.find(
                       (scope) => scope.module === module,
                     );

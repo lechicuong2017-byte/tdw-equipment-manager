@@ -4249,6 +4249,91 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   width: auto;
 }
 
+.module-access-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.module-access-summary span {
+  background: #eef8fb;
+  border: 1px solid #c8e7ef;
+  border-radius: 999px;
+  color: #17677b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.3rem 0.55rem;
+}
+
+.module-access-fieldset {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin: 0;
+  padding: 1rem;
+}
+
+.module-access-fieldset legend {
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 0 0.35rem;
+}
+
+.field-help {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  margin: 0 0 0.8rem;
+}
+
+.module-access-options {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.module-access-options > label {
+  align-items: flex-start;
+  background: #f8fbfd;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.8rem;
+}
+
+.module-access-options > label:has(input:checked) {
+  background: #eef9f6;
+  border-color: #9ed8c5;
+}
+
+.module-access-options input[type="checkbox"] {
+  margin-top: 0.2rem;
+  width: auto;
+}
+
+.module-access-options span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.module-access-options small {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.scope-grid-heading {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.scope-grid-heading span {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
 .scope-grid {
   border-top: 1px solid var(--line);
   display: grid;
@@ -4261,6 +4346,12 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   display: grid;
   gap: 0.65rem;
   grid-template-columns: 0.7fr 1fr 1.35fr;
+}
+
+@media (max-width: 820px) {
+  .module-access-options {
+    grid-template-columns: 1fr;
+  }
 }
 
 .health-summary {
