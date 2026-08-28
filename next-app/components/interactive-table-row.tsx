@@ -29,8 +29,9 @@ export function InteractiveTableRow({
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.target instanceof Element && event.target.closest(interactiveSelector)) return;
     event.preventDefault();
-    openDetail(event.currentTarget, null);
+    openDetail(event.currentTarget, event.target);
   };
 
   return (

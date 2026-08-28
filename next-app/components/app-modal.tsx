@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useActionState, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
+  ActionSuccessContext,
   ActionStateToast,
   ActionSuccessBoundary,
 } from "@/components/action-toast";
@@ -21,6 +22,25 @@ type AppModalProps = {
   title: string;
 };
 
+let bodyScrollLockCount = 0;
+let bodyOverflowBeforeModal = "";
+
+function acquireBodyScrollLock() {
+  if (bodyScrollLockCount === 0) {
+    bodyOverflowBeforeModal = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  bodyScrollLockCount += 1;
+
+  return () => {
+    bodyScrollLockCount = Math.max(0, bodyScrollLockCount - 1);
+    if (bodyScrollLockCount === 0) {
+      document.body.style.overflow = bodyOverflowBeforeModal;
+      bodyOverflowBeforeModal = "";
+    }
+  };
+}
+
 export function AppModal({
   children,
   description,
@@ -36,6 +56,11 @@ export function AppModal({
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const modalRef = useRef<HTMLElement>(null);
+
+  const markFormDirty = useCallback((event: SyntheticEvent<HTMLElement>) => {
+    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
+    setFormDirty(true);
+  }, []);
 
   const requestClose = useCallback(() => {
     const modal = modalRef.current;
@@ -56,8 +81,11 @@ export function AppModal({
   useEffect(() => setMounted(true), []);
   useEffect(() => {
     if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    return acquireBodyScrollLock();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     closeButtonRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -66,7 +94,6 @@ export function AppModal({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [confirmingClose, open, requestClose]);
@@ -92,8 +119,8 @@ export function AppModal({
         aria-labelledby={titleId}
         aria-modal="true"
         className={`app-modal app-modal-${size}`}
-        onChangeCapture={() => setFormDirty(true)}
-        onInputCapture={() => setFormDirty(true)}
+        onChangeCapture={markFormDirty}
+        onInputCapture={markFormDirty}
         ref={modalRef}
         role="dialog"
       >
@@ -144,6 +171,7 @@ export function AppModal({
 
 export function ModalTrigger({
   children,
+  closeParentOnSuccess = false,
   description,
   eyebrow,
   size,
@@ -151,10 +179,16 @@ export function ModalTrigger({
   triggerClassName = "primary-button",
   triggerLabel,
 }: Omit<AppModalProps, "onClose" | "open"> & {
+  closeParentOnSuccess?: boolean;
   triggerClassName?: string;
   triggerLabel: string;
 }) {
   const [open, setOpen] = useState(false);
+  const parentSuccess = useContext(ActionSuccessContext);
+  const handleSuccess = useCallback(() => {
+    setOpen(false);
+    if (closeParentOnSuccess) parentSuccess();
+  }, [closeParentOnSuccess, parentSuccess]);
   return (
     <>
       <button className={triggerClassName} onClick={() => setOpen(true)} type="button">
@@ -168,7 +202,7 @@ export function ModalTrigger({
         size={size}
         title={title}
       >
-        <ActionSuccessBoundary onSuccess={() => setOpen(false)}>
+        <ActionSuccessBoundary onSuccess={handleSuccess}>
           {children}
         </ActionSuccessBoundary>
       </AppModal>
@@ -214,6 +248,7 @@ type ConfirmActionProps = {
     formData: FormData,
   ) => void | ConfirmActionState | Promise<void | ConfirmActionState>;
   confirmLabel?: string;
+  closeParentOnSuccess?: boolean;
   description: string;
   fields: Record<string, string | number | boolean | null | undefined>;
   title?: string;
@@ -232,6 +267,7 @@ const initialConfirmActionState: ConfirmActionState = {};
 export function ConfirmAction({
   action,
   confirmLabel = "Xác nhận xóa",
+  closeParentOnSuccess = false,
   description,
   fields,
   title = "Xóa dữ liệu?",
@@ -240,6 +276,7 @@ export function ConfirmAction({
   triggerLabel = "Xóa",
 }: ConfirmActionProps) {
   const [open, setOpen] = useState(false);
+  const parentSuccess = useContext(ActionSuccessContext);
   const [state, formAction, pending] = useActionState(
     async (_previousState: ConfirmActionState, formData: FormData) => {
       const result = await action(formData);
@@ -249,8 +286,10 @@ export function ConfirmAction({
   );
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state]);
+    if (!state.success) return;
+    setOpen(false);
+    if (closeParentOnSuccess) parentSuccess();
+  }, [closeParentOnSuccess, parentSuccess, state]);
 
   return (
     <>

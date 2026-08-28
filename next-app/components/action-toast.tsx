@@ -25,7 +25,7 @@ type ActionToastContextValue = {
 };
 
 const ActionToastContext = createContext<ActionToastContextValue | null>(null);
-const ActionSuccessContext = createContext<() => void>(() => undefined);
+export const ActionSuccessContext = createContext<() => void>(() => undefined);
 
 export function ActionSuccessBoundary({
   children,
