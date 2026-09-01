@@ -4551,6 +4551,133 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   color: var(--red);
 }
 
+.capacity-panel {
+  margin-bottom: 1rem;
+}
+
+.capacity-panel-heading {
+  align-items: end;
+  display: flex;
+  gap: 1.5rem;
+  justify-content: space-between;
+  margin-bottom: 1.15rem;
+}
+
+.capacity-panel-heading h2 {
+  margin-top: 0.2rem;
+}
+
+.capacity-panel-heading > p {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 420px;
+  text-align: right;
+}
+
+.capacity-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.capacity-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+  padding: 1.1rem;
+}
+
+.capacity-card-topline,
+.capacity-usage-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.capacity-card-topline > span:first-child {
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.capacity-source {
+  background: var(--surface-muted);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 0.28rem 0.5rem;
+}
+
+.capacity-card > strong {
+  display: block;
+  font-size: 1.35rem;
+  letter-spacing: -0.035em;
+  margin-top: 1rem;
+}
+
+.capacity-progress {
+  background: var(--surface-muted);
+  border-radius: 999px;
+  height: 10px;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.capacity-progress > span {
+  background: var(--green);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  min-width: 3px;
+}
+
+.capacity-card-warning .capacity-progress > span {
+  background: var(--amber);
+}
+
+.capacity-card-danger .capacity-progress > span {
+  background: var(--red);
+}
+
+.capacity-usage-row {
+  color: var(--ink-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  margin-top: 0.45rem;
+}
+
+.capacity-card > p {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+.capacity-card > a {
+  color: var(--brand);
+  font-size: 0.7rem;
+  font-weight: 800;
+  margin-top: 0.75rem;
+  text-decoration: none;
+}
+
+.capacity-card > a:hover {
+  text-decoration: underline;
+}
+
+.capacity-card-unmetered {
+  background: linear-gradient(145deg, var(--surface), var(--brand-soft));
+}
+
+.capacity-card-unavailable {
+  border-color: color-mix(in srgb, var(--amber) 35%, var(--line));
+}
+
 .health-note {
   align-items: flex-start;
   display: grid;
@@ -4790,7 +4917,8 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   .module-form-grid,
   .settings-workspace,
   .settings-catalog-grid,
-  .health-grid {
+  .health-grid,
+  .capacity-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -4944,6 +5072,16 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   .component-action-form,
   .component-install-form {
     grid-template-columns: 1fr;
+  }
+
+  .capacity-panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .capacity-panel-heading > p {
+    text-align: left;
   }
 
   .setting-item {
