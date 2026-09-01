@@ -21,7 +21,7 @@ export default async function DashboardPage() {
       year: "numeric",
     }).format(new Date()),
   );
-  const [{ data: statsData }, { data: recentAssets }, { data: valuedAssets }] = await Promise.all([
+  const [{ data: statsData }, { data: recentAssets }] = await Promise.all([
     supabase.rpc("get_dashboard_stats"),
     supabase
       .from("assets")
@@ -32,11 +32,6 @@ export default async function DashboardPage() {
       .neq("status", "DA_THANH_LY")
       .order("updated_at", { ascending: false })
       .limit(6),
-    supabase
-      .from("assets")
-      .select("id, total_price, purchase_year, purchase_date")
-      .is("deleted_at", null)
-      .neq("status", "DA_THANH_LY"),
   ]);
 
   const stats = (statsData ?? {
@@ -50,6 +45,8 @@ export default async function DashboardPage() {
     needs_attention: 0,
     stored_assets: 0,
     total_value: 0,
+    current_year_asset_count: 0,
+    current_year_asset_value: 0,
     by_status: {},
   }) as DashboardStats;
 
@@ -57,18 +54,6 @@ export default async function DashboardPage() {
     Asset,
     "id" | "asset_kind" | "asset_code" | "asset_name" | "status" | "location" | "total_price" | "updated_at"
   >[];
-  const currentYearAssets = ((valuedAssets ?? []) as Pick<
-    Asset,
-    "id" | "total_price" | "purchase_year" | "purchase_date"
-  >[]).filter((asset) =>
-    asset.purchase_year === currentYear
-      || (!asset.purchase_year && asset.purchase_date?.startsWith(`${currentYear}-`)),
-  );
-  const currentYearAssetValue = currentYearAssets.reduce(
-    (sum, asset) => sum + Number(asset.total_price ?? 0),
-    0,
-  );
-
   return (
     <>
       <PageHeader
@@ -107,8 +92,8 @@ export default async function DashboardPage() {
         <article className="metric-card metric-tone-violet">
           <span className="metric-icon"><AppIcon name="value" /></span>
           <p>Giá trị mua sắm</p>
-          <strong className="metric-money">{formatMoney(currentYearAssetValue)}</strong>
-          <small>Năm {currentYear} · {formatNumber(currentYearAssets.length)} tài sản</small>
+          <strong className="metric-money">{formatMoney(stats.current_year_asset_value)}</strong>
+          <small>Năm {currentYear} · {formatNumber(stats.current_year_asset_count)} tài sản</small>
         </article>
       </section>
 

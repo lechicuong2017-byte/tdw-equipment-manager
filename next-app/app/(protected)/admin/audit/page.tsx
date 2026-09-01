@@ -14,6 +14,8 @@ type AuditPageProps = {
 };
 
 type AuditMetadata = Record<string, unknown> | null;
+type AuditActorProfile = { email?: string | null; full_name?: string | null };
+type AuditActor = AuditActorProfile | AuditActorProfile[] | null;
 
 const PAGE_SIZE = 40;
 const allowedFilter = /^[a-zA-Z0-9_]{1,80}$/;
@@ -40,6 +42,11 @@ function metadataKeys(metadata: AuditMetadata) {
   return keys.length ? `Trường bổ sung: ${keys.slice(0, 4).join(", ")}` : "Không có chi tiết bổ sung";
 }
 
+function actorName(actor: AuditActor) {
+  const profile = Array.isArray(actor) ? actor[0] : actor;
+  return profile?.full_name || profile?.email || "Tài khoản không còn hoạt động";
+}
+
 function pageHref(page: number, action: string, table: string) {
   const params = new URLSearchParams();
   if (action) params.set("action", action);
@@ -59,20 +66,16 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 
   let query = supabase
     .from("audit_logs")
-    .select("id,actor_user_id,action,table_name,record_id,metadata,created_at", { count: "exact" })
+    .select(
+      "id,actor_user_id,action,table_name,record_id,metadata,created_at,actor:profiles!audit_logs_actor_user_id_fkey(full_name,email)",
+      { count: "exact" },
+    )
     .order("created_at", { ascending: false })
     .range(from, to);
   if (action) query = query.eq("action", action);
   if (table) query = query.eq("table_name", table);
 
   const { data: logs, count, error } = await query;
-  const actorIds = [...new Set((logs ?? []).map((log) => log.actor_user_id).filter(Boolean))] as string[];
-  const { data: actors } = actorIds.length
-    ? await supabase.from("profiles").select("id,full_name,email").in("id", actorIds)
-    : { data: [] };
-  const actorById = new Map(
-    (actors ?? []).map((actor) => [actor.id, actor.full_name || actor.email]),
-  );
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
   return (
@@ -126,7 +129,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
                   {(logs ?? []).length ? (logs ?? []).map((log) => (
                     <tr key={log.id}>
                       <td>{formatAuditTime(log.created_at)}</td>
-                      <td>{log.actor_user_id ? actorById.get(log.actor_user_id) || "Tài khoản không còn hoạt động" : "Hệ thống"}</td>
+                      <td>{log.actor_user_id ? actorName(log.actor as AuditActor) : "Hệ thống"}</td>
                       <td><span className="status-pill">{actionLabels[log.action] || log.action}</span></td>
                       <td>
                         <strong>{log.table_name}</strong>

@@ -34,6 +34,14 @@ type AssetsPageProps = {
   }>;
 };
 
+type AssetListContext = {
+  settings: { setting_type: string; setting_value: string; display_name: string }[];
+  departments: { id: string; name: string }[];
+  categories: { category: string; item_count: number }[];
+  active_count: number;
+  liquidated_count: number;
+};
+
 export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const [{ supabase, access }, params] = await Promise.all([
     requireAccess(),
@@ -89,49 +97,30 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   if (department === "UNASSIGNED") query = query.is("department_id", null);
   else if (department) query = query.eq("department_id", department);
 
-  const [
-    { data: configuredSettings },
-    { data, count },
-    { data: categoryData },
-    { data: departments },
-    { count: activeCount },
-    { count: liquidatedCount },
-  ] = await Promise.all([
-    supabase
-      .from("settings")
-      .select("setting_type,setting_value,display_name")
-      .in("setting_type", ["status", "asset_type"])
-      .eq("active", true)
-      .order("sort_order"),
+  const [{ data, count }, { data: contextData }] = await Promise.all([
     query,
-    supabase.rpc("get_asset_filter_options_for_scope", {
+    supabase.rpc("get_asset_list_context", {
       target_scope: scope,
     }),
-    supabase
-      .from("departments")
-      .select("id,name")
-      .order("name"),
-    supabase
-      .from("assets")
-      .select("id", { count: "exact", head: true })
-      .is("deleted_at", null)
-      .neq("status", "DA_THANH_LY"),
-    supabase
-      .from("assets")
-      .select("id", { count: "exact", head: true })
-      .is("deleted_at", null)
-      .eq("status", "DA_THANH_LY"),
   ]);
+  const context = (contextData ?? {
+    settings: [],
+    departments: [],
+    categories: [],
+    active_count: 0,
+    liquidated_count: 0,
+  }) as AssetListContext;
+  const configuredSettings = context.settings;
+  const departments = context.departments;
+  const activeCount = context.active_count;
+  const liquidatedCount = context.liquidated_count;
   const statusSettings = (configuredSettings ?? []).filter(
     (item) => item.setting_type === "status",
   );
   const settingLabels = new Map(
     (configuredSettings ?? []).map((item) => [item.setting_value, item.display_name]),
   );
-  const categoryOptions = (categoryData ?? []) as {
-    category: string;
-    item_count: number;
-  }[];
+  const categoryOptions = context.categories;
   const assetRows = data ?? [];
   const assetIds = assetRows.map((asset) => asset.id);
   const { data: liquidationData } = scope === "liquidated" && assetIds.length

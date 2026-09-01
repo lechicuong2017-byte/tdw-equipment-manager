@@ -152,7 +152,7 @@ export default async function MaintenanceLogDetailPage({
           ) : null}
         </article>
 
-        <article className="panel maintenance-detail-media">
+        <article className="panel maintenance-detail-media" id="maintenance-media">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">HÌNH ẢNH</p>

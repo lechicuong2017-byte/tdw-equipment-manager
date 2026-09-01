@@ -93,6 +93,8 @@ export type DashboardStats = {
   needs_attention: number;
   stored_assets: number;
   total_value: number;
+  current_year_asset_count: number;
+  current_year_asset_value: number;
   by_status: Record<string, number>;
 };
 

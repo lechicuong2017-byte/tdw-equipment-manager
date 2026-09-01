@@ -4446,6 +4446,96 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   }
 }
 
+.route-loading {
+  display: grid;
+  gap: 1rem;
+}
+
+.route-loading-header,
+.route-loading-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.route-loading-header {
+  background: transparent;
+  border: 0;
+  padding: 0.25rem 0 0.75rem;
+}
+
+.route-loading-line,
+.route-loading-cards > span {
+  animation: route-loading-pulse 1.25s ease-in-out infinite;
+  background: linear-gradient(
+    100deg,
+    var(--surface-muted) 20%,
+    color-mix(in srgb, var(--brand-soft) 70%, white) 45%,
+    var(--surface-muted) 70%
+  );
+  background-size: 220% 100%;
+  border-radius: 10px;
+  display: block;
+  height: 18px;
+}
+
+.route-loading-line-short {
+  height: 12px;
+  width: 120px;
+}
+
+.route-loading-line-title {
+  height: 42px;
+  max-width: 430px;
+}
+
+.route-loading-line-description {
+  max-width: 620px;
+}
+
+.route-loading-line-heading {
+  height: 26px;
+  margin-bottom: 0.35rem;
+  max-width: 260px;
+}
+
+.route-loading-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.route-loading-cards > span {
+  height: 150px;
+}
+
+.route-loading-panel .route-loading-line:not(.route-loading-line-heading) {
+  max-width: 100%;
+}
+
+.route-loading-panel .route-loading-line:nth-child(3) {
+  width: 82%;
+}
+
+.route-loading-panel .route-loading-line:nth-child(4) {
+  width: 68%;
+}
+
+@keyframes route-loading-pulse {
+  0% { background-position: 100% 0; }
+  100% { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-line,
+  .route-loading-cards > span {
+    animation: none;
+  }
+}
+
 .health-summary {
   align-items: center;
   background: var(--surface);
@@ -4918,7 +5008,8 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   .settings-workspace,
   .settings-catalog-grid,
   .health-grid,
-  .capacity-grid {
+  .capacity-grid,
+  .route-loading-cards {
     grid-template-columns: 1fr;
   }
 }

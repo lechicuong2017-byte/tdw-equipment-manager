@@ -3,7 +3,6 @@ import { ConfirmAction, ModalTrigger } from "@/components/app-modal";
 import { InteractiveTableRow } from "@/components/interactive-table-row";
 import { MaintenanceForms } from "@/components/maintenance-forms";
 import { MaintenanceLogEditor } from "@/components/maintenance-log-editor";
-import { MaintenanceMediaUpload } from "@/components/maintenance-media-upload";
 import { MaintenancePlanEditor } from "@/components/maintenance-plan-editor";
 import { MaintenanceReminderButton } from "@/components/maintenance-reminder-button";
 import { PageHeader } from "@/components/page-header";
@@ -66,32 +65,12 @@ export default async function MaintenancePage() {
   const { data: maintenanceMedia } = logIds.length
     ? await supabase
         .from("media_files")
-        .select("id,owner_id,object_path,thumbnail_path,file_name")
+        .select("owner_id")
         .eq("owner_type", "MAINTENANCE")
         .in("owner_id", logIds)
-        .order("sort_order")
-        .order("created_at")
     : {
-        data: [] as {
-          file_name: string;
-          id: string;
-          object_path: string;
-          owner_id: string;
-          thumbnail_path: string | null;
-        }[],
+        data: [] as { owner_id: string }[],
       };
-
-  const maintenanceMediaPaths = (maintenanceMedia ?? []).map(
-    (item) => item.thumbnail_path || item.object_path,
-  );
-  const { data: maintenanceMediaUrls } = maintenanceMediaPaths.length
-    ? await supabase.storage
-        .from("asset-media")
-        .createSignedUrls(maintenanceMediaPaths, 300)
-    : { data: [] };
-  const maintenanceMediaUrlByPath = new Map(
-    (maintenanceMediaUrls ?? []).map((item) => [item.path, item.signedUrl]),
-  );
 
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -139,19 +118,12 @@ export default async function MaintenancePage() {
   (plans ?? []).forEach((plan) => {
     batchSizes.set(plan.batch_id, (batchSizes.get(plan.batch_id) ?? 0) + 1);
   });
-  const maintenanceMediaByLog = new Map<
-    string,
-    { file_name: string; id: string; signed_url: string | null }[]
-  >();
+  const maintenanceMediaCountByLog = new Map<string, number>();
   (maintenanceMedia ?? []).forEach((item) => {
-    const current = maintenanceMediaByLog.get(item.owner_id) ?? [];
-    const path = item.thumbnail_path || item.object_path;
-    current.push({
-      file_name: item.file_name,
-      id: item.id,
-      signed_url: maintenanceMediaUrlByPath.get(path) ?? null,
-    });
-    maintenanceMediaByLog.set(item.owner_id, current);
+    maintenanceMediaCountByLog.set(
+      item.owner_id,
+      (maintenanceMediaCountByLog.get(item.owner_id) ?? 0) + 1,
+    );
   });
 
   return (
@@ -342,13 +314,12 @@ export default async function MaintenancePage() {
                       <td>
                         <div className="maintenance-media-cell">
                           <span className="table-note">
-                            {maintenanceMediaByLog.get(log.id)?.length ?? 0} ảnh bảo trì
+                            {maintenanceMediaCountByLog.get(log.id) ?? 0} ảnh bảo trì
                           </span>
                           {canManage ? (
-                            <MaintenanceMediaUpload
-                              maintenanceLogId={log.id}
-                              media={maintenanceMediaByLog.get(log.id) ?? []}
-                            />
+                            <Link className="text-button" href={`/maintenance/${log.id}#maintenance-media`}>
+                              Quản lý ảnh
+                            </Link>
                           ) : null}
                         </div>
                       </td>
@@ -369,7 +340,7 @@ export default async function MaintenancePage() {
                                   <div><dt>Người thực hiện</dt><dd>{log.performed_by || "—"}</dd></div>
                                   <div><dt>Đơn vị thực hiện</dt><dd>{log.vendor || "—"}</dd></div>
                                   <div><dt>Bảo hành thêm</dt><dd>{log.warranty_months ? `${log.warranty_months} tháng` : "—"}</dd></div>
-                                  <div><dt>Hình ảnh</dt><dd>{maintenanceMediaByLog.get(log.id)?.length ?? 0} ảnh</dd></div>
+                                  <div><dt>Hình ảnh</dt><dd>{maintenanceMediaCountByLog.get(log.id) ?? 0} ảnh</dd></div>
                                   <div className="record-detail-wide"><dt>Nội dung</dt><dd>{log.description}</dd></div>
                                   <div className="record-detail-wide"><dt>Ghi chú</dt><dd>{log.note || "—"}</dd></div>
                                 </dl>
