@@ -16,6 +16,13 @@ import { normalizeSearchText } from "@/lib/search";
 export const metadata = { title: "Văn phòng phẩm & Dụng cụ vệ sinh" };
 type SuppliesPageProps = { searchParams: Promise<{ section?: string; year?: string; quarter?: string; month?: string; category?: string; q?: string; vendor?: string; price_min?: string; price_max?: string }> };
 type SupplierSnapshot = { vendorName: string; unitPrice: number; quoteDate: string | null };
+type SupplyOverviewStats = {
+  current_request_count: number;
+  current_year_line_count: number;
+  current_year_spend: number;
+  quote_count: number;
+  quote_line_count: number;
+};
 const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const categoryLabel = (value: string) => value === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : value === "CLEANING_SUPPLY" ? "Dụng cụ vệ sinh" : "VPP & Dụng cụ vệ sinh";
 const statusLabel: Record<string, string> = { DRAFT: "Nháp nhập liệu", READY_TO_BUY: "Sẵn sàng mua", ORDERED: "Đã đặt mua", PARTIALLY_RECEIVED: "Nhận một phần", RECEIVED: "Đã nhận đủ", COMPLETED: "Hoàn tất", CANCELLED: "Hủy / chuyển kỳ" };
@@ -49,23 +56,42 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const needsRequests = ["overview", "requests", "reports"].includes(section);
   const needsQuotes = ["overview", "catalog", "warehouse", "quotes"].includes(section);
   const needsInventory = ["catalog", "warehouse"].includes(section);
-  const [itemsResult, requestsResult, linesResult, departmentsResult, quotesResult, quoteLinesResult, balancesResult, movementsResult] = await Promise.all([
+  const requestFields = "id,request_no,category,period_type,period_year,period_month,period_quarter,requested_on,requesting_department,requester_name,checker_name,approver_name,status,note,source_file,created_at";
+  const requestLineFields = "id,request_id,item_code,item_name,unit,proposed_quantity,stock_quantity,ordered_quantity,requested_departments,approval_note,approved_unit_price,amount,note,sort_order";
+  const quoteFields = "id,quote_no,vendor_name,vendor_address,vendor_contact,category,quote_date,valid_until,status,subtotal,tax_rate,tax_amount,total_amount,note,source_file,source_sheet,created_at";
+  const [itemsResult, requestsResult, linesResult, departmentsResult, quotesResult, quoteLinesResult, balancesResult, movementsResult, overviewStatsResult] = await Promise.all([
     supabase.from("supply_items").select("id,category,item_code,item_name,unit,description,default_unit_price,active,updated_at").order("category").order("item_name"),
-    needsRequests ? supabase.from("supply_requests").select("id,request_no,category,period_type,period_year,period_month,period_quarter,requested_on,requesting_department,requester_name,checker_name,approver_name,status,note,source_file,created_at").order("requested_on", { ascending: false }) : Promise.resolve({ data: [], error: null }),
-    needsRequests ? supabase.from("supply_request_lines").select("id,request_id,item_code,item_name,unit,proposed_quantity,stock_quantity,ordered_quantity,requested_departments,approval_note,approved_unit_price,amount,note,sort_order") : Promise.resolve({ data: [], error: null }),
+    needsRequests ? (section === "overview"
+      ? supabase.from("supply_requests").select(`${requestFields},supply_request_lines(${requestLineFields})`).order("requested_on", { ascending: false }).limit(6)
+      : supabase.from("supply_requests").select(requestFields).order("requested_on", { ascending: false }))
+      : Promise.resolve({ data: [], error: null }),
+    needsRequests && section !== "overview" ? supabase.from("supply_request_lines").select(requestLineFields) : Promise.resolve({ data: [], error: null }),
     supabase.from("departments").select("id,name").order("name"),
-    needsQuotes ? supabase.from("supply_quotes").select("id,quote_no,vendor_name,vendor_address,vendor_contact,category,quote_date,valid_until,status,subtotal,tax_rate,tax_amount,total_amount,note,source_file,source_sheet,created_at").order("quote_date", { ascending: false, nullsFirst: false }) : Promise.resolve({ data: [], error: null }),
-    needsQuotes ? supabase.from("supply_quote_lines").select("id,quote_id,item_id,item_code,category,item_name,unit,quantity,unit_price,old_unit_price,amount,note,sort_order").order("sort_order") : Promise.resolve({ data: [], error: null }),
+    needsQuotes ? (section === "overview"
+      ? supabase.from("supply_quotes").select(quoteFields).order("quote_date", { ascending: false, nullsFirst: false }).limit(5)
+      : supabase.from("supply_quotes").select(quoteFields).order("quote_date", { ascending: false, nullsFirst: false }))
+      : Promise.resolve({ data: [], error: null }),
+    needsQuotes && section !== "overview" ? supabase.from("supply_quote_lines").select("id,quote_id,item_id,item_code,category,item_name,unit,quantity,unit_price,old_unit_price,amount,note,sort_order").order("sort_order") : Promise.resolve({ data: [], error: null }),
     needsInventory ? supabase.from("supply_inventory_balances").select("item_id,category,item_code,item_name,unit,active,on_hand_quantity,total_receipt_value,last_movement_at").order("category").order("item_name") : Promise.resolve({ data: [], error: null }),
     needsInventory ? supabase.from("supply_inventory_movements").select("id,item_id,movement_type,quantity,unit_price,movement_date,source_type,reference_no,note,created_at,supply_items(item_code,item_name,unit,category)").order("movement_date", { ascending: false }).order("created_at", { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null }),
+    section === "overview" ? supabase.rpc("get_supply_overview_stats") : Promise.resolve({ data: null, error: null }),
   ]);
-  const queryError = itemsResult.error || requestsResult.error || linesResult.error || departmentsResult.error;
+  const queryError = itemsResult.error || requestsResult.error || linesResult.error || departmentsResult.error || overviewStatsResult.error;
   const quoteQueryError = quotesResult.error || quoteLinesResult.error;
   const items = (itemsResult.data ?? []) as SupplyItemOption[];
-  const requests = requestsResult.data ?? [];
-  const lines = linesResult.data ?? [];
+  const requests = (requestsResult.data ?? []) as Array<any>;
+  const lines = section === "overview"
+    ? requests.flatMap((request) => Array.isArray(request.supply_request_lines) ? request.supply_request_lines : [])
+    : (linesResult.data ?? []);
   const quotes = quotesResult.data ?? [];
   const quoteLines = quoteLinesResult.data ?? [];
+  const overviewStats = (overviewStatsResult.data ?? {
+    current_request_count: 0,
+    current_year_line_count: 0,
+    current_year_spend: 0,
+    quote_count: 0,
+    quote_line_count: 0,
+  }) as SupplyOverviewStats;
   const inventoryBalances = balancesResult.data ?? [];
   const inventoryMovements = movementsResult.data ?? [];
   const inventoryError = balancesResult.error || movementsResult.error;
@@ -108,8 +134,14 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const currentYearRequests = requests.filter((request) => Number(request.period_year) === currentYear);
   const currentYearRequestIds = new Set(currentYearRequests.map((request) => request.id));
   const currentYearLines = lines.filter((line) => currentYearRequestIds.has(line.request_id));
-  const totalSpend = currentYearLines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  const totalSpend = section === "overview"
+    ? Number(overviewStats.current_year_spend || 0)
+    : currentYearLines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
   const currentRequests = currentYearRequests.filter((request) => request.period_type !== "QUARTER" || request.period_quarter === currentQuarter);
+  const currentRequestCount = section === "overview" ? overviewStats.current_request_count : currentRequests.length;
+  const currentYearLineCount = section === "overview" ? overviewStats.current_year_line_count : currentYearLines.length;
+  const quoteCount = section === "overview" ? overviewStats.quote_count : quotes.length;
+  const quoteLineCount = section === "overview" ? overviewStats.quote_line_count : quoteLines.length;
   const filteredRequests = requests.filter((request) => request.period_year === year && (!quarter || request.period_quarter === quarter) && (!month || request.period_month === month) && (!category || request.category === category));
   const filteredIds = new Set(filteredRequests.map((request) => request.id));
   const filteredLines = lines.filter((line) => filteredIds.has(line.request_id));
@@ -143,9 +175,9 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
     {section === "overview" ? <>
       <section className="metric-grid supply-metric-grid">
         <article className="metric-card supply-metric supply-metric--blue"><span><AppIcon name="supplies" /></span><small>Mặt hàng đang dùng</small><strong>{items.filter((item) => item.active).length}</strong><p>{items.filter((item) => item.category === "OFFICE_SUPPLY").length} VPP · {items.filter((item) => item.category === "CLEANING_SUPPLY").length} vệ sinh</p></article>
-        <article className="metric-card supply-metric supply-metric--amber"><span><AppIcon name="assets" /></span><small>Kế hoạch kỳ hiện tại</small><strong>{currentRequests.length}</strong><p>Quý {currentQuarter}/{currentYear}</p></article>
-        <article className="metric-card supply-metric supply-metric--violet"><span><AppIcon name="value" /></span><small>Báo giá nhà cung cấp</small><strong>{quotes.length}</strong><p>{quoteLines.length} dòng hàng đã nhận</p></article>
-        <article className="metric-card supply-metric supply-metric--green"><span><AppIcon name="reports" /></span><small>Tổng chi phí ghi nhận</small><strong>{money.format(totalSpend)}</strong><p>Năm {currentYear} · {currentYearLines.length} dòng mua sắm</p></article>
+        <article className="metric-card supply-metric supply-metric--amber"><span><AppIcon name="assets" /></span><small>Kế hoạch kỳ hiện tại</small><strong>{currentRequestCount}</strong><p>Quý {currentQuarter}/{currentYear}</p></article>
+        <article className="metric-card supply-metric supply-metric--violet"><span><AppIcon name="value" /></span><small>Báo giá nhà cung cấp</small><strong>{quoteCount}</strong><p>{quoteLineCount} dòng hàng đã nhận</p></article>
+        <article className="metric-card supply-metric supply-metric--green"><span><AppIcon name="reports" /></span><small>Tổng chi phí ghi nhận</small><strong>{money.format(totalSpend)}</strong><p>Năm {currentYear} · {currentYearLineCount} dòng mua sắm</p></article>
       </section>
       <section className="supply-overview-grid"><article className="panel supply-panel supply-panel--requests"><div className="panel-heading"><div><p className="eyebrow">KẾ HOẠCH GẦN ĐÂY</p><h2>Số lượng đã duyệt trên giấy</h2></div>{can(access, "supplies.import") ? <ModalTrigger description="Đọc bảng tổng hợp đã được TGĐ duyệt trên giấy, kiểm tra trùng và duyệt từng dòng trước khi lưu. Thao tác này không thay đổi tồn kho." eyebrow="NHẬP DỮ LIỆU" size="wide" title="Xem trước kế hoạch XLSX" triggerClassName="secondary-button" triggerLabel="Nhập kế hoạch XLSX"><SupplyImportForm /></ModalTrigger> : null}</div><SupplyRequestTable access={access} requests={requests.slice(0, 6)} linesByRequest={linesByRequest} /></article><article className="panel supply-panel supply-panel--quotes"><div className="panel-heading"><div><p className="eyebrow">BÁO GIÁ MỚI</p><h2>Nhà cung cấp</h2></div>{can(access, "supplies.import") ? <ModalTrigger description="Đọc báo giá Lan Anh, Hưng Thịnh và các mẫu có cột tương đương." eyebrow="BÁO GIÁ" size="large" title="Nhập báo giá XLSX" triggerClassName="secondary-button" triggerLabel="+ Báo giá"><SupplierQuoteImportForm /></ModalTrigger> : null}</div>{quoteQueryError ? <p className="form-error">Chưa áp dụng cấu trúc báo giá mới trên Supabase.</p> : <SupplyQuoteCards quotes={quotes.slice(0, 5)} />}</article></section>
     </> : null}
