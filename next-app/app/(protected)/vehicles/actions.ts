@@ -857,7 +857,10 @@ export async function previewVehicleImport(_state: VehicleImportState, formData:
         const latestKey = `${kind}|${item.vehicle_id}`;
         const latest = latestDateByVehicle.get(latestKey);
         if (!latest || item.date > latest) latestDateByVehicle.set(latestKey, item.date);
-        const storedFingerprint = item.import_fingerprint || fingerprint({
+        if (item.import_fingerprint) {
+          storedFingerprints.add(`${kind}|${item.import_fingerprint}`);
+        }
+        const contentFingerprint = fingerprint({
           kind,
           license_plate: plateByVehicleId.get(item.vehicle_id) ?? "",
           date: item.date,
@@ -867,7 +870,7 @@ export async function previewVehicleImport(_state: VehicleImportState, formData:
           odometer_to: kind === "fuel" ? item.odometer_to ?? null : null,
           amount: item.amount ?? 0,
         });
-        storedFingerprints.add(`${kind}|${storedFingerprint}`);
+        storedFingerprints.add(`${kind}|${contentFingerprint}`);
         if (item.source_file && item.source_sheet && item.source_row !== null) {
           storedSourceRows.add(`${kind}|${item.source_file}|${item.source_sheet}|${item.source_row}`);
         }
