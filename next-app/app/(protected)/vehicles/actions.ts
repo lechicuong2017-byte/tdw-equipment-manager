@@ -678,7 +678,12 @@ function normalizePlate(value: string) {
   return normalizeText(value).replace(/[^A-Z0-9]/g, "");
 }
 
-function fingerprint(row: Omit<VehicleImportRow, "fingerprint" | "warning">) {
+type VehicleFingerprintInput = Pick<
+  VehicleImportRow,
+  "kind" | "license_plate" | "date" | "description" | "liters" | "odometer_from" | "odometer_to" | "amount"
+>;
+
+function fingerprint(row: VehicleFingerprintInput) {
   return createHash("sha256").update([
     row.kind, normalizePlate(row.license_plate), row.date, row.description,
     row.liters ?? "", row.odometer_from ?? "", row.odometer_to ?? "", row.amount,
@@ -806,7 +811,7 @@ export async function previewVehicleImport(_state: VehicleImportState, formData:
       vehicleIds.length && rows.some((row) => row.kind === "fuel")
         ? supabase
             .from("vehicle_fuel_logs")
-            .select("vehicle_id,payment_date,import_fingerprint,source_file,source_sheet,source_row")
+            .select("vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,import_fingerprint,source_file,source_sheet,source_row")
             .in("vehicle_id", vehicleIds)
             .order("payment_date", { ascending: false })
             .limit(10000)
@@ -814,7 +819,7 @@ export async function previewVehicleImport(_state: VehicleImportState, formData:
       vehicleIds.length && rows.some((row) => row.kind === "repairs")
         ? supabase
             .from("vehicle_repairs")
-            .select("vehicle_id,service_date,import_fingerprint,source_file,source_sheet,source_row")
+            .select("vehicle_id,service_date,description,vat_amount,import_fingerprint,source_file,source_sheet,source_row")
             .in("vehicle_id", vehicleIds)
             .order("service_date", { ascending: false })
             .limit(10000)
@@ -831,20 +836,38 @@ export async function previewVehicleImport(_state: VehicleImportState, formData:
       source_file: string | null;
       source_sheet: string | null;
       source_row: number | null;
+      description?: string | null;
+      liters?: number | null;
+      odometer_from?: number | null;
+      odometer_to?: number | null;
+      amount?: number | null;
     };
     const histories: Record<ImportKind, ExistingImportRow[]> = {
       fuel: (fuelHistoryResult.data ?? []).map((item) => ({ ...item, date: item.payment_date })),
-      repairs: (repairHistoryResult.data ?? []).map((item) => ({ ...item, date: item.service_date })),
+      repairs: (repairHistoryResult.data ?? []).map((item) => ({ ...item, date: item.service_date, amount: item.vat_amount })),
     };
     const latestDateByVehicle = new Map<string, string>();
     const storedFingerprints = new Set<string>();
     const storedSourceRows = new Set<string>();
+    const plateByVehicleId = new Map(
+      (existingVehicles ?? []).map((vehicle) => [vehicle.id, vehicle.license_plate]),
+    );
     (["fuel", "repairs"] as ImportKind[]).forEach((kind) => {
       histories[kind].forEach((item) => {
         const latestKey = `${kind}|${item.vehicle_id}`;
         const latest = latestDateByVehicle.get(latestKey);
         if (!latest || item.date > latest) latestDateByVehicle.set(latestKey, item.date);
-        if (item.import_fingerprint) storedFingerprints.add(`${kind}|${item.import_fingerprint}`);
+        const storedFingerprint = item.import_fingerprint || fingerprint({
+          kind,
+          license_plate: plateByVehicleId.get(item.vehicle_id) ?? "",
+          date: item.date,
+          description: kind === "fuel" ? "Mua nhiên liệu" : item.description ?? "",
+          liters: kind === "fuel" ? item.liters ?? null : null,
+          odometer_from: kind === "fuel" ? item.odometer_from ?? null : null,
+          odometer_to: kind === "fuel" ? item.odometer_to ?? null : null,
+          amount: item.amount ?? 0,
+        });
+        storedFingerprints.add(`${kind}|${storedFingerprint}`);
         if (item.source_file && item.source_sheet && item.source_row !== null) {
           storedSourceRows.add(`${kind}|${item.source_file}|${item.source_sheet}|${item.source_row}`);
         }
