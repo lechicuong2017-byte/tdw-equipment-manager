@@ -572,12 +572,28 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-import-review { border: 1px solid #b9e3ce; border-radius: 14px; padding: 1rem; }
 .vehicle-import-review .import-preview-summary span { display: block; margin-top: 0.2rem; }
 .vehicle-import-review-table { max-height: 52vh; }
-.vehicle-import-review-table table { min-width: 1520px; }
-.vehicle-import-review-table td { vertical-align: middle; }
-.vehicle-import-review-table td:nth-child(5) { min-width: 300px; }
-.vehicle-import-review-table td:nth-child(7) { min-width: 220px; }
+.vehicle-import-review-table table { min-width: 1640px; table-layout: fixed; }
+.vehicle-import-review-table th, .vehicle-import-review-table td { padding-left: 0.8rem; padding-right: 0.8rem; }
+.vehicle-import-review-table td { overflow-wrap: anywhere; vertical-align: middle; }
+.vehicle-import-review-table th:nth-child(1), .vehicle-import-review-table td:nth-child(1) { width: 72px; }
+.vehicle-import-review-table th:nth-child(2), .vehicle-import-review-table td:nth-child(2) { width: 180px; }
+.vehicle-import-review-table th:nth-child(3), .vehicle-import-review-table td:nth-child(3) { width: 310px; }
+.vehicle-import-review-table th:nth-child(4), .vehicle-import-review-table td:nth-child(4) { width: 135px; }
+.vehicle-import-review-table th:nth-child(5), .vehicle-import-review-table td:nth-child(5) { width: 325px; }
+.vehicle-import-review-table th:nth-child(6), .vehicle-import-review-table td:nth-child(6) { width: 155px; }
+.vehicle-import-review-table th:nth-child(7), .vehicle-import-review-table td:nth-child(7) { width: 255px; }
+.vehicle-import-review-table th:nth-child(8), .vehicle-import-review-table td:nth-child(8) { width: 208px; }
+.vehicle-import-cell-copy { display: grid; gap: 0.28rem; line-height: 1.4; min-width: 0; }
+.vehicle-import-cell-copy span, .vehicle-import-cell-copy strong, .vehicle-import-cell-copy small { display: block; }
+.vehicle-import-cell-copy strong { color: var(--ink); font-size: 0.76rem; overflow-wrap: anywhere; }
+.vehicle-import-cell-copy small { color: var(--ink-soft); font-size: 0.68rem; margin: 0; }
+.vehicle-import-sheet-cell span { color: var(--ink-soft); font-size: 0.72rem; }
+.vehicle-import-date, .vehicle-import-money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vehicle-import-money { color: var(--ink); font-weight: 750; }
+.vehicle-import-data-cell { line-height: 1.5; }
+.vehicle-import-review-table .status-pill { line-height: 1.35; max-width: 100%; white-space: normal; }
 .vehicle-import-row-disabled td { background: #f7f9fb; color: var(--muted); }
-.vehicle-import-toolbar span { color: var(--muted); margin-left: auto; }
+.vehicle-import-toolbar span { color: var(--muted); flex: 1 1 260px; line-height: 1.5; margin-left: auto; text-align: right; }
 .supplier-quote-import-flow { display: grid; gap: 1rem; }
 .supply-workbook-import-flow { display: grid; gap: 1rem; }
 .supply-workbook-import-flow > .import-upload-form {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   commitVehicleImport,
   previewVehicleImport,
@@ -14,7 +15,7 @@ import {
   type VehicleImportState,
 } from "@/app/(protected)/vehicles/actions";
 import { AppModal, ModalTrigger } from "@/components/app-modal";
-import { ActionStateToast } from "@/components/action-toast";
+import { ActionStateToast, ActionSuccessBoundary } from "@/components/action-toast";
 import { PdfInvoicePicker } from "@/components/pdf-invoice-picker";
 import { WorkbookFilePicker } from "@/components/workbook-file-picker";
 
@@ -341,14 +342,10 @@ function VehicleImportReview({ preview }: { preview: VehicleImportState & { file
     selected: row.comparison_status !== "already_saved",
   })));
 
-  if (commit.success) {
-    return <><ActionStateToast state={commit} /><div className="import-preview-summary"><strong>{commit.success}</strong><span>Bạn có thể đóng cửa sổ hoặc chọn file khác để tiếp tục.</span></div></>;
-  }
-
   return (
     <>
       <ActionStateToast state={commit} />
-      <form action={commitAction} className="data-form import-preview-form vehicle-import-review">
+      {commit.success ? null : <form action={commitAction} className="data-form import-preview-form vehicle-import-review">
         <input name="file_name" type="hidden" value={preview.fileName} />
         <input name="rows" type="hidden" value={JSON.stringify(selectedRows.map(({ selected: _selected, ...row }) => row))} />
         <div className="import-preview-summary">
@@ -372,11 +369,11 @@ function VehicleImportReview({ preview }: { preview: VehicleImportState & { file
               const disabled = row.comparison_status === "already_saved";
               return <tr className={row.selected ? "selected" : disabled ? "vehicle-import-row-disabled" : ""} key={rowKey}>
                 <td><label className="supply-review-check"><input aria-label={`Chọn dòng ${row.row} sheet ${row.sheet}`} checked={row.selected} className="software-asset-checkbox" disabled={disabled} onChange={(event) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} type="checkbox" /><span aria-hidden="true" className="software-asset-checkmark">✓</span></label></td>
-                <td>{row.sheet}<small>Dòng {row.row}</small></td>
-                <td><strong>{row.vehicle_name}</strong><small>{row.license_plate}</small></td>
-                <td>{new Date(`${row.date}T00:00:00`).toLocaleDateString("vi-VN")}</td>
-                <td>{row.kind === "fuel" ? `${row.liters ?? 0} lít · ${row.odometer_from ?? "—"} → ${row.odometer_to ?? "—"} km` : row.description}</td>
-                <td>{new Intl.NumberFormat("vi-VN").format(row.amount)} đ</td>
+                <td><div className="vehicle-import-cell-copy vehicle-import-sheet-cell"><span>{row.sheet}</span><small>Dòng {row.row}</small></div></td>
+                <td><div className="vehicle-import-cell-copy vehicle-import-vehicle-cell"><strong>{row.vehicle_name}</strong><small>{row.license_plate}</small></div></td>
+                <td className="vehicle-import-date">{new Date(`${row.date}T00:00:00`).toLocaleDateString("vi-VN")}</td>
+                <td><div className="vehicle-import-data-cell">{row.kind === "fuel" ? `${row.liters ?? 0} lít · ${row.odometer_from ?? "—"} → ${row.odometer_to ?? "—"} km` : row.description}</div></td>
+                <td className="vehicle-import-money">{new Intl.NumberFormat("vi-VN").format(row.amount)} đ</td>
                 <td><span className={`status-pill ${importComparisonTone(row)}`}>{importComparisonLabel(row)}</span></td>
                 <td>{row.warning ? <span className="status-pill status-pill--attention">{row.warning}</span> : <span className="status-pill status-muted">Không</span>}</td>
               </tr>;
@@ -388,24 +385,47 @@ function VehicleImportReview({ preview }: { preview: VehicleImportState & { file
           <span>Chỉ các dòng đã tick mới được ghi vào cơ sở dữ liệu.</span>
           <button className="primary-button" disabled={committing || !selectedRows.length} type="submit">{committing ? "Đang nhập…" : `Nhập ${selectedRows.length} dòng đã chọn`}</button>
         </div>
-      </form>
+      </form>}
     </>
   );
 }
 
 function ImportWorkbook() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [preview, previewAction, previewing] = useActionState(previewVehicleImport, initialImportState);
+  const [previewReady, setPreviewReady] = useState(false);
+  const previousPreview = useRef(preview);
+
+  useEffect(() => {
+    if (previousPreview.current === preview) return;
+    previousPreview.current = preview;
+    setPreviewReady(true);
+  }, [preview]);
+
+  const closeImport = useCallback(() => {
+    setPreviewReady(false);
+    setOpen(false);
+  }, []);
+  const finishImport = useCallback(() => {
+    closeImport();
+    router.refresh();
+  }, [closeImport, router]);
+
   return (
     <>
       <button className="secondary-button" onClick={() => setOpen(true)} type="button">Nhập lịch sử XLSX</button>
-      <AppModal open={open} onClose={() => setOpen(false)} eyebrow="NHẬP DỮ LIỆU" title="Bảo dưỡng & nhiên liệu từ XLSX" description="Đối chiếu dữ liệu đã lưu, tự nhận diện dòng mới hơn và cho phép chọn từng dòng trước khi nhập." size="wide">
-        <form action={previewAction} className="data-form import-upload-form">
-          <WorkbookFilePicker label="File lịch sử xe XLSX *" name="file" />
+      <AppModal open={open} onClose={closeImport} eyebrow="NHẬP DỮ LIỆU" title="Bảo dưỡng & nhiên liệu từ XLSX" description="Đối chiếu dữ liệu đã lưu, tự nhận diện dòng mới hơn và cho phép chọn từng dòng trước khi nhập." size="wide">
+        <form action={previewAction} className="data-form import-upload-form" onSubmit={() => setPreviewReady(false)}>
+          <WorkbookFilePicker label="File lịch sử xe XLSX *" name="file" onFileChange={() => setPreviewReady(false)} />
           <button className="secondary-button" disabled={previewing} type="submit">{previewing ? "Đang phân tích…" : "Đọc và xem trước"}</button>
         </form>
-        {preview.error ? <p className="form-error">{preview.error}</p> : null}
-        {preview.fileName && preview.rows?.length ? <VehicleImportReview key={`${preview.fileName}|${preview.rows.length}|${preview.rows[0]?.fingerprint}`} preview={{ ...preview, fileName: preview.fileName, rows: preview.rows }} /> : null}
+        {previewReady && preview.error ? <p className="form-error">{preview.error}</p> : null}
+        {previewReady && preview.fileName && preview.rows?.length ? (
+          <ActionSuccessBoundary onSuccess={finishImport}>
+            <VehicleImportReview key={`${preview.fileName}|${preview.rows.length}|${preview.rows[0]?.fingerprint}`} preview={{ ...preview, fileName: preview.fileName, rows: preview.rows }} />
+          </ActionSuccessBoundary>
+        ) : null}
       </AppModal>
     </>
   );

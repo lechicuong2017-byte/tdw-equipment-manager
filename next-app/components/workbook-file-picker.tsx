@@ -5,10 +5,11 @@ import { useState } from "react";
 type WorkbookFilePickerProps = {
   label: string;
   name: string;
+  onFileChange?: (fileName: string) => void;
   required?: boolean;
 };
 
-export function WorkbookFilePicker({ label, name, required = true }: WorkbookFilePickerProps) {
+export function WorkbookFilePicker({ label, name, onFileChange, required = true }: WorkbookFilePickerProps) {
   const [fileName, setFileName] = useState("");
 
   return (
@@ -19,7 +20,11 @@ export function WorkbookFilePicker({ label, name, required = true }: WorkbookFil
           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           aria-label={label}
           name={name}
-          onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")}
+          onChange={(event) => {
+            const nextFileName = event.target.files?.[0]?.name ?? "";
+            setFileName(nextFileName);
+            onFileChange?.(nextFileName);
+          }}
           required={required}
           type="file"
         />
