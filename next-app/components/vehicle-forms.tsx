@@ -10,6 +10,7 @@ import {
   saveVehicleInspection,
   saveVehicleRepair,
   type VehicleActionState,
+  type VehicleImportRow,
   type VehicleImportState,
 } from "@/app/(protected)/vehicles/actions";
 import { AppModal, ModalTrigger } from "@/components/app-modal";
@@ -289,36 +290,122 @@ export function InsuranceForm({
   );
 }
 
+type SelectableVehicleImportRow = VehicleImportRow & { selected: boolean };
+
+const recommendedImportStatuses = new Set([
+  "new_vehicle",
+  "new_record",
+  "newer",
+  "changed",
+]);
+
+function importComparisonLabel(row: VehicleImportRow) {
+  const storedDate = row.stored_latest_date
+    ? new Date(`${row.stored_latest_date}T00:00:00`).toLocaleDateString("vi-VN")
+    : null;
+  switch (row.comparison_status) {
+    case "new_vehicle": return "Xe mới · chưa có hồ sơ";
+    case "new_record": return "Chưa có lịch sử cùng loại";
+    case "newer": return storedDate ? `Mới hơn dữ liệu lưu ${storedDate}` : "Dữ liệu mới";
+    case "changed": return "Dòng đã nhập có thay đổi";
+    case "already_saved": return "Đã lưu · không nhập lại";
+    case "older": return storedDate ? `Cũ hơn hoặc bằng ${storedDate}` : "Dữ liệu cũ";
+    default: return "Chưa đối chiếu";
+  }
+}
+
+function importComparisonTone(row: VehicleImportRow) {
+  if (["new_vehicle", "new_record", "newer"].includes(row.comparison_status ?? "")) return "status-pill--active";
+  if (row.comparison_status === "changed") return "status-pill--new";
+  if (row.comparison_status === "already_saved") return "status-muted";
+  return "status-pill--attention";
+}
+
+function VehicleImportReview({ preview }: { preview: VehicleImportState & { fileName: string; rows: VehicleImportRow[] } }) {
+  const [commit, commitAction, committing] = useActionState(commitVehicleImport, initialImportState);
+  const [rows, setRows] = useState<SelectableVehicleImportRow[]>(() => preview.rows.map((row) => ({
+    ...row,
+    selected: recommendedImportStatuses.has(row.comparison_status ?? "") && !row.warning,
+  })));
+  const selectedRows = rows.filter((row) => row.selected);
+  const recommendedCount = rows.filter((row) => recommendedImportStatuses.has(row.comparison_status ?? "")).length;
+  const savedCount = rows.filter((row) => row.comparison_status === "already_saved").length;
+  const olderCount = rows.filter((row) => row.comparison_status === "older").length;
+  const warningCount = rows.filter((row) => row.warning).length;
+  const selectRecommended = () => setRows((current) => current.map((row) => ({
+    ...row,
+    selected: recommendedImportStatuses.has(row.comparison_status ?? "") && !row.warning,
+  })));
+  const selectAllImportable = () => setRows((current) => current.map((row) => ({
+    ...row,
+    selected: row.comparison_status !== "already_saved",
+  })));
+
+  if (commit.success) {
+    return <><ActionStateToast state={commit} /><div className="import-preview-summary"><strong>{commit.success}</strong><span>Bạn có thể đóng cửa sổ hoặc chọn file khác để tiếp tục.</span></div></>;
+  }
+
+  return (
+    <>
+      <ActionStateToast state={commit} />
+      <form action={commitAction} className="data-form import-preview-form vehicle-import-review">
+        <input name="file_name" type="hidden" value={preview.fileName} />
+        <input name="rows" type="hidden" value={JSON.stringify(selectedRows.map(({ selected: _selected, ...row }) => row))} />
+        <div className="import-preview-summary">
+          <div>
+            <strong>Bước 2 · Chọn dữ liệu cần nhập</strong>
+            <span>{rows.length} dòng · {recommendedCount} dòng mới/cập nhật · {savedCount} đã lưu · {olderCount} cũ hơn</span>
+          </div>
+          <b>{selectedRows.length} đã chọn</b>
+        </div>
+        <div className="supply-review-toolbar vehicle-import-toolbar">
+          <button className="text-button" onClick={selectRecommended} type="button">Chọn dữ liệu mới</button>
+          <button className="text-button" onClick={selectAllImportable} type="button">Chọn tất cả có thể nhập</button>
+          <button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button>
+          <span>{warningCount ? `${warningCount} dòng cảnh báo được bỏ chọn mặc định.` : "Các dòng mới hơn được chọn tự động."}</span>
+        </div>
+        <div className="table-wrap import-preview-table supply-review-table vehicle-import-review-table">
+          <table>
+            <thead><tr><th>Chọn</th><th>Sheet / dòng</th><th>Xe</th><th>Ngày</th><th>Dữ liệu</th><th>Chi phí</th><th>Đối chiếu dữ liệu</th><th>Cảnh báo</th></tr></thead>
+            <tbody>{rows.map((row, index) => {
+              const rowKey = `${row.kind}|${row.sheet}|${row.row}|${row.fingerprint}`;
+              const disabled = row.comparison_status === "already_saved";
+              return <tr className={row.selected ? "selected" : disabled ? "vehicle-import-row-disabled" : ""} key={rowKey}>
+                <td><label className="supply-review-check"><input aria-label={`Chọn dòng ${row.row} sheet ${row.sheet}`} checked={row.selected} className="software-asset-checkbox" disabled={disabled} onChange={(event) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} type="checkbox" /><span aria-hidden="true" className="software-asset-checkmark">✓</span></label></td>
+                <td>{row.sheet}<small>Dòng {row.row}</small></td>
+                <td><strong>{row.vehicle_name}</strong><small>{row.license_plate}</small></td>
+                <td>{new Date(`${row.date}T00:00:00`).toLocaleDateString("vi-VN")}</td>
+                <td>{row.kind === "fuel" ? `${row.liters ?? 0} lít · ${row.odometer_from ?? "—"} → ${row.odometer_to ?? "—"} km` : row.description}</td>
+                <td>{new Intl.NumberFormat("vi-VN").format(row.amount)} đ</td>
+                <td><span className={`status-pill ${importComparisonTone(row)}`}>{importComparisonLabel(row)}</span></td>
+                <td>{row.warning ? <span className="status-pill status-pill--attention">{row.warning}</span> : <span className="status-pill status-muted">Không</span>}</td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+        {commit.error ? <p className="form-error">{commit.error}</p> : null}
+        <div className="form-actions">
+          <span>Chỉ các dòng đã tick mới được ghi vào cơ sở dữ liệu.</span>
+          <button className="primary-button" disabled={committing || !selectedRows.length} type="submit">{committing ? "Đang nhập…" : `Nhập ${selectedRows.length} dòng đã chọn`}</button>
+        </div>
+      </form>
+    </>
+  );
+}
+
 function ImportWorkbook() {
   const [open, setOpen] = useState(false);
   const [preview, previewAction, previewing] = useActionState(previewVehicleImport, initialImportState);
-  const [commit, commitAction, committing] = useActionState(commitVehicleImport, initialImportState);
   return (
     <>
       <button className="secondary-button" onClick={() => setOpen(true)} type="button">Nhập lịch sử XLSX</button>
-      <AppModal open={open} onClose={() => setOpen(false)} eyebrow="NHẬP DỮ LIỆU" title="Bảo dưỡng & nhiên liệu từ XLSX" description="Đọc tất cả sheet đúng mẫu TDW, xem trước và chống nhập trùng." size="wide">
-        <ActionStateToast state={commit} />
+      <AppModal open={open} onClose={() => setOpen(false)} eyebrow="NHẬP DỮ LIỆU" title="Bảo dưỡng & nhiên liệu từ XLSX" description="Đối chiếu dữ liệu đã lưu, tự nhận diện dòng mới hơn và cho phép chọn từng dòng trước khi nhập." size="wide">
         <form action={previewAction} className="data-form import-upload-form">
           <WorkbookFilePicker label="File lịch sử xe XLSX *" name="file" />
           <button className="secondary-button" disabled={previewing} type="submit">{previewing ? "Đang phân tích…" : "Đọc và xem trước"}</button>
         </form>
         {preview.error ? <p className="form-error">{preview.error}</p> : null}
-        {commit.error ? <p className="form-error">{commit.error}</p> : null}
-        {preview.rows?.length ? (
-          <form action={commitAction} className="data-form import-preview-form">
-            <input name="file_name" type="hidden" value={preview.fileName} />
-            <input name="rows" type="hidden" value={JSON.stringify(preview.rows)} />
-            <div className="import-preview-summary"><strong>{preview.rows.length} dòng hợp lệ</strong><span>{preview.rows.filter((row) => row.warning).length} dòng cần chú ý</span></div>
-            <div className="table-wrap import-preview-table">
-              <table><thead><tr><th>Sheet / dòng</th><th>Xe</th><th>Ngày</th><th>Dữ liệu</th><th>Chi phí</th><th>Kiểm tra</th></tr></thead>
-                <tbody>{preview.rows.slice(0, 200).map((row) => <tr key={`${row.sheet}-${row.row}`}>
-                  <td>{row.sheet}<small>Dòng {row.row}</small></td><td><strong>{row.vehicle_name}</strong><small>{row.license_plate}</small></td><td>{row.date}</td><td>{row.kind === "fuel" ? `${row.liters ?? 0} lít · ${row.odometer_from ?? "—"} → ${row.odometer_to ?? "—"} km` : row.description}</td><td>{new Intl.NumberFormat("vi-VN").format(row.amount)} đ</td><td>{row.warning ? <span className="status-pill status-pill--attention">{row.warning}</span> : <span className="status-pill status-pill--active">Hợp lệ</span>}</td>
-                </tr>)}</tbody></table>
-            </div>
-            {preview.rows.length > 200 ? <p className="form-help">Chỉ hiển thị 200 dòng đầu; toàn bộ {preview.rows.length} dòng sẽ được nhập.</p> : null}
-            <div className="form-actions"><button className="primary-button" disabled={committing} type="submit">{committing ? "Đang nhập…" : "Xác nhận nhập dữ liệu"}</button></div>
-          </form>
-        ) : null}
+        {preview.fileName && preview.rows?.length ? <VehicleImportReview key={`${preview.fileName}|${preview.rows.length}|${preview.rows[0]?.fingerprint}`} preview={{ ...preview, fileName: preview.fileName, rows: preview.rows }} /> : null}
       </AppModal>
     </>
   );

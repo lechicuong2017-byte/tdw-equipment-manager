@@ -569,6 +569,15 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .import-preview-summary { align-items: center; background: var(--green-soft); border: 1px solid #b9e3ce; border-radius: 10px; color: var(--green); display: flex; justify-content: space-between; padding: 0.75rem 0.9rem; }
 .import-preview-table { border: 1px solid var(--line); border-radius: 12px; max-height: 48vh; }
 .import-preview-table table { min-width: 980px; }
+.vehicle-import-review { border: 1px solid #b9e3ce; border-radius: 14px; padding: 1rem; }
+.vehicle-import-review .import-preview-summary span { display: block; margin-top: 0.2rem; }
+.vehicle-import-review-table { max-height: 52vh; }
+.vehicle-import-review-table table { min-width: 1520px; }
+.vehicle-import-review-table td { vertical-align: middle; }
+.vehicle-import-review-table td:nth-child(5) { min-width: 300px; }
+.vehicle-import-review-table td:nth-child(7) { min-width: 220px; }
+.vehicle-import-row-disabled td { background: #f7f9fb; color: var(--muted); }
+.vehicle-import-toolbar span { color: var(--muted); margin-left: auto; }
 .supplier-quote-import-flow { display: grid; gap: 1rem; }
 .supply-workbook-import-flow { display: grid; gap: 1rem; }
 .supply-workbook-import-flow > .import-upload-form {

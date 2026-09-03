@@ -599,6 +599,14 @@ export async function deleteVehicleDocument(formData: FormData): Promise<Vehicle
 }
 
 type ImportKind = "fuel" | "repairs";
+export type VehicleImportComparisonStatus =
+  | "new_vehicle"
+  | "new_record"
+  | "newer"
+  | "changed"
+  | "already_saved"
+  | "older";
+
 export type VehicleImportRow = {
   kind: ImportKind;
   row: number;
@@ -616,6 +624,8 @@ export type VehicleImportRow = {
   fuel_norm: number | null;
   fingerprint: string;
   warning: string;
+  comparison_status?: VehicleImportComparisonStatus;
+  stored_latest_date?: string | null;
 };
 
 export type VehicleImportState = VehicleActionState & {
@@ -759,7 +769,7 @@ function parseSheet(worksheet: ExcelJS.Worksheet, kind: ImportKind): VehicleImpo
 }
 
 export async function previewVehicleImport(_state: VehicleImportState, formData: FormData): Promise<VehicleImportState> {
-  const { access } = await requireAccess();
+  const { access, supabase } = await requireAccess();
   if (!can(access, "vehicles.import")) return { error: "Bạn không có quyền nhập dữ liệu xe." };
   const file = formData.get("file");
   if (!(file instanceof File) || !file.size) return { error: "Hãy chọn file XLSX." };
@@ -776,7 +786,100 @@ export async function previewVehicleImport(_state: VehicleImportState, formData:
     });
     if (!rows.length) return { error: "Không tìm thấy sheet nhiên liệu hoặc bảo dưỡng đúng mẫu TDW." };
     if (rows.length > 1000) return { error: "Mỗi lần chỉ nhập tối đa 1.000 dòng." };
-    return { success: `Đã đọc ${rows.length} dòng. Hãy kiểm tra trước khi xác nhận.`, fileName: file.name.slice(0, 200), rows, skipped: 0 };
+
+    const fileName = file.name.slice(0, 200);
+    const { data: existingVehicles, error: vehicleError } = await supabase
+      .from("vehicles")
+      .select("id,license_plate")
+      .is("deleted_at", null)
+      .limit(1000);
+    if (vehicleError) return { error: "Đã đọc file nhưng chưa thể đối chiếu danh sách xe đang lưu." };
+
+    const vehicleByPlate = new Map(
+      (existingVehicles ?? []).map((vehicle) => [normalizePlate(vehicle.license_plate), vehicle.id]),
+    );
+    const vehicleIds = [...new Set(rows
+      .map((row) => vehicleByPlate.get(normalizePlate(row.license_plate)))
+      .filter(Boolean))] as string[];
+    const emptyHistory = Promise.resolve({ data: [], error: null });
+    const [fuelHistoryResult, repairHistoryResult] = await Promise.all([
+      vehicleIds.length && rows.some((row) => row.kind === "fuel")
+        ? supabase
+            .from("vehicle_fuel_logs")
+            .select("vehicle_id,payment_date,import_fingerprint,source_file,source_sheet,source_row")
+            .in("vehicle_id", vehicleIds)
+            .order("payment_date", { ascending: false })
+            .limit(10000)
+        : emptyHistory,
+      vehicleIds.length && rows.some((row) => row.kind === "repairs")
+        ? supabase
+            .from("vehicle_repairs")
+            .select("vehicle_id,service_date,import_fingerprint,source_file,source_sheet,source_row")
+            .in("vehicle_id", vehicleIds)
+            .order("service_date", { ascending: false })
+            .limit(10000)
+        : emptyHistory,
+    ]);
+    if (fuelHistoryResult.error || repairHistoryResult.error) {
+      return { error: "Đã đọc file nhưng chưa thể đối chiếu với lịch sử nhiên liệu và bảo dưỡng đang lưu." };
+    }
+
+    type ExistingImportRow = {
+      vehicle_id: string;
+      date: string;
+      import_fingerprint: string | null;
+      source_file: string | null;
+      source_sheet: string | null;
+      source_row: number | null;
+    };
+    const histories: Record<ImportKind, ExistingImportRow[]> = {
+      fuel: (fuelHistoryResult.data ?? []).map((item) => ({ ...item, date: item.payment_date })),
+      repairs: (repairHistoryResult.data ?? []).map((item) => ({ ...item, date: item.service_date })),
+    };
+    const latestDateByVehicle = new Map<string, string>();
+    const storedFingerprints = new Set<string>();
+    const storedSourceRows = new Set<string>();
+    (["fuel", "repairs"] as ImportKind[]).forEach((kind) => {
+      histories[kind].forEach((item) => {
+        const latestKey = `${kind}|${item.vehicle_id}`;
+        const latest = latestDateByVehicle.get(latestKey);
+        if (!latest || item.date > latest) latestDateByVehicle.set(latestKey, item.date);
+        if (item.import_fingerprint) storedFingerprints.add(`${kind}|${item.import_fingerprint}`);
+        if (item.source_file && item.source_sheet && item.source_row !== null) {
+          storedSourceRows.add(`${kind}|${item.source_file}|${item.source_sheet}|${item.source_row}`);
+        }
+      });
+    });
+
+    const comparedRows = rows.map((row): VehicleImportRow => {
+      const vehicleId = vehicleByPlate.get(normalizePlate(row.license_plate));
+      const storedLatestDate = vehicleId
+        ? latestDateByVehicle.get(`${row.kind}|${vehicleId}`) ?? null
+        : null;
+      const isAlreadySaved = storedFingerprints.has(`${row.kind}|${row.fingerprint}`);
+      const isChangedSourceRow = storedSourceRows.has(
+        `${row.kind}|${fileName}|${row.sheet}|${row.row}`,
+      );
+      let comparisonStatus: VehicleImportComparisonStatus;
+      if (isAlreadySaved) comparisonStatus = "already_saved";
+      else if (isChangedSourceRow) comparisonStatus = "changed";
+      else if (!vehicleId) comparisonStatus = "new_vehicle";
+      else if (!storedLatestDate) comparisonStatus = "new_record";
+      else if (row.date > storedLatestDate) comparisonStatus = "newer";
+      else comparisonStatus = "older";
+      return {
+        ...row,
+        comparison_status: comparisonStatus,
+        stored_latest_date: storedLatestDate,
+      };
+    });
+
+    return {
+      success: `Đã đọc và đối chiếu ${comparedRows.length} dòng. Hãy chọn các dòng cần nhập.`,
+      fileName,
+      rows: comparedRows,
+      skipped: 0,
+    };
   } catch {
     return { error: "Không thể đọc file XLSX. Hãy kiểm tra file có đúng định dạng và không bị khóa." };
   }
