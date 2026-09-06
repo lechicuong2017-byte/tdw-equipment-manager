@@ -47,7 +47,7 @@ export function VehicleReportSection({ vehicles, showHeading = true }: { vehicle
     <section className={`vehicle-report-workspace${showHeading ? "" : " vehicle-report-workspace--standalone"}`}>
       {showHeading ? <div className="report-section-heading">
         <div><p className="eyebrow">PHƯƠNG TIỆN</p><h2>Báo cáo quản lý xe</h2><p>Lọc dữ liệu trước khi tạo file XLSX hoặc PDF.</p></div>
-        <span><AppIcon name="reports" size={20} />5 mẫu báo cáo</span>
+        <span><AppIcon name="reports" size={20} />6 mẫu báo cáo</span>
       </div> : null}
       <div className="panel vehicle-report-filter">
         <div className="vehicle-report-filter-title"><span><AppIcon name="settings" size={19} /></span><div><strong>Bộ lọc báo cáo</strong><small>{filterSummary}</small></div></div>
@@ -59,6 +59,12 @@ export function VehicleReportSection({ vehicles, showHeading = true }: { vehicle
         </div>
       </div>
       <div className="report-grid vehicle-report-grid">
+        <article className="panel report-card vehicle-report-card vehicle-report-card--cyan">
+          <div className="report-icon"><AppIcon name="toll" size={22} /></div>
+          <div><p className="eyebrow">VETC</p><h2>Chi phí qua trạm</h2><p>Tổng hợp theo tháng, chi tiết vé lẻ sau thuế và đăng ký vé quý theo ngày bắt đầu.</p></div>
+          <div className="report-filter-chip">{filterSummary}</div>
+          <div className="report-actions"><a className="primary-button" href={`/api/vehicles/tolls/report?${new URLSearchParams({ year, month: year ? month : "", vehicle_id: vehicleId })}`}>Xuất Excel</a></div>
+        </article>
         {vehicleReports.map((report) => <article className={`panel report-card vehicle-report-card vehicle-report-card--${report.tone}`} key={report.type}>
           <div className="report-icon"><AppIcon name={report.icon} size={22} /></div>
           <div><p className="eyebrow">{report.eyebrow}</p><h2>{report.title}</h2><p>{report.description}</p></div>

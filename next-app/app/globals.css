@@ -426,7 +426,7 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 }
 .vehicle-page-header .page-header { margin-bottom: 1.35rem; }
 .vehicle-page-header .muted { max-width: 760px; }
-.vehicle-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 37, 55, 0.04); display: grid; gap: 0.35rem; grid-template-columns: repeat(8, minmax(0, 1fr)); margin-bottom: 1rem; padding: 0.4rem; }
+.vehicle-tabs { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 37, 55, 0.04); display: grid; gap: 0.35rem; grid-template-columns: repeat(9, minmax(0, 1fr)); margin-bottom: 1rem; padding: 0.4rem; }
 .vehicle-tabs a { align-items: center; border-radius: 11px; color: var(--ink-soft); display: flex; font-size: 0.8rem; font-weight: 800; gap: 0.55rem; justify-content: center; min-height: 46px; padding: 0 0.8rem; transition: background 160ms ease, color 160ms ease, transform 160ms ease; }
 .vehicle-tabs a:hover { background: var(--surface-muted); color: var(--ink); }
 .vehicle-tabs a.active { background: linear-gradient(135deg, #e2f4f8, #d8eef5); color: var(--brand-dark); }
@@ -452,6 +452,24 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-action-group .secondary-button { min-height: 40px; padding: 0 0.9rem; }
 .vehicle-action-group--primary { border-left: 1px solid var(--line); padding-left: 0.9rem; }
 .vehicle-stats-grid { margin-bottom: 1rem; }
+.toll-workspace { display: grid; gap: 1rem; min-width: 0; }
+.toll-year-filter { display: flex; align-items: end; flex-wrap: wrap; gap: 1rem; }
+.toll-year-filter label { display: grid; gap: .45rem; max-width: 140px; font-weight: 700; }
+.toll-year-filter span { flex: 1; align-self: center; color: var(--ink-soft); font-size: .85rem; }
+.toll-upload-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 1rem; }
+.toll-review { display: grid; gap: 1rem; margin-top: 1.5rem; min-width: 0; }
+.toll-review-toolbar, .toll-review-toolbar > div { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.toll-review-toolbar { justify-content: space-between; }
+.toll-review-table { max-height: 55vh; overflow: auto; }
+.toll-table table, .toll-review-table table { table-layout: auto; width: 100%; min-width: 850px; }
+.toll-table th, .toll-table td, .toll-review-table th, .toll-review-table td { position: static !important; min-width: 0; overflow: visible; white-space: normal; }
+.toll-table td small, .toll-review-table td small { display: block; margin-top: .35rem; color: var(--ink-soft); line-height: 1.5; }
+.toll-table .vehicle-cost-cell, .toll-review-table .vehicle-cost-cell { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.toll-review-table input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--brand); cursor: pointer; }
+.toll-review-table .status-pill { white-space: normal; }
+.toll-month-detail { margin-top: 1rem; }
+.vehicle-command-bar--tolls { border-left-color: #14849a; }
+@media (max-width: 700px) { .toll-upload-form { grid-template-columns: minmax(0, 1fr); } .toll-review .form-actions { flex-wrap: wrap; gap: 1rem; } }
 .vehicle-stats-grid .metric-card { min-height: 156px; }
 .vehicle-stats-grid .metric-card strong { max-width: calc(100% - 28px); overflow-wrap: anywhere; }
 .vehicle-stats-grid .metric-money { font-size: clamp(1.08rem, 1.55vw, 1.55rem) !important; white-space: nowrap; }

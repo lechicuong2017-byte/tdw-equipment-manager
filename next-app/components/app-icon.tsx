@@ -23,6 +23,7 @@ export type AppIconName =
   | "inspection"
   | "insurance"
   | "fuel"
+  | "toll"
   | "users"
   | "value"
   | "warningTriangle";
@@ -55,6 +56,7 @@ const iconPaths: Record<AppIconName, ReactNode> = {
   inspection: <><path d="M7 3h10v3H7zM5 5h14v16H5z" /><path d="m8 13 2.2 2.2L16 9.5M8 18h8" /></>,
   insurance: <><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z" /><path d="m8.5 12 2.2 2.2 4.8-5" /></>,
   fuel: <><path d="M6 4h8v16H6zM8 7h4M14 8h2l2 2v7a1.5 1.5 0 0 0 3 0v-6l-2-2" /></>,
+  toll: <><path d="M3 19h18M5 19V9h14v10M3 9h18M7 9V5h10v4" /><path d="M8 13h3M15 12v4M17 12v4" /></>,
   users: <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.5-4 2.5-6 5.5-6s5 2 5.5 6M16 5.5a3 3 0 0 1 0 5.5M16 13c2.5.4 4 2.4 4.5 5" /></>,
   value: <><path d="M4 7h16v11H4zM7 7V5h10v2" /><circle cx="12" cy="12.5" r="2.5" /><path d="M7 10h.01M17 15h.01" /></>,
   warningTriangle: <><path d="M10.2 4.5 2.8 18a2 2 0 0 0 1.8 3h14.8a2 2 0 0 0 1.8-3L13.8 4.5a2 2 0 0 0-3.6 0Z" /><path d="M12 9v4M12 17h.01" /></>,

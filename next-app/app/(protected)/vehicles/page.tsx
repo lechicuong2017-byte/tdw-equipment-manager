@@ -7,15 +7,18 @@ import { PageHeader } from "@/components/page-header";
 import { FuelForm, InspectionForm, InsuranceForm, RepairForm, VehicleActions, VehicleForm } from "@/components/vehicle-forms";
 import { VehicleModuleNav } from "@/components/vehicle-module-nav";
 import { VehicleSettingEditor } from "@/components/vehicle-setting-editor";
+import { VehicleTollActions } from "@/components/vehicle-toll-imports";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
 import { vehicleSettingTypeDefinitions, vehicleSettingTypes } from "@/lib/settings";
 import type { Setting } from "@/lib/types";
 import { deleteVehicleRecord, moveVehicleSetting, toggleVehicleSetting } from "./actions";
+import { VehicleTollSection, VehicleTollMetric } from "@/components/vehicle-toll-section";
 
 export const metadata = { title: "Quản lý xe" };
+export const maxDuration = 60;
 
-type VehicleSection = "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" | "settings";
+type VehicleSection = "overview" | "fleet" | "inspections" | "insurance" | "repairs" | "fuel" | "tolls" | "settings";
 
 type VehicleRelation = { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string } | { id?: string; vehicle_code?: string; vehicle_name?: string; license_plate?: string }[] | null;
 function relatedVehicle(value: VehicleRelation) { return Array.isArray(value) ? value[0] : value; }
@@ -211,11 +214,11 @@ function VehiclePagination({ section, page, totalRows }: { section: "inspections
   );
 }
 
-export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string }> }) {
+export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; tollPage?: string }> }) {
   const params = await searchParams;
   const requestedSection = params.section;
   const requestedPage = Number.isFinite(Number(params.page)) ? Math.max(1, Math.trunc(Number(params.page))) : 1;
-  const section: VehicleSection = ["fleet", "inspections", "insurance", "repairs", "fuel", "settings"].includes(requestedSection ?? "")
+  const section: VehicleSection = ["fleet", "inspections", "insurance", "repairs", "fuel", "tolls", "settings"].includes(requestedSection ?? "")
     ? requestedSection as VehicleSection
     : "overview";
   const { access, supabase } = await requireAccess();
@@ -225,7 +228,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const currentYear = today.slice(0, 4);
   const currentYearPrefix = `${currentYear}-01-01`;
   const nextYearPrefix = `${Number(currentYear) + 1}-01-01`;
-  const needsVehicles = section !== "settings";
+  const needsVehicles = section !== "settings" && section !== "tolls";
   const needsInspections = ["overview", "inspections"].includes(section);
   const needsInsurances = ["overview", "insurance"].includes(section);
   const needsRepairs = ["overview", "repairs"].includes(section);
@@ -313,6 +316,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     { key: "insurance" as const, label: "Bảo hiểm", icon: "insurance" as const, description: "Hợp đồng, chứng nhận và cảnh báo hết hạn" },
     { key: "repairs" as const, label: "Bảo dưỡng", icon: "maintenance" as const, description: "Bảo dưỡng và sửa chữa phương tiện" },
     { key: "fuel" as const, label: "Nhiên liệu", icon: "fuel" as const, description: "Theo dõi các lần mua nhiên liệu" },
+    { key: "tolls" as const, label: "Chi phí VETC", icon: "toll" as const, description: "Vé lẻ hàng tháng và đăng ký vé quý qua trạm" },
     { key: "settings" as const, label: "Cấu hình", icon: "settings" as const, description: "Hình thức bảo dưỡng và loại bảo hiểm xe" },
   ];
   const activeSection = sections.find((item) => item.key === section) ?? sections[0];
@@ -328,7 +332,8 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           <span className="vehicle-command-icon"><AppIcon name={activeSection.icon} size={22} /></span>
           <div><small>KHU VỰC ĐANG LÀM VIỆC</small><strong>{activeSection.label}</strong><p>{activeSection.description}</p></div>
         </div>
-        {canManage && section !== "settings" ? <VehicleActions vehicles={vehicleOptions} departments={departmentsResult.data ?? []} users={usersResult.data ?? []} maintenanceTypes={activeMaintenanceTypes} insuranceTypes={activeInsuranceTypes} canManage={canManage} section={section} /> : null}
+        {can(access, "vehicles.import") && section === "tolls" ? <VehicleTollActions /> : null}
+        {canManage && section !== "settings" && section !== "tolls" ? <VehicleActions vehicles={vehicleOptions} departments={departmentsResult.data ?? []} users={usersResult.data ?? []} maintenanceTypes={activeMaintenanceTypes} insuranceTypes={activeInsuranceTypes} canManage={canManage} section={section} /> : null}
       </section>
 
       {section === "overview" ? <>
@@ -338,6 +343,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           <article className="metric-card metric-tone-blue"><span className="metric-icon"><AppIcon name="insurance" /></span><p>Bảo hiểm cần chú ý</p><strong>{upcomingInsurance.length}</strong><small>Theo ngày nhắc của từng hợp đồng</small></article>
           <article className="metric-card metric-tone-violet"><span className="metric-icon"><AppIcon name="maintenance" /></span><p>Chi phí bảo dưỡng</p><strong className="metric-money">{formatMoney(totalRepairCost)}</strong><small>Năm {currentYear} · {currentYearRepairs.length} lần ghi nhận</small></article>
           <article className="metric-card metric-tone-green"><span className="metric-icon"><AppIcon name="fuel" /></span><p>Chi phí nhiên liệu</p><strong className="metric-money">{formatMoney(totalFuelCost)}</strong><small>Năm {currentYear} · {currentYearFuelLogs.length} lần mua</small></article>
+          <VehicleTollMetric year={Number(currentYear)} />
         </section>
         <section className="vehicle-overview-grid">
           <article className="panel vehicle-overview-card vehicle-overview-card--inspection">
@@ -632,6 +638,8 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
         </tbody></table></div>
         <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelTotal} />
       </section> : null}
+
+      {section === "tolls" ? <VehicleTollSection year={params.year} page={params.tollPage} /> : null}
 
       {section === "settings" ? <section className="settings-catalog-grid vehicle-settings-grid">
         {vehicleSettingTypes.map((settingType) => {
