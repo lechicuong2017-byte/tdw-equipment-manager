@@ -19,7 +19,8 @@ Migration `202609030001_vehicle_vetc_management.sql` tạo ba bảng riêng cùn
 
 ## Kiểm chứng ngày 06/09/2026
 
-- Parser: PDF mẫu có 22 lượt, 4 trạm, tổng 331.272 đồng; XLSX mẫu có 24 đăng ký trên 8 sheet, tổng 52.488.000 đồng. File mẫu không được đưa vào Git.
+- Parser: PDF mẫu có 22 lượt, 4 trạm, tổng 331.272 đồng; XLSX mẫu có 24 dòng trên 8 sheet, tổng thô 52.488.000 đồng. Trong đó 3 dòng sheet 10.2026 lặp lại xe/trạm/kỳ/chi phí của sheet 08.2026: xem trước chọn 21 đăng ký khác nhau, tổng 45.927.000 đồng và cảnh báo các dòng trùng. File mẫu không được đưa vào Git.
+- Đã kiểm tra xem trước PDF và XLSX trên Vercel, khớp toàn bộ xe trong mẫu; bỏ chọn cập nhật tổng và đóng/mở lại PDF xóa dữ liệu xem trước. Chỉ xem trước, chưa lưu các bản ghi mẫu vào production.
 - `node tools/test-vehicle-vetc.mjs`: ngày không hợp lệ, VAT sai, nhận diện biển số, vị trí cột và khóa chống trùng. Có thể truyền đường dẫn PDF và XLSX mẫu làm hai tham số để kiểm tra mẫu đầy đủ.
 - `VETC_PGLITE_MODULE=/path/to/pglite/dist/index.js node tools/test-vehicle-vetc-db.mjs`: chạy PostgreSQL cô lập với dữ liệu synthetic, kiểm tra migration, rollback, nhập trùng, bổ sung tháng, cập nhật quý, RLS, ghi trực tiếp bị chặn và thống kê theo phạm vi. Đã chạy với PGlite 0.3.14 cài trong thư mục tạm, không thêm dependency production.
 - TypeScript và production build đã qua. Build giữ PDF reader trên Node và bundle worker trình duyệt riêng để không ảnh hưởng chức năng nén hóa đơn hiện có.

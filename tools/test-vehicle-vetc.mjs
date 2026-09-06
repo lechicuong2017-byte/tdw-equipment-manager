@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import ExcelJS from "../next-app/node_modules/exceljs/excel.js";
+import { markTollPreviewDuplicates } from "../next-app/lib/toll-preview-selection.ts";
 import { parsePdfTransaction, parseQuarterlyWorkbook, monthlyFingerprint, vehicleMap, vehicleMatch } from "../next-app/lib/vehicle-tolls.ts";
 
 const invoice = "Số: 12345678 Cước đường bộ xe 51A12345T đi qua trạm Trạm mẫu thời gian GD 00:01:02 ngày 01/01/2026 mã GD -123456 Tổng tiền: 12.963 1.037 14.000";
@@ -14,6 +15,9 @@ assert.equal(monthlyFingerprint(row), monthlyFingerprint({ ...row, transaction_a
 const map = vehicleMap([{ id: "vehicle-1", vehicle_name: "Xe mẫu", license_plate: "51A-12345" }]);
 assert.equal(vehicleMatch("51A12345T", map)?.id, "vehicle-1");
 assert.equal(vehicleMatch("51B12345T", map), undefined);
+const duplicatePreview = markTollPreviewDuplicates([{ fingerprint: "a" }, { fingerprint: "b" }, { fingerprint: "a" }]);
+assert.deepEqual(duplicatePreview.map((item) => item.duplicate_in_file), [false, false, true]);
+assert.equal(duplicatePreview.filter((item) => !item.duplicate_in_file).length, 2);
 
 for (const offset of [0, 1, 3]) {
   const workbook = new ExcelJS.Workbook();
@@ -51,5 +55,8 @@ if (process.argv[2] && process.argv[3]) {
   const passes = parseQuarterlyWorkbook(workbook);
   assert.equal(passes.length, 24);
   assert.equal(passes.reduce((sum, item) => sum + item.amount, 0), 52488000);
+  const uniquePasses = markTollPreviewDuplicates(passes).filter((item) => !item.duplicate_in_file);
+  assert.equal(uniquePasses.length, 21);
+  assert.equal(uniquePasses.reduce((sum, item) => sum + item.amount, 0), 45927000);
 }
 console.log("VETC parser checks passed: dates, VAT, shifted columns, plate matching, duplicate identity and optional samples.");
