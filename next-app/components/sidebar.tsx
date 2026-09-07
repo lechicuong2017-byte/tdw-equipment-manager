@@ -66,6 +66,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
   const isSupplyModule = pathname.startsWith("/supplies");
   const isTelecomModule = pathname.startsWith("/telecom");
   const telecomNavItems = [
+    { href: "/telecom/phones", label: "Số điện thoại", icon: "telecom" as const, permission: "telecom.view", tone: "cyan" },
     { href: "/telecom", label: "Chi phí viễn thông", icon: "telecom" as const, permission: "telecom.view", tone: "cyan" },
     { href: "/telecom#telecom-reports", label: "Báo cáo tháng / năm", icon: "reports" as const, permission: "reports.telecom.export", tone: "rose" },
   ];
