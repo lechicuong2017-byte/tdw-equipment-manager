@@ -471,9 +471,11 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .toll-table .vehicle-cost-cell, .toll-review-table .vehicle-cost-cell { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
 .toll-review-table input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--brand); cursor: pointer; }
 .toll-review-table .status-pill { white-space: normal; }
+.toll-review .form-actions { align-items: center; column-gap: 1.5rem; display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 0.75rem; }
+.toll-review .form-actions > span { color: var(--ink-soft); line-height: 1.45; }
 .toll-month-detail { margin-top: 1rem; }
 .vehicle-command-bar--tolls { border-left-color: #14849a; }
-@media (max-width: 700px) { .toll-upload-form { grid-template-columns: minmax(0, 1fr); } .toll-review .form-actions { flex-wrap: wrap; gap: 1rem; } }
+@media (max-width: 700px) { .toll-upload-form { grid-template-columns: minmax(0, 1fr); } .toll-review .form-actions { grid-template-columns: minmax(0, 1fr); } .toll-review .form-actions .primary-button { justify-content: center; width: 100%; } }
 .vehicle-stats-grid .metric-card { min-height: 156px; }
 .vehicle-stats-grid .metric-card strong { max-width: calc(100% - 28px); overflow-wrap: anywhere; }
 .vehicle-stats-grid .metric-money { font-size: clamp(1.08rem, 1.55vw, 1.55rem) !important; white-space: nowrap; }
