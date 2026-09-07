@@ -461,6 +461,10 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .telecom-nav { display: flex; flex-wrap: wrap; gap: .7rem 1.4rem; font-size: .78rem; font-weight: 750; }
 .telecom-filter, .telecom-filter form { display: flex; flex-wrap: wrap; align-items: end; gap: .9rem; min-width: 0; }
 .telecom-filter { justify-content: space-between; }
+.telecom-phone-filter form { align-items: end; display: grid; flex: 1 1 auto; grid-template-columns: minmax(260px, 1.6fr) minmax(180px, .9fr) minmax(130px, auto) auto; gap: .9rem; }
+.telecom-phone-filter form > label { min-width: 0; }
+.telecom-phone-filter form > .secondary-button { min-width: 132px; }
+.telecom-clear-filter { align-items: center; display: inline-flex; min-height: 42px; padding: 0 .35rem; white-space: nowrap; }
 .telecom-filter label, .telecom-upload label, .telecom-edit-form label { display: grid; gap: .45rem; font-size: .8rem; font-weight: 750; min-width: 0; }
 .telecom-filter input { width: 110px; }
 .telecom-filter a { text-decoration: none; }
@@ -492,7 +496,25 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .telecom-review-summary small { font-size: .65rem; margin-bottom: .35rem; }
 .telecom-review-summary span { font-size: .78rem; }
 .telecom-select-actions { display: flex; flex-wrap: wrap; gap: .7rem 1.2rem; }
+.telecom-select-actions > .primary-button,
+.telecom-select-actions > .secondary-button { min-height: 42px; min-width: 132px; }
 .telecom-preview-table { max-height: 48vh; overflow: auto; }
+.telecom-phone-preview .telecom-select-actions { align-items: end; }
+.telecom-phone-preview .telecom-select-actions > label { display: grid; gap: .45rem; min-width: min(260px, 100%); }
+.telecom-phone-preview .telecom-select-actions > button { min-height: 42px; }
+.telecom-phone-preview .telecom-preview-table table { table-layout: fixed; min-width: 980px; }
+.telecom-phone-preview .telecom-preview-table th:first-child,
+.telecom-phone-preview .telecom-preview-table td:first-child { text-align: center; width: 72px; }
+.telecom-phone-preview .telecom-preview-table th:nth-child(2),
+.telecom-phone-preview .telecom-preview-table td:nth-child(2) { width: 20%; }
+.telecom-phone-preview .telecom-preview-table th:nth-child(3),
+.telecom-phone-preview .telecom-preview-table td:nth-child(3) { width: 24%; }
+.telecom-phone-preview .telecom-preview-table th:nth-child(4),
+.telecom-phone-preview .telecom-preview-table td:nth-child(4) { width: 17%; }
+.telecom-phone-preview .telecom-preview-table th:nth-child(5),
+.telecom-phone-preview .telecom-preview-table td:nth-child(5) { width: 20%; }
+.telecom-phone-preview .telecom-preview-table th,
+.telecom-phone-preview .telecom-preview-table td { vertical-align: middle; }
 .telecom-preview-table input[type=checkbox] { height: 20px; width: 20px; accent-color: var(--brand); }
 .telecom-preview-table .status-pill { white-space: normal; }
 .telecom-form-footer { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 1rem 1.5rem; align-items: center; border-top: 1px solid var(--line); padding-top: 1rem; }
@@ -511,11 +533,15 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
   .telecom-metrics, .telecom-categories, .telecom-edit-form, .telecom-form-footer { grid-template-columns: minmax(0,1fr); }
   .telecom-detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .telecom-filter, .telecom-filter form { align-items: stretch; }
+  .telecom-phone-filter form { grid-template-columns: minmax(0, 1fr); }
   .telecom-filter form, .telecom-filter > a { width: 100%; }
   .telecom-filter label { flex: 1 1 130px; }
   .telecom-filter select { width: 100%; }
   .telecom-filter input { width: 100%; }
   .telecom-filter button, .telecom-form-footer button { width: 100%; justify-content: center; }
+  .telecom-phone-filter .telecom-clear-filter { justify-content: center; min-height: 38px; }
+  .telecom-phone-preview .telecom-select-actions > button,
+  .telecom-phone-preview .telecom-select-actions > label { width: 100%; }
   .telecom-nav { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; padding-bottom: .4rem; }
   .telecom-upload input, .telecom-upload select, .telecom-filter select, .telecom-edit-form input, .telecom-edit-form select, .telecom-edit-form textarea { font-size: 16px; }
 }
