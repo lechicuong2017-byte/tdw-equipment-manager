@@ -13,6 +13,7 @@ export async function proxy(request: NextRequest) {
     "img-src 'self' data: blob: https://*.supabase.co",
     "connect-src 'self' https://*.supabase.co",
     "font-src 'self'",
+    "worker-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

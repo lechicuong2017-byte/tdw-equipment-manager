@@ -14,6 +14,7 @@ export const systemModuleDefinitions = [
     label: "Văn phòng phẩm & vệ sinh",
     description: "Danh mục hàng hóa, kho, phiếu yêu cầu và báo cáo mua sắm.",
   },
+  { code: "telecom", label: "Chi phí viễn thông", description: "Tuyến ống & ICCPs, điện thoại bàn và điện thoại TGĐ. Người được cấp quyền xem có thể xem toàn bộ chi phí viễn thông." },
 ] as const;
 
 export type SystemModule = (typeof systemModuleDefinitions)[number]["code"];

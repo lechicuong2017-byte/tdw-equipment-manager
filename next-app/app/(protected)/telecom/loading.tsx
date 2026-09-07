@@ -1,0 +1,1 @@
+export default function Loading(){return <div className="route-loading" role="status"><div className="route-loading-header"><h1>Chi phí viễn thông</h1><p>Đang tải chi phí và hóa đơn…</p></div></div>;}

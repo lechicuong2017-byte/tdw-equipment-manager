@@ -456,6 +456,68 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-action-group .secondary-button { min-height: 40px; padding: 0 0.9rem; }
 .vehicle-action-group--primary { border-left: 1px solid var(--line); padding-left: 0.9rem; }
 .vehicle-stats-grid { margin-bottom: 1rem; }
+.telecom-workspace { display: grid; gap: 1.2rem; min-width: 0; }
+.telecom-nav { display: flex; flex-wrap: wrap; gap: .7rem 1.4rem; font-size: .78rem; font-weight: 750; }
+.telecom-filter, .telecom-filter form { display: flex; flex-wrap: wrap; align-items: end; gap: .9rem; }
+.telecom-filter { justify-content: space-between; }
+.telecom-filter label, .telecom-upload label, .telecom-edit-form label { display: grid; gap: .45rem; font-size: .8rem; font-weight: 750; min-width: 0; }
+.telecom-filter input { width: 110px; }
+.telecom-filter a { text-decoration: none; }
+.telecom-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
+.telecom-categories { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
+.telecom-categories a { display: grid; gap: .65rem; padding: 1.15rem; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); text-decoration: none; transition: border-color .15s, box-shadow .15s; }
+.telecom-categories a:hover, .telecom-categories a:focus-visible, .telecom-categories .is-active { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.telecom-categories span { font-size: .85rem; font-weight: 750; }
+.telecom-categories strong { font-size: 1.2rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.telecom-categories small { color: var(--brand); font-size: .72rem; }
+.telecom-metrics article { display: grid; gap: .7rem; padding: 1.2rem; border: 1px solid var(--line); border-top: 3px solid var(--brand); background: var(--surface); border-radius: 16px; }
+.telecom-metrics small { font-size: .65rem; font-weight: 800; color: var(--ink-soft); }
+.telecom-metrics strong { font-size: clamp(1.2rem,2vw,1.9rem); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.telecom-metrics span { font-size: .72rem; color: var(--ink-soft); }
+.telecom-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+.telecom-heading p, .telecom-heading span { color: var(--ink-soft); font-size: .78rem; }
+.telecom-heading h2 { font-size: 1.15rem; }
+.telecom-table table, .telecom-preview-table table { table-layout: auto; min-width: 850px; width: 100%; }
+.telecom-table th, .telecom-table td, .telecom-preview-table th, .telecom-preview-table td { position: static !important; overflow: visible; white-space: normal; font-size: .76rem; line-height: 1.45; }
+.telecom-table td small, .telecom-preview-table td small { display: block; color: var(--ink-soft); margin-top: .3rem; font-size: .68rem; }
+.telecom-table .telecom-money, .telecom-preview-table .telecom-money { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.telecom-pagination { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1rem; font-size: .78rem; }
+.telecom-upload { display: grid; grid-template-columns: minmax(0,1fr) minmax(160px,.6fr) auto; align-items: end; gap: 1rem; }
+.telecom-upload button { max-width: 220px; }
+.telecom-upload-options { display: grid; gap: .85rem; min-width: 0; }
+.telecom-review { display: grid; gap: 1rem; min-width: 0; margin-top: 1.25rem; }
+.telecom-review-summary { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; background: var(--brand-soft); padding: 1rem; border-radius: 12px; }
+.telecom-review-summary strong, .telecom-review-summary small { display: block; }
+.telecom-review-summary small { font-size: .65rem; margin-bottom: .35rem; }
+.telecom-review-summary span { font-size: .78rem; }
+.telecom-select-actions { display: flex; flex-wrap: wrap; gap: .7rem 1.2rem; }
+.telecom-preview-table { max-height: 48vh; overflow: auto; }
+.telecom-preview-table input[type=checkbox] { height: 20px; width: 20px; accent-color: var(--brand); }
+.telecom-preview-table .status-pill { white-space: normal; }
+.telecom-form-footer { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 1rem 1.5rem; align-items: center; border-top: 1px solid var(--line); padding-top: 1rem; }
+.telecom-form-footer p { margin: 0; color: var(--ink-soft); font-size: .78rem; line-height: 1.5; }
+.telecom-detail-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; }
+.telecom-detail-grid > div { padding: .8rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-muted); }
+.telecom-detail-grid dt { font-size: .68rem; color: var(--ink-soft); margin-bottom: .3rem; }
+.telecom-detail-grid dd { margin: 0; font-size: .82rem; font-weight: 750; overflow-wrap: anywhere; }
+.telecom-edit-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.telecom-full-row { grid-column: 1/-1; }
+.telecom-source, .telecom-note { color: var(--ink-soft); font-size: .76rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.telecom-edit-form small { color: var(--ink-soft); font-weight: 500; }
+.telecom-delete { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+@media(max-width:1000px) { .telecom-upload { grid-template-columns: minmax(0,1fr); } .telecom-upload button { max-width: none; } }
+@media(max-width:700px) {
+  .telecom-metrics, .telecom-categories, .telecom-edit-form, .telecom-form-footer { grid-template-columns: minmax(0,1fr); }
+  .telecom-detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .telecom-filter, .telecom-filter form { align-items: stretch; }
+  .telecom-filter form, .telecom-filter > a { width: 100%; }
+  .telecom-filter label { flex: 1; }
+  .telecom-filter input { width: 100%; }
+  .telecom-filter button, .telecom-form-footer button { width: 100%; justify-content: center; }
+  .telecom-nav { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; padding-bottom: .4rem; }
+  .telecom-upload input, .telecom-upload select, .telecom-filter select, .telecom-edit-form input, .telecom-edit-form select, .telecom-edit-form textarea { font-size: 16px; }
+}
+@media(max-width:380px) { .telecom-detail-grid { grid-template-columns: minmax(0,1fr); } }
 .toll-workspace { display: grid; gap: 1rem; min-width: 0; }
 .toll-year-filter { display: flex; align-items: end; flex-wrap: wrap; gap: 1rem; }
 .toll-year-filter label { display: grid; gap: .45rem; max-width: 140px; font-weight: 700; }

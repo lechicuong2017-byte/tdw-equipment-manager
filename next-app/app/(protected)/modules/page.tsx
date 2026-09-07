@@ -34,6 +34,7 @@ export default async function ModulesPage() {
       available: hasModule(access, "supplies"),
       tone: "amber",
     },
+    { href: "/telecom", icon: "telecom" as const, eyebrow: "DỊCH VỤ", title: "Chi phí viễn thông", description: "Tuyến ống & ICCPs, điện thoại bàn, điện thoại TGĐ. Tổng hợp thanh toán và báo cáo tháng/năm.", available: hasModule(access,"telecom"), tone: "cyan" },
   ];
 
   return (
