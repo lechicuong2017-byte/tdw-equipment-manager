@@ -29,7 +29,7 @@ function Review({ rows, source, group,category }: { rows: TelecomPreviewRow[]; s
       <td className="telecom-money">{money(r.amount_before_tax)}</td><td className="telecom-money">{money(r.tax_amount)}</td><td className="telecom-money"><strong>{money(r.amount_after_tax)}</strong></td><td><span className={`status-pill ${r.status==="new"?"status-pill--active":"status-muted"}`}>{statusLabels[r.status]}</span></td>
     </tr>)}</tbody></table></div>
     {state.error ? <p className="form-error" role="alert">{state.error}</p>:null}
-    <div className="telecom-form-footer"><p>Chỉ các hóa đơn đã chọn được lưu. Chi phí được tổng hợp theo kỳ cước trên hóa đơn.</p><button type="submit" className="primary-button" disabled={pending || !chosen.length}>{pending?"Đang lưu…":`Nhập ${chosen.length} hóa đơn`}</button></div>
+    <div className="telecom-form-footer"><p>Chỉ các hóa đơn đã chọn được lưu và ghi nhận <strong>đã thanh toán vào ngày nhập</strong>. Bạn có thể chỉnh ngày thanh toán trong chi tiết. Chi phí thống kê theo kỳ cước.</p><button type="submit" className="primary-button" disabled={pending || !chosen.length}>{pending?"Đang lưu…":`Nhập ${chosen.length} hóa đơn`}</button></div>
   </form>;
 }
 

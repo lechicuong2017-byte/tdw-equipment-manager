@@ -1,0 +1,34 @@
+// Execute the actual report route against a synthetic, read-only query fixture.
+import fs from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import * as helpers from '../next-app/lib/telecom-invoices.ts';
+const require=createRequire(new URL('../next-app/package.json',import.meta.url));
+const ts=require('typescript');const ExcelJS=require('exceljs');
+let allowed=true;let failure=false;
+const rows=Array.from({length:503},(_,i)=>({id:String(i),category:['pipeline','landline','director'][i%3],period_month:i===502?'2025-08-01':'2026-08-01',subscriber:`00123${i}`,group_name:'Synthetic',provider:'Test',invoice_series:'1TEST',invoice_number:`000${i}`,issued_on:'2026-09-02',contract_number:'TEST',service:'Synthetic',amount_before_tax:100,tax_amount:10,amount_after_tax:110,paid_on:i%2?'2026-09-07':null,note:'Synthetic note',source_file:'synthetic.pdf',source_page:1}));
+const supabase={from(){let current=rows;return {select(){return this;},is(){return this;},gte(k,v){current=current.filter(r=>r[k]>=v);return this;},lt(k,v){current=current.filter(r=>r[k]<v);return this;},eq(k,v){current=current.filter(r=>r[k]===v);return this;},order(){return this;},async range(a,b){return failure?{error:{message:'test'}}:{data:current.slice(a,b+1)};}};}};
+const source=await fs.readFile(new URL('../next-app/app/api/telecom/report/route.ts',import.meta.url),'utf8');
+const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;
+const module={exports:{}};
+const mocks={'next/server':{NextResponse:Response},'@/lib/auth':{can:()=>allowed,hasModule:()=>allowed,requireAccess:async()=>({access:{},supabase})},'@/lib/telecom-invoices':helpers};
+// Use the same realm: ExcelJS identifies row arrays with instanceof Array.
+new Function('exports','module','require',compiled)(module.exports,module,(id)=>mocks[id]||require(id));
+const get=(query)=>module.exports.GET({nextUrl:new URL(`http://example.invalid/report?${query}`)});
+const report=await get('year=2026');assert.equal(report.status,200);
+const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(Buffer.from(await report.arrayBuffer()));
+assert.equal(workbook.worksheets.length,3);
+const summary=workbook.getWorksheet('Tong hop thang');const detail=workbook.getWorksheet('Chi tiet hoa don');
+assert.equal(summary.rowCount,5);assert.equal(summary.lastRow.getCell(3).value,502);
+assert.equal(summary.lastRow.getCell(6).value,55220);assert.equal(detail.rowCount,503);
+assert.equal(detail.getCell('B2').value,'001230');assert.equal(detail.getCell('G2').value,'0000');
+assert.equal(typeof detail.getCell('M2').value,'number');assert.equal(detail.getCell('C2').value,'Tuyến ống & ICCPs');
+const filtered=new ExcelJS.Workbook();await filtered.xlsx.load(Buffer.from(await (await get('year=2026&month=8&category=director')).arrayBuffer()));
+assert.equal(filtered.getWorksheet('Tong hop thang').lastRow.getCell(3).value,167);
+const empty=new ExcelJS.Workbook();await empty.xlsx.load(Buffer.from(await (await get('year=2026&month=9')).arrayBuffer()));
+assert.equal(empty.getWorksheet('Tong hop thang').lastRow.getCell(6).value,0);
+assert.equal((await get('year=2026&month=13')).status,400);
+assert.equal((await get('year=2026&category=invalid')).status,400);
+allowed=false;assert.equal((await get('year=2026')).status,403);allowed=true;
+failure=true;assert.equal((await get('year=2026')).status,500);
+console.log('Telecom Excel checks passed: 502-row pagination, monthly/year/category filters, category subtotals, numeric money, leading-zero identifiers, empty reports and error/permission responses.');
