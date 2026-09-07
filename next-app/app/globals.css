@@ -456,9 +456,10 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-action-group .secondary-button { min-height: 40px; padding: 0 0.9rem; }
 .vehicle-action-group--primary { border-left: 1px solid var(--line); padding-left: 0.9rem; }
 .vehicle-stats-grid { margin-bottom: 1rem; }
-.telecom-workspace { display: grid; gap: 1.2rem; min-width: 0; }
+.telecom-workspace { display: grid; grid-template-columns: minmax(0,1fr); gap: 1.2rem; min-width: 0; }
+.telecom-workspace > * { min-width: 0; }
 .telecom-nav { display: flex; flex-wrap: wrap; gap: .7rem 1.4rem; font-size: .78rem; font-weight: 750; }
-.telecom-filter, .telecom-filter form { display: flex; flex-wrap: wrap; align-items: end; gap: .9rem; }
+.telecom-filter, .telecom-filter form { display: flex; flex-wrap: wrap; align-items: end; gap: .9rem; min-width: 0; }
 .telecom-filter { justify-content: space-between; }
 .telecom-filter label, .telecom-upload label, .telecom-edit-form label { display: grid; gap: .45rem; font-size: .8rem; font-weight: 750; min-width: 0; }
 .telecom-filter input { width: 110px; }
@@ -511,7 +512,8 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
   .telecom-detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .telecom-filter, .telecom-filter form { align-items: stretch; }
   .telecom-filter form, .telecom-filter > a { width: 100%; }
-  .telecom-filter label { flex: 1; }
+  .telecom-filter label { flex: 1 1 130px; }
+  .telecom-filter select { width: 100%; }
   .telecom-filter input { width: 100%; }
   .telecom-filter button, .telecom-form-footer button { width: 100%; justify-content: center; }
   .telecom-nav { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; padding-bottom: .4rem; }
