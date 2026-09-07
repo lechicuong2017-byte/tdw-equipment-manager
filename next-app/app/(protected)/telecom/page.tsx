@@ -15,19 +15,19 @@ export default async function TelecomPage({searchParams}:{searchParams:Promise<R
   const currentYear=Number(new Intl.DateTimeFormat("en",{year:"numeric",timeZone:"Asia/Ho_Chi_Minh"}).format(new Date()));
   const filter=telecomFilterSchema.safeParse({year:raw.year||currentYear,month:raw.month||undefined,page:raw.page||1,category:raw.category||undefined});
   if(!filter.success)return <><PageHeader title="Bộ lọc không hợp lệ"/><Link href="/telecom">Về chi phí viễn thông</Link></>;
-  const {year,month,page,category}=filter.data;const {start,end}=telecomPeriod(year,month);
+  const {year,month,page,category}=filter.data;const {start,end}=telecomPeriod(year,month);const pageSize=20;
   let detailQuery=supabase.from("telecom_invoices").select("id,category,provider,subscriber,period_month,issued_on,invoice_series,invoice_number,contract_number,service,group_name,amount_before_tax,tax_amount,amount_after_tax,source_file,source_page,paid_on,note",{count:"exact"})
     .is("deleted_at",null).gte("period_month",start).lt("period_month",end);
   if(category)detailQuery=detailQuery.eq("category",category);
   const [summaryResult,detailResult]=await Promise.all([
     supabase.rpc("telecom_cost_summary",{target_year:year}),
-    detailQuery.order("period_month",{ascending:false}).order("subscriber").order("id").range((page-1)*50,page*50-1),
+    detailQuery.order("period_month",{ascending:false}).order("subscriber").order("id").range((page-1)*pageSize,page*pageSize-1),
   ]);
   const summary=(summaryResult.data||[]) as Summary[];
   const periodSummary=summary.filter((s)=>!month||Number(s.period_month.slice(5,7))===month);
   const selected=periodSummary.filter((s)=>!category||s.category===category);
   const total=selected.reduce((s,r)=>s+Number(r.total),0);const unpaid=selected.reduce((s,r)=>s+Number(r.unpaid),0);
-  const rows=(detailResult.data||[]) as TelecomInvoiceRecord[];const count=detailResult.count||0;const pages=Math.max(1,Math.ceil(count/50));
+  const rows=(detailResult.data||[]) as TelecomInvoiceRecord[];const count=detailResult.count||0;const pages=Math.max(1,Math.ceil(count/pageSize));
   const query=`year=${year}${month?`&month=${month}`:""}${category?`&category=${category}`:""}`;
   const href=(p:number)=>`/telecom?${query}&page=${p}#telecom-invoices`;
   const exportHref=`/api/telecom/report?${query}`;

@@ -12,7 +12,7 @@ Chọn **Nhập hóa đơn PDF**, chọn hạng mục và nhóm/mục đích s�
 
 Năm hiện tại theo giờ Việt Nam là bộ lọc mặc định. Có thể lọc tháng, năm và hạng mục. Thẻ từng hạng mục hiển thị tổng chi phí của kỳ đang chọn; thống kê tổng và danh sách tuân theo hạng mục đang lọc. Xuất Excel có ba sheet: tổng hợp theo tháng/hạng mục, tổng hợp thuê bao/hạng mục và chi tiết hóa đơn. Tiền là ô số; thuê bao và số hóa đơn là chuỗi để giữ định dạng.
 
-Hóa đơn nhập mới mặc định **Đã thanh toán** (xanh), ngày thanh toán là ngày nhập theo giờ Việt Nam. Trong **Xem / Sửa**, chỉnh ngày đã thanh toán, ghi chú hoặc hạng mục/nhóm. Để ngày trống tức **Chưa thanh toán** (đỏ). Bản ghi cũ không bị thay đổi ngày thanh toán tự động. Xóa có xác nhận và là xóa mềm; nhật ký vẫn giữ dữ liệu cũ. Hóa đơn không bị chỉnh âm thầm số tiền khi nhập lại: nếu cùng danh tính nhưng khác tiền, kỳ cước hoặc thuê bao thì chặn để đối chiếu.
+Hóa đơn nhập mới mặc định **Đã thanh toán** (xanh), ngày thanh toán là ngày nhập theo giờ Việt Nam. Các hóa đơn đã nhập trước đây cũng được backfill sang đã thanh toán theo ngày tạo bản ghi; ngày đã có sẵn được giữ nguyên. Trong **Xem / Sửa**, chỉnh ngày đã thanh toán, ghi chú hoặc hạng mục/nhóm. Để ngày trống tức **Chưa thanh toán** (đỏ). Xóa có xác nhận và là xóa mềm; nhật ký vẫn giữ dữ liệu cũ. Hóa đơn không bị chỉnh âm thầm số tiền khi nhập lại: nếu cùng danh tính nhưng khác tiền, kỳ cước hoặc thuê bao thì chặn để đối chiếu.
 
 ## Phạm vi và an toàn
 
@@ -42,4 +42,4 @@ Kết quả mẫu thực tế (cả ba đều kỳ 08/2026 dù lập trong 09/20
 
 `node tools/test-telecom-report.mjs` kiểm tra route xuất Excel với hơn 500 bản ghi giả lập, bộ lọc tháng/năm/hạng mục, tổng tiền, ô số và định danh có số 0 đầu, lỗi và quyền truy cập.
 
-Migrations: `202609070001_telecom_cost_management.sql`, `202609070002_telecom_paid_on_import.sql`. Không thay đổi dữ liệu xe, VPP hay thiết bị.
+Migrations: `202609070001_telecom_cost_management.sql`, `202609070002_telecom_paid_on_import.sql`, `202609070003_mark_existing_telecom_paid.sql`. Không thay đổi dữ liệu xe, VPP hay thiết bị.
