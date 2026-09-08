@@ -4667,6 +4667,10 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   width: 68%;
 }
 
+.telecom-route-loading { min-width: 0; }
+.telecom-route-loading-filter { grid-template-columns: minmax(0, 1fr); }
+.telecom-route-loading-filter .route-loading-line:not(.route-loading-line-heading) { max-width: 52%; }
+
 @keyframes route-loading-pulse {
   0% { background-position: 100% 0; }
   100% { background-position: -120% 0; }
