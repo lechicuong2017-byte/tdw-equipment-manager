@@ -7,6 +7,7 @@ export const metadata = { title: "Chọn phân hệ" };
 export default async function ModulesPage() {
   const { access } = await requireAccess();
   const modules = [
+    { href: "/surveys", icon: "inspection" as const, eyebrow: "LẮNG NGHE & KẾT NỐI", title: "Khảo sát công ty", description: "Tạo câu hỏi, chia sẻ khảo sát với nhân viên và tổng hợp kết quả bằng Excel.", available: hasModule(access, "surveys"), tone: "violet" },
     {
       href: "/dashboard",
       icon: "device" as const,

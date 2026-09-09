@@ -65,12 +65,17 @@ export function Sidebar({ access }: { access: AccessProfile }) {
   const isVehicleModule = pathname.startsWith("/vehicles");
   const isSupplyModule = pathname.startsWith("/supplies");
   const isTelecomModule = pathname.startsWith("/telecom");
+  const isSurveyModule = pathname.startsWith("/surveys");
   const telecomNavItems = [
     { href: "/telecom/phones", label: "Số điện thoại", icon: "telecom" as const, permission: "telecom.view", tone: "cyan" },
     { href: "/telecom", label: "Chi phí viễn thông", icon: "telecom" as const, permission: "telecom.view", tone: "cyan" },
     { href: "/telecom#telecom-reports", label: "Báo cáo tháng / năm", icon: "reports" as const, permission: "reports.telecom.export", tone: "rose" },
   ];
-  const navItems = isTelecomModule ? telecomNavItems : isVehicleModule ? vehicleNavItems : isSupplyModule ? supplyNavItems : equipmentNavItems;
+  const surveyNavItems = [
+    { href: "/surveys", label: "Danh sách khảo sát", icon: "inspection" as const, permission: "surveys.view", tone: "violet" },
+    { href: "/surveys/new", label: "Tạo khảo sát", icon: "assets" as const, permission: "surveys.manage", tone: "cyan" },
+  ];
+  const navItems = isSurveyModule ? surveyNavItems : isTelecomModule ? telecomNavItems : isVehicleModule ? vehicleNavItems : isSupplyModule ? supplyNavItems : equipmentNavItems;
   const initials = (access.full_name || access.email)
     .split(/\s+/)
     .filter(Boolean)
@@ -89,7 +94,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           src="/tdw-logo.webp"
           width={126}
         />
-        <small>{isAdminArea ? "System Administration" : isAccountArea ? "Account Settings" : isTelecomModule ? "Telecom Manager" : isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
+        <small>{isAdminArea ? "System Administration" : isAccountArea ? "Account Settings" : isSurveyModule ? "Survey Manager" : isTelecomModule ? "Telecom Manager" : isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
       </div>
 
       <nav aria-label="Điều hướng chính">

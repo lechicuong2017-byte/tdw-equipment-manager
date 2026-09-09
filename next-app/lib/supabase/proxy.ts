@@ -34,6 +34,9 @@ export async function updateSession(
     return redirect;
   };
   let response = nextResponse();
+  // Public surveys use an anonymous client and never need session refresh.
+  // Keep this exception narrow: management and results remain protected.
+  if (/^\/s\/[0-9a-f-]{36}\/?$/i.test(request.nextUrl.pathname)) return response;
   const { url, publishableKey } = getSupabaseEnv();
 
   const supabase = createServerClient(url, publishableKey, {
