@@ -680,7 +680,8 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 .vehicle-record-document strong { color: var(--ink); display: block; font-size: 0.76rem; }
 .vehicle-record-document p { color: var(--ink-soft); font-size: 0.68rem; line-height: 1.4; margin: 0.2rem 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vehicle-record-document-actions { align-items: center; display: flex; gap: 0.55rem; }
-.vehicle-record-document-actions a { font-size: 0.68rem; min-height: 38px; padding: 0 0.8rem; text-decoration: none; white-space: nowrap; }
+.vehicle-record-document-actions > a,
+.vehicle-record-document-actions > button { font-size: 0.68rem; min-height: 38px; padding: 0 0.8rem; text-decoration: none; white-space: nowrap; }
 .import-upload-form { align-items: end; display: grid; gap: 0.8rem; grid-template-columns: 1fr auto; margin-bottom: 1rem; }
 .import-preview-form { display: grid; gap: 0.9rem; }
 .import-preview-summary { align-items: center; background: var(--green-soft); border: 1px solid #b9e3ce; border-radius: 10px; color: var(--green); display: flex; justify-content: space-between; padding: 0.75rem 0.9rem; }
@@ -847,7 +848,8 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
   .vehicle-record-detail-field--wide { grid-column: auto; }
   .vehicle-record-document { align-items: stretch; grid-template-columns: auto minmax(0, 1fr); }
   .vehicle-record-document-actions { grid-column: 1 / -1; }
-  .vehicle-record-document-actions a { flex: 1; justify-content: center; }
+  .vehicle-record-document-actions > a,
+  .vehicle-record-document-actions > button { flex: 1; justify-content: center; }
   .vehicle-action-group .primary-button,
   .vehicle-action-group .secondary-button { justify-content: center; width: 100%; }
   .vehicle-alert-item { align-items: start; grid-template-columns: auto minmax(0, 1fr); }

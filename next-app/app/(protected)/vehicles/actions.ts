@@ -926,15 +926,27 @@ export async function commitVehicleImport(_state: VehicleImportState, formData: 
   try { raw = JSON.parse(String(formData.get("rows") || "[]")); } catch { return { error: "Dữ liệu xem trước không hợp lệ." }; }
   const parsed = importRowsSchema.safeParse(raw);
   if (!parsed.success) return { error: "Dữ liệu xem trước đã thay đổi hoặc không hợp lệ." };
+  // Không tin dấu vân tay gửi về từ trình duyệt. Tính lại ở server để việc chống
+  // trùng luôn dựa trên chính nội dung của từng dòng mà người dùng đã chọn.
+  const selectedRows = parsed.data.map((row) => ({
+    ...row,
+    fingerprint: fingerprint(row),
+  }));
+  const invalidFuelRow = selectedRows.find(
+    (row) => row.kind === "fuel" && (!row.liters || row.liters <= 0),
+  );
+  if (invalidFuelRow) {
+    return { error: `Dòng ${invalidFuelRow.row} sheet ${invalidFuelRow.sheet} thiếu số lít hợp lệ.` };
+  }
   const fileName = String(formData.get("file_name") || "import.xlsx").slice(0, 200);
-  const plates = [...new Set(parsed.data.map((row) => normalizePlate(row.license_plate)))];
+  const plates = [...new Set(selectedRows.map((row) => normalizePlate(row.license_plate)))];
   const { data: existingVehicles, error: vehicleReadError } = await supabase
     .from("vehicles").select("id,license_plate").is("deleted_at", null).limit(1000);
   if (vehicleReadError) return { error: "Không thể đọc danh sách xe." };
   const vehicleByPlate = new Map((existingVehicles ?? []).map((vehicle) => [normalizePlate(vehicle.license_plate), vehicle.id]));
   for (const plate of plates) {
     if (vehicleByPlate.has(plate)) continue;
-    const source = parsed.data.find((row) => normalizePlate(row.license_plate) === plate)!;
+    const source = selectedRows.find((row) => normalizePlate(row.license_plate) === plate)!;
     const { data: created, error } = await supabase.from("vehicles").insert({
       vehicle_code: `TDW-VEH-${plate}`,
       vehicle_name: source.vehicle_name,
@@ -946,14 +958,14 @@ export async function commitVehicleImport(_state: VehicleImportState, formData: 
     if (error || !created) return { error: `Không thể tạo hồ sơ cho xe ${source.license_plate}.` };
     vehicleByPlate.set(plate, created.id);
   }
-  const fuelRows = parsed.data.filter((row) => row.kind === "fuel" && row.liters && row.liters > 0).map((row) => ({
+  const fuelRows = selectedRows.filter((row) => row.kind === "fuel").map((row) => ({
     vehicle_id: vehicleByPlate.get(normalizePlate(row.license_plate))!, payment_date: row.date, liters: row.liters!,
     odometer_from: row.odometer_from, odometer_to: row.odometer_to, amount: row.amount,
     purchaser: row.purchaser, note: row.note, source_file: fileName, source_sheet: row.sheet,
     source_row: row.row, import_fingerprint: row.fingerprint,
   }));
   let importedRepairType = "";
-  if (parsed.data.some((row) => row.kind === "repairs")) {
+  if (selectedRows.some((row) => row.kind === "repairs")) {
     const { data: maintenanceTypes, error: maintenanceTypeError } = await supabase
       .from("settings")
       .select("setting_value")
@@ -968,7 +980,7 @@ export async function commitVehicleImport(_state: VehicleImportState, formData: 
     importedRepairType = maintenanceTypes.find((item) => item.setting_value === "BAO_DUONG_SUA_CHUA")?.setting_value
       ?? maintenanceTypes[0].setting_value;
   }
-  const repairRows = parsed.data.filter((row) => row.kind === "repairs").map((row) => ({
+  const repairRows = selectedRows.filter((row) => row.kind === "repairs").map((row) => ({
     vehicle_id: vehicleByPlate.get(normalizePlate(row.license_plate))!, service_date: row.date,
     service_type: importedRepairType, description: row.description, vat_amount: row.amount,
     note: row.note, source_file: fileName, source_sheet: row.sheet, source_row: row.row,
@@ -976,41 +988,24 @@ export async function commitVehicleImport(_state: VehicleImportState, formData: 
   }));
   let inserted = 0;
   if (fuelRows.length) {
-    const existing = await supabase.from("vehicle_fuel_logs")
-      .select("source_sheet,source_row").eq("source_file", fileName).not("source_row", "is", null).limit(2000);
-    if (existing.error) return { error: "Không thể đối chiếu lịch sử nhiên liệu đã nhập." };
-    const existingKeys = new Set((existing.data ?? []).map((row) => `${row.source_sheet}|${row.source_row}`));
-    const updates = fuelRows.filter((row) => existingKeys.has(`${row.source_sheet}|${row.source_row}`));
-    const additions = fuelRows.filter((row) => !existingKeys.has(`${row.source_sheet}|${row.source_row}`));
-    if (updates.length) {
-      const result = await supabase.from("vehicle_fuel_logs").upsert(updates, { onConflict: "source_file,source_sheet,source_row" }).select("id");
-      if (result.error) return { error: "Không thể cập nhật lịch sử nhiên liệu đã nhập." };
-      inserted += result.data?.length ?? 0;
-    }
-    if (additions.length) {
-      const result = await supabase.from("vehicle_fuel_logs").upsert(additions, { onConflict: "import_fingerprint", ignoreDuplicates: true }).select("id");
-      if (result.error) return { error: "Không thể nhập lịch sử nhiên liệu." };
-      inserted += result.data?.length ?? 0;
-    }
+    const result = await supabase.from("vehicle_fuel_logs")
+      .upsert(fuelRows, { onConflict: "import_fingerprint", ignoreDuplicates: true })
+      .select("id");
+    if (result.error) return { error: "Không thể nhập lịch sử nhiên liệu." };
+    inserted += result.data?.length ?? 0;
   }
   if (repairRows.length) {
-    const existing = await supabase.from("vehicle_repairs")
-      .select("source_sheet,source_row").eq("source_file", fileName).not("source_row", "is", null).limit(2000);
-    if (existing.error) return { error: "Không thể đối chiếu lịch sử bảo dưỡng đã nhập." };
-    const existingKeys = new Set((existing.data ?? []).map((row) => `${row.source_sheet}|${row.source_row}`));
-    const updates = repairRows.filter((row) => existingKeys.has(`${row.source_sheet}|${row.source_row}`));
-    const additions = repairRows.filter((row) => !existingKeys.has(`${row.source_sheet}|${row.source_row}`));
-    if (updates.length) {
-      const result = await supabase.from("vehicle_repairs").upsert(updates, { onConflict: "source_file,source_sheet,source_row" }).select("id");
-      if (result.error) return { error: "Không thể cập nhật lịch sử bảo dưỡng đã nhập." };
-      inserted += result.data?.length ?? 0;
-    }
-    if (additions.length) {
-      const result = await supabase.from("vehicle_repairs").upsert(additions, { onConflict: "import_fingerprint", ignoreDuplicates: true }).select("id");
-      if (result.error) return { error: "Không thể nhập lịch sử bảo dưỡng." };
-      inserted += result.data?.length ?? 0;
-    }
+    const result = await supabase.from("vehicle_repairs")
+      .upsert(repairRows, { onConflict: "import_fingerprint", ignoreDuplicates: true })
+      .select("id");
+    if (result.error) return { error: "Không thể nhập lịch sử bảo dưỡng." };
+    inserted += result.data?.length ?? 0;
   }
   revalidatePath("/vehicles");
-  return { success: `Đã nhập hoặc cập nhật ${inserted} dòng; dữ liệu cùng file/sheet/dòng không bị tạo trùng.` };
+  const skipped = selectedRows.length - inserted;
+  return {
+    success: skipped
+      ? `Đã thêm ${inserted} dòng đã chọn; bỏ qua ${skipped} dòng có nội dung đã tồn tại.`
+      : `Đã thêm đúng ${inserted} dòng đã chọn.`,
+  };
 }

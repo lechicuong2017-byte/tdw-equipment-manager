@@ -12,7 +12,7 @@ import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
 import { vehicleSettingTypeDefinitions, vehicleSettingTypes } from "@/lib/settings";
 import type { Setting } from "@/lib/types";
-import { deleteVehicleRecord, moveVehicleSetting, toggleVehicleSetting } from "./actions";
+import { deleteVehicleDocument, deleteVehicleRecord, moveVehicleSetting, toggleVehicleSetting } from "./actions";
 import { VehicleTollSection, VehicleTollMetric } from "@/components/vehicle-toll-section";
 
 export const metadata = { title: "Quản lý xe" };
@@ -96,7 +96,15 @@ function VehicleDetailNote({ note }: { note?: string | null }) {
   );
 }
 
-function VehicleDocumentDetail({ document, label = "Hóa đơn / chứng từ PDF" }: { document?: VehicleDocument; label?: string }) {
+function VehicleDocumentDetail({
+  canManage = false,
+  document,
+  label = "Hóa đơn / chứng từ PDF",
+}: {
+  canManage?: boolean;
+  document?: VehicleDocument;
+  label?: string;
+}) {
   return (
     <section className={`vehicle-record-document ${document ? "vehicle-record-document--ready" : ""}`}>
       <span className="vehicle-record-document-icon"><AppIcon name="reports" size={21} /></span>
@@ -107,6 +115,17 @@ function VehicleDocumentDetail({ document, label = "Hóa đơn / chứng từ PD
       {document ? <div className="vehicle-record-document-actions">
         <a className="secondary-button" href={`/api/vehicle-documents/${document.id}`} rel="noreferrer" target="_blank">Xem PDF</a>
         <a className="primary-button" href={`/api/vehicle-documents/${document.id}?download=1`}>Tải xuống</a>
+        {canManage ? <ConfirmAction
+          action={deleteVehicleDocument}
+          closeParentOnSuccess
+          confirmLabel="Xóa PDF"
+          description={`Chỉ tệp “${document.file_name}” bị xóa. Bản ghi xe và các dữ liệu khác vẫn được giữ nguyên.`}
+          fields={{ id: document.id, record_id: document.record_id }}
+          title="Xóa file PDF đính kèm?"
+          triggerAriaLabel={`Xóa file ${document.file_name}`}
+          triggerClassName="danger-button"
+          triggerLabel="Xóa PDF"
+        /> : null}
       </div> : null}
     </section>
   );
@@ -446,7 +465,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                       { label: "Trung tâm đăng kiểm", value: item.inspection_center, wide: true },
                     ]} />
                     <VehicleDetailNote note={item.note} />
-                    <VehicleDocumentDetail document={document} />
+                    <VehicleDocumentDetail canManage={canManage} document={document} />
                     {canManage || canDelete ? (
                       <div className="vehicle-detail-actions modal-actions">
                         {canManage ? <>
@@ -530,8 +549,8 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     ]} />
                     <VehicleDetailNote note={item.note} />
                     <VehicleInsuranceRenewalHistory current={item as InsuranceRenewalRecord} records={insuranceRecordsById} />
-                    <VehicleDocumentDetail document={invoiceDocument} label="Hóa đơn bảo hiểm PDF" />
-                    <VehicleDocumentDetail document={certificateDocument} label="Giấy chứng nhận bảo hiểm PDF" />
+                    <VehicleDocumentDetail canManage={canManage} document={invoiceDocument} label="Hóa đơn bảo hiểm PDF" />
+                    <VehicleDocumentDetail canManage={canManage} document={certificateDocument} label="Giấy chứng nhận bảo hiểm PDF" />
                     {canManage || canDelete ? <div className="vehicle-detail-actions modal-actions">
                       {canManage && canRenewNow ? <ModalTrigger closeParentOnSuccess description="Tạo kỳ bảo hiểm mới, ẩn kỳ cũ khỏi danh sách và lưu ngày, người thực hiện trong nhật ký gia hạn." eyebrow="GIA HẠN BẢO HIỂM" size="large" title="Gia hạn bảo hiểm" triggerClassName="secondary-button" triggerLabel="Gia hạn bảo hiểm"><InsuranceForm mode="renew" renewFromId={item.id} insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: "", starts_on: renewalPeriod.startsOn, expires_on: renewalPeriod.expiresOn, cost: item.cost, reminder_days: item.reminder_days, note: `Gia hạn từ hợp đồng hết hạn ngày ${formatDate(item.expires_on)}.` }} /></ModalTrigger> : null}
                       {canManage ? <ModalTrigger closeParentOnSuccess description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="primary-button" triggerLabel="Sửa bảo hiểm"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
@@ -576,7 +595,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                       { label: "Nguồn dữ liệu", value: item.source_file ? `Nhập từ ${item.source_file}` : null, wide: true },
                     ]} />
                     <VehicleDetailNote note={item.note} />
-                    <VehicleDocumentDetail document={document} />
+                    <VehicleDocumentDetail canManage={canManage} document={document} />
                     {canManage || canDelete ? <div className="vehicle-detail-actions modal-actions">
                       {canManage ? <ModalTrigger closeParentOnSuccess description="Cập nhật nội dung, đơn vị thực hiện, số km và chi phí." eyebrow="BẢO DƯỠNG" size="large" title="Sửa bảo dưỡng" triggerClassName="primary-button" triggerLabel="Sửa bảo dưỡng"><RepairForm maintenanceTypes={activeMaintenanceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, service_date: item.service_date, service_type: item.service_type, description: item.description, odometer_km: item.odometer_km, vat_amount: item.vat_amount, vendor: item.vendor, invoice_number: item.invoice_number, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
                       {canDelete ? <ConfirmAction action={deleteVehicleRecord} closeParentOnSuccess confirmLabel="Xóa bảo dưỡng" description="Bản ghi bảo dưỡng sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "repair" }} title="Xóa bảo dưỡng?" triggerAriaLabel={`Xóa bảo dưỡng ngày ${formatDate(item.service_date)}`} triggerClassName="danger-button" triggerLabel="Xóa bảo dưỡng" /> : null}
@@ -622,7 +641,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                       { label: "Nguồn dữ liệu", value: item.source_file ? `Nhập từ ${item.source_file}` : null, wide: true },
                     ]} />
                     <VehicleDetailNote note={item.note} />
-                    <VehicleDocumentDetail document={document} />
+                    <VehicleDocumentDetail canManage={canManage} document={document} />
                     {canManage || canDelete ? <div className="vehicle-detail-actions modal-actions">
                       {canManage ? <ModalTrigger closeParentOnSuccess description="Cập nhật số lít, hành trình, người mua và số tiền." eyebrow="NHIÊN LIỆU" size="large" title="Sửa nhiên liệu" triggerClassName="primary-button" triggerLabel="Sửa nhiên liệu"><FuelForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, payment_date: item.payment_date, liters: item.liters, odometer_from: item.odometer_from, odometer_to: item.odometer_to, amount: item.amount, purchaser: item.purchaser, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
                       {canDelete ? <ConfirmAction action={deleteVehicleRecord} closeParentOnSuccess confirmLabel="Xóa nhiên liệu" description="Bản ghi nhiên liệu sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "fuel" }} title="Xóa nhiên liệu?" triggerAriaLabel={`Xóa nhiên liệu ngày ${formatDate(item.payment_date)}`} triggerClassName="danger-button" triggerLabel="Xóa nhiên liệu" /> : null}

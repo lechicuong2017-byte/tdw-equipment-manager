@@ -308,7 +308,7 @@ function importComparisonLabel(row: VehicleImportRow) {
     case "new_vehicle": return "Xe mới · chưa có hồ sơ";
     case "new_record": return "Chưa có lịch sử cùng loại";
     case "newer": return storedDate ? `Mới hơn dữ liệu lưu ${storedDate}` : "Dữ liệu mới";
-    case "changed": return "Dòng đã nhập có thay đổi";
+    case "changed": return "Cùng vị trí file, nội dung khác · sẽ thêm mới";
     case "already_saved": return "Đã lưu · không nhập lại";
     case "older": return storedDate ? `Cũ hơn hoặc bằng ${storedDate}` : "Dữ liệu cũ";
     default: return "Chưa đối chiếu";
@@ -351,7 +351,7 @@ function VehicleImportReview({ preview }: { preview: VehicleImportState & { file
         <div className="import-preview-summary">
           <div>
             <strong>Bước 2 · Chọn dữ liệu cần nhập</strong>
-            <span>{rows.length} dòng · {recommendedCount} dòng mới/cập nhật · {savedCount} đã lưu · {olderCount} cũ hơn</span>
+            <span>{rows.length} dòng · {recommendedCount} dòng có thể nhập · {savedCount} đã lưu · {olderCount} cũ hơn</span>
           </div>
           <b>{selectedRows.length} đã chọn</b>
         </div>
@@ -359,7 +359,7 @@ function VehicleImportReview({ preview }: { preview: VehicleImportState & { file
           <button className="text-button" onClick={selectRecommended} type="button">Chọn dữ liệu mới</button>
           <button className="text-button" onClick={selectAllImportable} type="button">Chọn tất cả có thể nhập</button>
           <button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button>
-          <span>{warningCount ? `${warningCount} dòng cảnh báo được bỏ chọn mặc định.` : "Các dòng mới hơn được chọn tự động."}</span>
+          <span>{warningCount ? `${warningCount} dòng cảnh báo được bỏ chọn mặc định.` : "Các dòng chưa lưu được chọn tự động."}</span>
         </div>
         <div className="table-wrap import-preview-table supply-review-table vehicle-import-review-table">
           <table>
