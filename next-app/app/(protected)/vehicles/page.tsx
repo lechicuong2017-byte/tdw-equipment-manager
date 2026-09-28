@@ -245,7 +245,7 @@ function VehiclePagination({
   );
 }
 
-export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; tollPage?: string; inspectionView?: string; insuranceView?: string }> }) {
+export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; tollPage?: string; tollView?: string; inspectionView?: string; insuranceView?: string }> }) {
   const params = await searchParams;
   const requestedSection = params.section;
   const requestedPage = Number.isFinite(Number(params.page)) ? Math.max(1, Math.trunc(Number(params.page))) : 1;
@@ -702,7 +702,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
         <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelTotal} />
       </section> : null}
 
-      {section === "tolls" ? <VehicleTollSection year={params.year} page={params.tollPage} /> : null}
+      {section === "tolls" ? <VehicleTollSection year={params.year} page={params.tollPage} view={params.tollView} /> : null}
 
       {section === "settings" ? <section className="settings-catalog-grid vehicle-settings-grid">
         {vehicleSettingTypes.map((settingType) => {

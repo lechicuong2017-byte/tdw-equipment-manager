@@ -23,7 +23,8 @@ assert.match(page, /insuranceView === "history"/);
 assert.match(page, /Lịch sử bảo hiểm/);
 assert.match(page, /\.from\("vehicle_insurances"\).*\.not\("archived_at", "is", null\)/s);
 assert.match(historyTabs, /router\.prefetch/);
-assert.match(historyTabs, /section="insurance"|section === "inspections"/);
+assert.match(historyTabs, /inspections: "inspectionView"/);
+assert.match(historyTabs, /insurance: "insuranceView"/);
 
 const rows = [
   { id: "old", vehicle: "ford", inspectionDate: "2026-03-26", archivedAt: "2026-09-25" },
