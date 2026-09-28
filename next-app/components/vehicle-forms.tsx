@@ -172,16 +172,19 @@ export function InspectionForm({
   vehicles,
   initial,
   mode = initial?.id ? "edit" : "create",
+  renewFromId,
 }: {
   vehicles: VehicleOption[];
   initial?: InspectionFormInitial;
   mode?: "create" | "edit" | "renew";
+  renewFromId?: string;
 }) {
   const [state, action, pending] = useActionState(saveVehicleInspection, initialState);
   return (
     <form action={action} className="data-form vehicle-form">
       <ActionStateToast state={state} />
-      {initial?.id ? <input name="id" type="hidden" value={initial.id} /> : null}
+      {mode === "edit" && initial?.id ? <input name="id" type="hidden" value={initial.id} /> : null}
+      {mode === "renew" && renewFromId ? <input name="renew_from_id" type="hidden" value={renewFromId} /> : null}
       <div className="form-grid">
         <label className="span-2">Xe *<VehicleSelect defaultValue={initial?.vehicle_id} vehicles={vehicles} /></label>
         <label>Ngày đăng kiểm *<input defaultValue={initial?.inspection_date ?? ""} name="inspection_date" type="date" required /></label>

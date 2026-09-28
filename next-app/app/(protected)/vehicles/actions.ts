@@ -32,6 +32,7 @@ const vehicleSchema = z.object({
 
 const inspectionSchema = z.object({
   id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
+  renew_from_id: z.preprocess(emptyToNull, z.uuid().nullable().optional()),
   vehicle_id: z.uuid("Xe không hợp lệ"),
   inspection_date: z.iso.date("Ngày đăng kiểm không hợp lệ"),
   expires_on: z.iso.date("Ngày hết hạn không hợp lệ"),
@@ -386,11 +387,43 @@ export async function saveVehicleInspection(_state: VehicleActionState, formData
   if (invoice.error) return { error: invoice.error };
   const parsed = inspectionSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
-  const saved = await saveRow("vehicle_inspections", parsed.data, parsed.data.id ? "Đã cập nhật đăng kiểm." : "Đã ghi nhận đăng kiểm.");
+  const { renew_from_id: renewFromId, ...inspectionData } = parsed.data;
+  let saved: SavedVehicleRow;
+  if (renewFromId) {
+    const { access, supabase } = await requireAccess();
+    if (!can(access, "vehicles.manage")) return { error: "Bạn không có quyền gia hạn đăng kiểm xe." };
+    const { data: renewedRecordId, error } = await supabase.rpc("renew_vehicle_inspection", {
+      target_certificate_number: inspectionData.certificate_number,
+      target_cost: inspectionData.cost,
+      target_expires_on: inspectionData.expires_on,
+      target_inspection_center: inspectionData.inspection_center,
+      target_inspection_date: inspectionData.inspection_date,
+      target_note: inspectionData.note,
+      target_odometer_km: inspectionData.odometer_km ?? null,
+      target_reminder_days: inspectionData.reminder_days,
+      target_seat_count: inspectionData.seat_count ?? null,
+      target_source_inspection_id: renewFromId,
+      target_vehicle_id: inspectionData.vehicle_id,
+    });
+    if (error?.message.includes("VEHICLE_INSPECTION_NOT_ACTIVE") || error?.message.includes("VEHICLE_INSPECTION_ALREADY_RENEWED")) {
+      return { error: "Lần đăng kiểm này đã được gia hạn hoặc đã nằm trong lịch sử." };
+    }
+    if (error?.message.includes("VEHICLE_INSPECTION_VEHICLE_MISMATCH")) {
+      return { error: "Không thể đổi xe khi gia hạn đăng kiểm." };
+    }
+    if (error) return { error: "Không thể gia hạn đăng kiểm. Hãy kiểm tra thông tin và thử lại." };
+    saved = { recordId: String(renewedRecordId), success: "Đã gia hạn đăng kiểm và chuyển kỳ cũ vào lịch sử." };
+  } else {
+    saved = await saveRow(
+      "vehicle_inspections",
+      inspectionData,
+      inspectionData.id ? "Đã cập nhật đăng kiểm." : "Đã ghi nhận đăng kiểm.",
+    );
+  }
   if (saved.error || !saved.recordId || !invoice.file) return saved;
   const context = await requireAccess();
-  const plate = await vehiclePlate(context.supabase, parsed.data.vehicle_id);
-  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, preferredBaseName: `${plate}_DANG-KIEM_${compactDateForFileName(parsed.data.expires_on)}_HOA-DON`, recordId: saved.recordId, recordType: "INSPECTION", vehicleId: parsed.data.vehicle_id });
+  const plate = await vehiclePlate(context.supabase, inspectionData.vehicle_id);
+  const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, preferredBaseName: `${plate}_DANG-KIEM_${compactDateForFileName(inspectionData.expires_on)}_HOA-DON`, recordId: saved.recordId, recordType: "INSPECTION", vehicleId: inspectionData.vehicle_id });
   revalidatePath("/vehicles");
   return document.error
     ? { success: `${saved.success} ${document.error} Bạn có thể mở Sửa để tải lại.` }

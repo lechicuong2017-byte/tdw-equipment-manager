@@ -216,30 +216,42 @@ function pageRows<T>(rows: T[], page: number) {
   return rows.slice(offset, offset + vehiclePageSize);
 }
 
-function VehiclePagination({ section, page, totalRows }: { section: "inspections" | "insurance" | "repairs" | "fuel"; page: number; totalRows: number }) {
+function VehiclePagination({
+  section,
+  page,
+  totalRows,
+  inspectionView,
+}: {
+  section: "inspections" | "insurance" | "repairs" | "fuel";
+  page: number;
+  totalRows: number;
+  inspectionView?: "current" | "history";
+}) {
   if (totalRows <= vehiclePageSize) return null;
   const totalPages = Math.max(1, Math.ceil(totalRows / vehiclePageSize));
   const from = totalRows ? (page - 1) * vehiclePageSize + 1 : 0;
   const to = Math.min(page * vehiclePageSize, totalRows);
+  const viewSuffix = section === "inspections" && inspectionView ? `&inspectionView=${inspectionView}` : "";
   return (
     <nav className="vehicle-pagination" aria-label="Phân trang dữ liệu xe">
       <span>Hiển thị {from}–{to} / {totalRows} bản ghi</span>
       <div>
-        {page > 1 ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page - 1}`}>← Trước</Link> : <span className="secondary-button disabled">← Trước</span>}
+        {page > 1 ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page - 1}${viewSuffix}`}>← Trước</Link> : <span className="secondary-button disabled">← Trước</span>}
         <strong>Trang {page} / {totalPages}</strong>
-        {page < totalPages ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page + 1}`}>Sau →</Link> : <span className="secondary-button disabled">Sau →</span>}
+        {page < totalPages ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page + 1}${viewSuffix}`}>Sau →</Link> : <span className="secondary-button disabled">Sau →</span>}
       </div>
     </nav>
   );
 }
 
-export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; tollPage?: string }> }) {
+export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; tollPage?: string; inspectionView?: string }> }) {
   const params = await searchParams;
   const requestedSection = params.section;
   const requestedPage = Number.isFinite(Number(params.page)) ? Math.max(1, Math.trunc(Number(params.page))) : 1;
   const section: VehicleSection = ["fleet", "inspections", "insurance", "repairs", "fuel", "tolls", "settings"].includes(requestedSection ?? "")
     ? requestedSection as VehicleSection
     : "overview";
+  const inspectionView: "current" | "history" = params.inspectionView === "history" ? "history" : "current";
   const { access, supabase } = await requireAccess();
   const canManage = can(access, "vehicles.manage");
   const canDelete = can(access, "vehicles.delete");
@@ -267,9 +279,17 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       : section === "repairs"
         ? ["vehicle_maintenance_type"]
         : [];
+  const inspectionSelect = "id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,archived_at,archived_by_name,renewed_from_id,renewed_at,renewed_by_name,vehicles(id,vehicle_code,vehicle_name,license_plate)";
+  const inspectionsPromise = !needsInspections
+    ? Promise.resolve({ data: [], count: 0 })
+    : section === "inspections"
+      ? inspectionView === "history"
+        ? supabase.from("vehicle_inspections").select(inspectionSelect, { count: "exact" }).not("archived_at", "is", null).order("archived_at", { ascending: false }).range(pageFrom, pageTo)
+        : supabase.from("vehicle_inspections").select(inspectionSelect, { count: "exact" }).is("archived_at", null).order("inspection_date", { ascending: false }).range(pageFrom, pageTo)
+      : supabase.from("vehicle_inspections").select(inspectionSelect).is("archived_at", null).order("inspection_date", { ascending: false }).limit(500);
   const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult] = await Promise.all([
     needsVehicles ? supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500) : Promise.resolve({ data: [] }),
-    needsInspections ? (section === "inspections" ? supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).order("inspection_date", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_inspections").select("id,vehicle_id,inspection_date,expires_on,cost,reminder_days,certificate_number,inspection_center,seat_count,odometer_km,note,vehicles(id,vehicle_code,vehicle_name,license_plate)").order("inspection_date", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
+    inspectionsPromise,
     needsInsurances ? (section === "insurance" ? supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).is("archived_at", null).order("starts_on", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)").is("archived_at", null).order("starts_on", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
     section === "insurance" ? supabase.from("vehicle_insurances").select("id,certificate_number,starts_on,expires_on,renewed_from_id,renewed_at,renewed_by_name").not("archived_at", "is", null).order("archived_at", { ascending: false }).limit(1000) : Promise.resolve({ data: [] }),
     needsRepairs ? (section === "repairs" ? supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).order("service_date", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").gte("service_date", currentYearPrefix).lt("service_date", nextYearPrefix).order("service_date", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
@@ -434,16 +454,26 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       </section> : null}
 
       {section === "inspections" ? <section className="panel vehicle-section-panel vehicle-section-panel--inspections">
-        <div className="panel-heading"><div><p className="eyebrow">ĐĂNG KIỂM</p><h2>Lịch sử và hạn sắp tới</h2></div><small>{inspectionsTotal} lần</small></div>
+        <div className="panel-heading vehicle-inspection-heading">
+          <div><p className="eyebrow">ĐĂNG KIỂM</p><h2>{inspectionView === "history" ? "Lịch sử đăng kiểm" : "Đăng kiểm hiện hành"}</h2></div>
+          <small>{inspectionsTotal} hồ sơ</small>
+        </div>
+        <nav className="vehicle-inspection-subtabs" aria-label="Phân loại hồ sơ đăng kiểm">
+          <Link className={inspectionView === "current" ? "active" : ""} href="/vehicles?section=inspections&inspectionView=current">Đang hiệu lực / cần xử lý</Link>
+          <Link className={inspectionView === "history" ? "active" : ""} href="/vehicles?section=inspections&inspectionView=history">Lịch sử đăng kiểm</Link>
+        </nav>
         <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Số chỗ</th><th>Chi phí</th><th>Thông tin</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInspections.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
             const due = dueTone(daysUntil(item.expires_on, today));
+            const status = inspectionView === "history"
+              ? { className: "status-pill--inactive", label: "Đã gia hạn" }
+              : due;
             const document = documentByRecord.get(`INSPECTION:${item.id}:INVOICE`);
             return <InteractiveTableRow key={item.id}>
               <td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td>
               <td>{formatDate(item.inspection_date)}</td>
-              <td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td>
+              <td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${status.className}`}>{status.label}</span></small></td>
               <td>{item.seat_count ? `${item.seat_count} chỗ` : "—"}</td>
               <td>{formatMoney(Number(item.cost))}</td>
               <td>{item.certificate_number || "—"}<small>{item.inspection_center || `Nhắc trước ${item.reminder_days} ngày`}</small></td>
@@ -456,19 +486,20 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                       { label: "Biển số", value: vehicle?.license_plate },
                       { label: "Ngày đăng kiểm", value: formatDate(item.inspection_date) },
                       { label: "Ngày hết hạn", value: formatDate(item.expires_on) },
-                      { label: "Tình trạng", value: due.label },
+                      { label: "Tình trạng", value: status.label },
                       { label: "Nhắc trước", value: `${item.reminder_days} ngày` },
                       { label: "Số chỗ", value: item.seat_count ? `${item.seat_count} chỗ` : null },
                       { label: "Số km", value: item.odometer_km ? `${Number(item.odometer_km).toLocaleString("vi-VN")} km` : null },
                       { label: "Chi phí", value: formatMoney(Number(item.cost)) },
                       { label: "Số chứng nhận", value: item.certificate_number },
                       { label: "Trung tâm đăng kiểm", value: item.inspection_center, wide: true },
+                      ...(inspectionView === "history" ? [{ label: "Chuyển vào lịch sử", value: item.archived_at ? formatDateTime(item.archived_at) : null }, { label: "Người thực hiện", value: item.archived_by_name }] : []),
                     ]} />
                     <VehicleDetailNote note={item.note} />
-                    <VehicleDocumentDetail canManage={canManage} document={document} />
+                    <VehicleDocumentDetail canManage={canManage && inspectionView === "current"} document={document} />
                     {canManage || canDelete ? (
                       <div className="vehicle-detail-actions modal-actions">
-                        {canManage ? <>
+                        {canManage && inspectionView === "current" ? <>
                           <ModalTrigger
                             closeParentOnSuccess
                             description={`Tạo lần đăng kiểm kế tiếp cho ${vehicle?.license_plate ?? vehicle?.vehicle_name ?? "xe này"}. Hồ sơ hiện tại vẫn được giữ nguyên trong lịch sử.`}
@@ -480,6 +511,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                           >
                             <InspectionForm
                               mode="renew"
+                              renewFromId={item.id}
                               vehicles={vehicleOptions}
                               initial={{
                                 vehicle_id: item.vehicle_id,
@@ -502,14 +534,14 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     ) : null}
                   </div>
                 </ModalTrigger>
-                {canManage ? <ModalTrigger description="Cập nhật thời hạn, số chỗ, chi phí và thông tin đăng kiểm." eyebrow="ĐĂNG KIỂM" size="large" title="Sửa đăng kiểm" triggerClassName="text-button" triggerLabel="Sửa"><InspectionForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, inspection_date: item.inspection_date, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, certificate_number: item.certificate_number, inspection_center: item.inspection_center, seat_count: item.seat_count, odometer_km: item.odometer_km, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
+                {canManage && inspectionView === "current" ? <ModalTrigger description="Cập nhật thời hạn, số chỗ, chi phí và thông tin đăng kiểm." eyebrow="ĐĂNG KIỂM" size="large" title="Sửa đăng kiểm" triggerClassName="text-button" triggerLabel="Sửa"><InspectionForm vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, inspection_date: item.inspection_date, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, certificate_number: item.certificate_number, inspection_center: item.inspection_center, seat_count: item.seat_count, odometer_km: item.odometer_km, note: item.note, invoice_file_name: document?.file_name }} /></ModalTrigger> : null}
                 {canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Bản ghi đăng kiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "inspection" }} title="Xóa đăng kiểm?" /> : null}
               </div></td>
             </InteractiveTableRow>;
           })}
-          {!inspections.length ? <tr><td className="empty-cell" colSpan={8}>Chưa có lịch sử đăng kiểm.</td></tr> : null}
+          {!inspections.length ? <tr><td className="empty-cell" colSpan={8}>{inspectionView === "history" ? "Chưa có hồ sơ đăng kiểm trong lịch sử." : "Chưa có hồ sơ đăng kiểm hiện hành."}</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination page={inspectionsPage} section="inspections" totalRows={inspectionsTotal} />
+        <VehiclePagination inspectionView={inspectionView} page={inspectionsPage} section="inspections" totalRows={inspectionsTotal} />
       </section> : null}
 
       {section === "insurance" ? <section className="panel vehicle-section-panel vehicle-section-panel--insurance">
