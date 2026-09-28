@@ -6,6 +6,7 @@ import { AppIcon } from "@/components/app-icon";
 import { PageHeader } from "@/components/page-header";
 import { FuelForm, InspectionForm, InsuranceForm, RepairForm, VehicleActions, VehicleForm } from "@/components/vehicle-forms";
 import { VehicleModuleNav } from "@/components/vehicle-module-nav";
+import { VehicleHistoryTabs } from "@/components/vehicle-history-tabs";
 import { VehicleSettingEditor } from "@/components/vehicle-setting-editor";
 import { VehicleTollActions } from "@/components/vehicle-toll-imports";
 import { can, requireAccess } from "@/lib/auth";
@@ -221,17 +222,23 @@ function VehiclePagination({
   page,
   totalRows,
   inspectionView,
+  insuranceView,
 }: {
   section: "inspections" | "insurance" | "repairs" | "fuel";
   page: number;
   totalRows: number;
   inspectionView?: "current" | "history";
+  insuranceView?: "current" | "history";
 }) {
   if (totalRows <= vehiclePageSize) return null;
   const totalPages = Math.max(1, Math.ceil(totalRows / vehiclePageSize));
   const from = totalRows ? (page - 1) * vehiclePageSize + 1 : 0;
   const to = Math.min(page * vehiclePageSize, totalRows);
-  const viewSuffix = section === "inspections" && inspectionView ? `&inspectionView=${inspectionView}` : "";
+  const viewSuffix = section === "inspections" && inspectionView
+    ? `&inspectionView=${inspectionView}`
+    : section === "insurance" && insuranceView
+      ? `&insuranceView=${insuranceView}`
+      : "";
   return (
     <nav className="vehicle-pagination" aria-label="Phân trang dữ liệu xe">
       <span>Hiển thị {from}–{to} / {totalRows} bản ghi</span>
@@ -244,7 +251,7 @@ function VehiclePagination({
   );
 }
 
-export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; tollPage?: string; inspectionView?: string }> }) {
+export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; tollPage?: string; inspectionView?: string; insuranceView?: string }> }) {
   const params = await searchParams;
   const requestedSection = params.section;
   const requestedPage = Number.isFinite(Number(params.page)) ? Math.max(1, Math.trunc(Number(params.page))) : 1;
@@ -252,6 +259,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     ? requestedSection as VehicleSection
     : "overview";
   const inspectionView: "current" | "history" = params.inspectionView === "history" ? "history" : "current";
+  const insuranceView: "current" | "history" = params.insuranceView === "history" ? "history" : "current";
   const { access, supabase } = await requireAccess();
   const canManage = can(access, "vehicles.manage");
   const canDelete = can(access, "vehicles.delete");
@@ -287,11 +295,19 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
         ? supabase.from("vehicle_inspections").select(inspectionSelect, { count: "exact" }).not("archived_at", "is", null).order("archived_at", { ascending: false }).range(pageFrom, pageTo)
         : supabase.from("vehicle_inspections").select(inspectionSelect, { count: "exact" }).is("archived_at", null).order("inspection_date", { ascending: false }).range(pageFrom, pageTo)
       : supabase.from("vehicle_inspections").select(inspectionSelect).is("archived_at", null).order("inspection_date", { ascending: false }).limit(500);
+  const insuranceSelect = "id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)";
+  const insurancesPromise = !needsInsurances
+    ? Promise.resolve({ data: [], count: 0 })
+    : section === "insurance"
+      ? insuranceView === "history"
+        ? supabase.from("vehicle_insurances").select(insuranceSelect, { count: "exact" }).not("archived_at", "is", null).order("archived_at", { ascending: false }).range(pageFrom, pageTo)
+        : supabase.from("vehicle_insurances").select(insuranceSelect, { count: "exact" }).is("archived_at", null).order("starts_on", { ascending: false }).range(pageFrom, pageTo)
+      : supabase.from("vehicle_insurances").select(insuranceSelect).is("archived_at", null).order("starts_on", { ascending: false }).limit(500);
   const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult] = await Promise.all([
     needsVehicles ? supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500) : Promise.resolve({ data: [] }),
     inspectionsPromise,
-    needsInsurances ? (section === "insurance" ? supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).is("archived_at", null).order("starts_on", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_insurances").select("id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)").is("archived_at", null).order("starts_on", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
-    section === "insurance" ? supabase.from("vehicle_insurances").select("id,certificate_number,starts_on,expires_on,renewed_from_id,renewed_at,renewed_by_name").not("archived_at", "is", null).order("archived_at", { ascending: false }).limit(1000) : Promise.resolve({ data: [] }),
+    insurancesPromise,
+    section === "insurance" && insuranceView === "current" ? supabase.from("vehicle_insurances").select("id,certificate_number,starts_on,expires_on,renewed_from_id,renewed_at,renewed_by_name").not("archived_at", "is", null).order("archived_at", { ascending: false }).limit(1000) : Promise.resolve({ data: [] }),
     needsRepairs ? (section === "repairs" ? supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).order("service_date", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_repairs").select("id,vehicle_id,service_date,service_type,description,odometer_km,vat_amount,vendor,invoice_number,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").gte("service_date", currentYearPrefix).lt("service_date", nextYearPrefix).order("service_date", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
     needsFuel ? (section === "fuel" ? supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)", { count: "exact" }).order("payment_date", { ascending: false }).range(pageFrom, pageTo) : supabase.from("vehicle_fuel_logs").select("id,vehicle_id,payment_date,liters,odometer_from,odometer_to,amount,purchaser,note,source_file,vehicles(id,vehicle_code,vehicle_name,license_plate)").gte("payment_date", currentYearPrefix).lt("payment_date", nextYearPrefix).order("payment_date", { ascending: false }).limit(500)) : Promise.resolve({ data: [], count: 0 }),
     needsPeople ? supabase.from("departments").select("id,name").order("name").limit(500) : Promise.resolve({ data: [] }),
@@ -458,10 +474,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           <div><p className="eyebrow">ĐĂNG KIỂM</p><h2>{inspectionView === "history" ? "Lịch sử đăng kiểm" : "Đăng kiểm hiện hành"}</h2></div>
           <small>{inspectionsTotal} hồ sơ</small>
         </div>
-        <nav className="vehicle-inspection-subtabs" aria-label="Phân loại hồ sơ đăng kiểm">
-          <Link className={inspectionView === "current" ? "active" : ""} href="/vehicles?section=inspections&inspectionView=current">Đang hiệu lực / cần xử lý</Link>
-          <Link className={inspectionView === "history" ? "active" : ""} href="/vehicles?section=inspections&inspectionView=history">Lịch sử đăng kiểm</Link>
-        </nav>
+        <VehicleHistoryTabs active={inspectionView} currentLabel="Đang hiệu lực / cần xử lý" historyLabel="Lịch sử đăng kiểm" section="inspections" />
         <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Số chỗ</th><th>Chi phí</th><th>Thông tin</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInspections.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -497,7 +510,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                     ]} />
                     <VehicleDetailNote note={item.note} />
                     <VehicleDocumentDetail canManage={canManage && inspectionView === "current"} document={document} />
-                    {canManage || canDelete ? (
+                    {(canManage && inspectionView === "current") || canDelete ? (
                       <div className="vehicle-detail-actions modal-actions">
                         {canManage && inspectionView === "current" ? <>
                           <ModalTrigger
@@ -545,13 +558,17 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       </section> : null}
 
       {section === "insurance" ? <section className="panel vehicle-section-panel vehicle-section-panel--insurance">
-        <div className="panel-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>Hợp đồng và hồ sơ bảo hiểm</h2></div><small>{insurancesTotal} hợp đồng</small></div>
+        <div className="panel-heading vehicle-inspection-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>{insuranceView === "history" ? "Lịch sử bảo hiểm" : "Bảo hiểm hiện hành"}</h2></div><small>{insurancesTotal} hợp đồng</small></div>
+        <VehicleHistoryTabs active={insuranceView} currentLabel="Đang hiệu lực / cần xử lý" historyLabel="Lịch sử bảo hiểm" section="insurance" />
         <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Bảo hiểm</th><th>Ngày bắt đầu</th><th>Ngày hết hạn</th><th>Hãng / chứng nhận</th><th>Chi phí</th><th>Hồ sơ PDF</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInsurances.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
             const remainingDays = daysUntil(item.expires_on, today);
             const due = dueTone(remainingDays);
-            const canRenewNow = remainingDays <= item.reminder_days;
+            const status = insuranceView === "history"
+              ? { className: "status-pill--inactive", label: "Đã gia hạn" }
+              : due;
+            const canRenewNow = insuranceView === "current" && remainingDays <= item.reminder_days;
             const renewalPeriod = nextInsurancePeriod(item.expires_on);
             const invoiceDocument = documentByRecord.get(`INSURANCE:${item.id}:INVOICE`);
             const certificateDocument = documentByRecord.get(`INSURANCE:${item.id}:CERTIFICATE`);
@@ -559,7 +576,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
               <td><strong>{vehicle?.vehicle_name}</strong><small>{vehicle?.license_plate}</small></td>
               <td><strong>{item.insurance_name}</strong><small>{settingLabel(insuranceTypeLabels, item.insurance_type)}</small></td>
               <td>{formatDate(item.starts_on)}</td>
-              <td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td>
+              <td><strong>{formatDate(item.expires_on)}</strong><small><span className={`status-pill ${status.className}`}>{status.label}</span></small></td>
               <td>{item.insurance_company}<small>{item.certificate_number || "Chưa có số chứng nhận"}</small></td>
               <td>{formatMoney(Number(item.cost))}</td>
               <td><div className="vehicle-document-stack"><VehicleDocumentLink document={invoiceDocument} label="Hóa đơn" /><VehicleDocumentLink document={certificateDocument} label="Chứng nhận" /></div></td>
@@ -575,29 +592,30 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
                       { label: "Số giấy chứng nhận", value: item.certificate_number },
                       { label: "Ngày bắt đầu", value: formatDate(item.starts_on) },
                       { label: "Ngày kết thúc", value: formatDate(item.expires_on) },
-                      { label: "Tình trạng", value: due.label },
+                      { label: "Tình trạng", value: status.label },
                       { label: "Nhắc trước", value: `${item.reminder_days} ngày` },
                       { label: "Chi phí", value: formatMoney(Number(item.cost)) },
+                      ...(insuranceView === "history" ? [{ label: "Chuyển vào lịch sử", value: item.archived_at ? formatDateTime(item.archived_at) : null }] : []),
                     ]} />
                     <VehicleDetailNote note={item.note} />
-                    <VehicleInsuranceRenewalHistory current={item as InsuranceRenewalRecord} records={insuranceRecordsById} />
-                    <VehicleDocumentDetail canManage={canManage} document={invoiceDocument} label="Hóa đơn bảo hiểm PDF" />
-                    <VehicleDocumentDetail canManage={canManage} document={certificateDocument} label="Giấy chứng nhận bảo hiểm PDF" />
-                    {canManage || canDelete ? <div className="vehicle-detail-actions modal-actions">
+                    {insuranceView === "current" ? <VehicleInsuranceRenewalHistory current={item as InsuranceRenewalRecord} records={insuranceRecordsById} /> : null}
+                    <VehicleDocumentDetail canManage={canManage && insuranceView === "current"} document={invoiceDocument} label="Hóa đơn bảo hiểm PDF" />
+                    <VehicleDocumentDetail canManage={canManage && insuranceView === "current"} document={certificateDocument} label="Giấy chứng nhận bảo hiểm PDF" />
+                    {(canManage && insuranceView === "current") || canDelete ? <div className="vehicle-detail-actions modal-actions">
                       {canManage && canRenewNow ? <ModalTrigger closeParentOnSuccess description="Tạo kỳ bảo hiểm mới, ẩn kỳ cũ khỏi danh sách và lưu ngày, người thực hiện trong nhật ký gia hạn." eyebrow="GIA HẠN BẢO HIỂM" size="large" title="Gia hạn bảo hiểm" triggerClassName="secondary-button" triggerLabel="Gia hạn bảo hiểm"><InsuranceForm mode="renew" renewFromId={item.id} insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: "", starts_on: renewalPeriod.startsOn, expires_on: renewalPeriod.expiresOn, cost: item.cost, reminder_days: item.reminder_days, note: `Gia hạn từ hợp đồng hết hạn ngày ${formatDate(item.expires_on)}.` }} /></ModalTrigger> : null}
-                      {canManage ? <ModalTrigger closeParentOnSuccess description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="primary-button" triggerLabel="Sửa bảo hiểm"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
+                      {canManage && insuranceView === "current" ? <ModalTrigger closeParentOnSuccess description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="primary-button" triggerLabel="Sửa bảo hiểm"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
                       {canDelete ? <ConfirmAction action={deleteVehicleRecord} closeParentOnSuccess confirmLabel="Xóa bảo hiểm" description="Hợp đồng bảo hiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "insurance" }} title="Xóa bảo hiểm?" triggerAriaLabel={`Xóa bảo hiểm ${item.insurance_name}`} triggerClassName="danger-button" triggerLabel="Xóa bảo hiểm" /> : null}
                     </div> : null}
                   </div>
                 </ModalTrigger>
-                {canManage ? <ModalTrigger description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="text-button" triggerLabel="Sửa"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
+                {canManage && insuranceView === "current" ? <ModalTrigger description="Cập nhật hợp đồng, thời hạn, cảnh báo và hồ sơ PDF." eyebrow="BẢO HIỂM XE" size="large" title="Sửa bảo hiểm" triggerClassName="text-button" triggerLabel="Sửa"><InsuranceForm insuranceTypes={activeInsuranceTypes} vehicles={vehicleOptions} initial={{ id: item.id, vehicle_id: item.vehicle_id, insurance_name: item.insurance_name, insurance_type: item.insurance_type, insurance_company: item.insurance_company, certificate_number: item.certificate_number, starts_on: item.starts_on, expires_on: item.expires_on, cost: item.cost, reminder_days: item.reminder_days, note: item.note, invoice_file_name: invoiceDocument?.file_name, certificate_file_name: certificateDocument?.file_name }} /></ModalTrigger> : null}
                 {canDelete ? <ConfirmAction action={deleteVehicleRecord} description="Hợp đồng bảo hiểm sẽ bị xóa khỏi lịch sử." fields={{ id: item.id, kind: "insurance" }} title="Xóa bảo hiểm?" /> : null}
               </div></td>
             </InteractiveTableRow>;
           })}
-          {!insurances.length ? <tr><td className="empty-cell" colSpan={8}>Chưa có hồ sơ bảo hiểm xe.</td></tr> : null}
+          {!insurances.length ? <tr><td className="empty-cell" colSpan={8}>{insuranceView === "history" ? "Chưa có hợp đồng bảo hiểm trong lịch sử." : "Chưa có hợp đồng bảo hiểm hiện hành."}</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination page={insurancePage} section="insurance" totalRows={insurancesTotal} />
+        <VehiclePagination insuranceView={insuranceView} page={insurancePage} section="insurance" totalRows={insurancesTotal} />
       </section> : null}
 
       {section === "repairs" ? <section className="panel vehicle-section-panel vehicle-section-panel--repairs">

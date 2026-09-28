@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
-const [migration, actions, page, forms] = await Promise.all([
+const [migration, actions, page, forms, historyTabs] = await Promise.all([
   readFile(new URL("supabase/migrations/202609280001_vehicle_inspection_renewal_history.sql", root), "utf8"),
   readFile(new URL("next-app/app/(protected)/vehicles/actions.ts", root), "utf8"),
   readFile(new URL("next-app/app/(protected)/vehicles/page.tsx", root), "utf8"),
   readFile(new URL("next-app/components/vehicle-forms.tsx", root), "utf8"),
+  readFile(new URL("next-app/components/vehicle-history-tabs.tsx", root), "utf8"),
 ]);
 
 assert.match(migration, /vehicle_inspections_one_active_per_vehicle/);
@@ -18,6 +19,11 @@ assert.match(page, /\.is\("archived_at", null\)/);
 assert.match(page, /\.not\("archived_at", "is", null\)/);
 assert.match(page, /Lịch sử đăng kiểm/);
 assert.match(page, /renewFromId=\{item\.id\}/);
+assert.match(page, /insuranceView === "history"/);
+assert.match(page, /Lịch sử bảo hiểm/);
+assert.match(page, /\.from\("vehicle_insurances"\).*\.not\("archived_at", "is", null\)/s);
+assert.match(historyTabs, /router\.prefetch/);
+assert.match(historyTabs, /section="insurance"|section === "inspections"/);
 
 const rows = [
   { id: "old", vehicle: "ford", inspectionDate: "2026-03-26", archivedAt: "2026-09-25" },
