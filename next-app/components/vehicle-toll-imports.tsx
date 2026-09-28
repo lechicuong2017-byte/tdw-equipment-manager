@@ -6,6 +6,7 @@ import { AppModal } from "@/components/app-modal";
 import { ActionStateToast, ActionSuccessBoundary } from "@/components/action-toast";
 import { WorkbookFilePicker } from "@/components/workbook-file-picker";
 import { markTollPreviewDuplicates } from "@/lib/toll-preview-selection";
+import { sortTollQuarterlyPreviewRows } from "@/lib/vehicle-import-preview-sort";
 import {
   commitTollMonthlyPdf,
   commitTollQuarterlyWorkbook,
@@ -128,7 +129,10 @@ function MonthlyPdfImport() {
 }
 
 function QuarterlyReview({ preview }: { preview: Required<Pick<TollQuarterlyPreviewState, "fileName" | "rows">> }) {
-  const rows = useMemo(() => markTollPreviewDuplicates(preview.rows), [preview.rows]);
+  const rows = useMemo(
+    () => sortTollQuarterlyPreviewRows(markTollPreviewDuplicates(preview.rows)),
+    [preview.rows],
+  );
   const importable = rows.filter((row) => row.vehicle_id && row.comparison_status !== "already_saved" && !row.duplicate_in_file);
   const [selected, setSelected] = useState(() => new Set(importable.map((row) => row.fingerprint)));
   const [state, action, pending] = useActionState(commitTollQuarterlyWorkbook, emptyActionState);

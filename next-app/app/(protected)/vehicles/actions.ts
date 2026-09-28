@@ -9,6 +9,7 @@ import { can, requireAccess } from "@/lib/auth";
 import { settingValueFromDisplayName, vehicleSettingTypes } from "@/lib/settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { compactDateForFileName, normalizeUploadedFileName } from "@/lib/upload-file-name";
+import { sortVehicleImportPreviewRows } from "@/lib/vehicle-import-preview-sort";
 
 const emptyToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
@@ -936,7 +937,7 @@ export async function previewVehicleImport(_state: VehicleImportState, formData:
     return {
       success: `Đã đọc và đối chiếu ${comparedRows.length} dòng. Hãy chọn các dòng cần nhập.`,
       fileName,
-      rows: comparedRows,
+      rows: sortVehicleImportPreviewRows(comparedRows),
       skipped: 0,
     };
   } catch {
