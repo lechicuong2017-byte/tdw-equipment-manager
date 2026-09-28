@@ -3,6 +3,7 @@ import { AppIcon } from "@/components/app-icon";
 import { ConfirmAction } from "@/components/app-modal";
 import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
+import { periodDueTone } from "@/lib/vehicle-due-status";
 import { deleteTollMonthlyBatch, deleteTollQuarterlyPass } from "@/app/(protected)/vehicles/vehicle-tolls-actions";
 
 export async function VehicleTollMetric({ year }: { year: number }) {
@@ -61,12 +62,15 @@ export async function VehicleTollSection({ year: requestedYear, page: requestedP
       <section className="panel">
         <div className="panel-heading"><div><p className="eyebrow">VÉ QUÝ</p><h2>Đăng ký xe qua trạm</h2></div><small>{passes.count || 0} đăng ký</small></div>
         <div className="table-wrap toll-table"><table><thead><tr><th>Xe</th><th>Trạm</th><th>Khoảng hiệu lực</th><th className="vehicle-cost-cell">Chi phí có VAT</th><th>Thao tác</th></tr></thead>
-          <tbody>{passes.data?.map((item) => <tr key={item.id}>
-            <td><strong>{item.license_plate}</strong><small>{[item.vehicle_type, item.vehicle_color].filter(Boolean).join(" · ")}</small></td>
-            <td>{item.toll_station}</td><td>{formatDate(item.starts_on)} – {formatDate(item.expires_on)}<small>{today < item.starts_on ? "Chưa đến kỳ" : today > item.expires_on ? "Đã hết hạn" : "Đang có hiệu lực"}</small></td>
-            <td className="vehicle-cost-cell">{formatMoney(Number(item.amount))}</td>
-            <td>{canDelete ? <ConfirmAction action={deleteTollQuarterlyPass} fields={{ id: item.id }} title="Xóa đăng ký vé quý?" description={`Xóa đăng ký xe ${item.license_plate} qua trạm ${item.toll_station} trong kỳ này.`} /> : "—"}</td>
-          </tr>)}{!passes.data?.length ? <tr><td className="empty-cell" colSpan={5}>Chưa có đăng ký trong năm này. Chọn “Nhập vé quý XLSX” để thêm dữ liệu.</td></tr> : null}</tbody>
+          <tbody>{passes.data?.map((item) => {
+            const due = periodDueTone(item.starts_on, item.expires_on, today);
+            return <tr key={item.id}>
+              <td><strong>{item.license_plate}</strong><small>{[item.vehicle_type, item.vehicle_color].filter(Boolean).join(" · ")}</small></td>
+              <td>{item.toll_station}</td><td>{formatDate(item.starts_on)} – {formatDate(item.expires_on)}<small><span className={`status-pill ${due.className}`}>{due.label}</span></small></td>
+              <td className="vehicle-cost-cell">{formatMoney(Number(item.amount))}</td>
+              <td>{canDelete ? <ConfirmAction action={deleteTollQuarterlyPass} fields={{ id: item.id }} title="Xóa đăng ký vé quý?" description={`Xóa đăng ký xe ${item.license_plate} qua trạm ${item.toll_station} trong kỳ này.`} /> : "—"}</td>
+            </tr>;
+          })}{!passes.data?.length ? <tr><td className="empty-cell" colSpan={5}>Chưa có đăng ký trong năm này. Chọn “Nhập vé quý XLSX” để thêm dữ liệu.</td></tr> : null}</tbody>
         </table></div>
         {pageCount > 1 ? <nav className="vehicle-pagination" aria-label="Phân trang vé quý"><span>Trang {page} / {pageCount}</span><div>
           {page > 1 ? <Link className="secondary-button" href={`/vehicles?section=tolls&year=${year}&tollPage=${page - 1}`}>← Trước</Link> : null}

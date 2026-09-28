@@ -13,6 +13,7 @@ import { can, requireAccess } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/format";
 import { vehicleSettingTypeDefinitions, vehicleSettingTypes } from "@/lib/settings";
 import type { Setting } from "@/lib/types";
+import { dueTone } from "@/lib/vehicle-due-status";
 import { deleteVehicleDocument, deleteVehicleRecord, moveVehicleSetting, toggleVehicleSetting } from "./actions";
 import { VehicleTollSection, VehicleTollMetric } from "@/components/vehicle-toll-section";
 
@@ -196,13 +197,6 @@ function nextInsurancePeriod(expiresOn: string) {
     startsOn: startsOn.toISOString().slice(0, 10),
     expiresOn: nextExpiresOn.toISOString().slice(0, 10),
   };
-}
-
-function dueTone(days: number) {
-  if (days < 0) return { className: "status-pill--retiring", label: `Quá hạn ${Math.abs(days)} ngày` };
-  if (days <= 7) return { className: "status-pill--attention", label: `Còn ${days} ngày` };
-  if (days <= 30) return { className: "status-pill--new", label: `Còn ${days} ngày` };
-  return { className: "status-pill--active", label: "Còn hiệu lực" };
 }
 
 const vehiclePageSize = 10;

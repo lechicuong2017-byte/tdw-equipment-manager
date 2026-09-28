@@ -818,6 +818,80 @@ tbody tr.supply-row.interactive-data-row:focus-visible .interactive-row-title { 
 }
 .supply-review-table .status-pill { white-space: nowrap; }
 
+/* Vehicle workbook review: keep long source/content/status text readable. */
+.vehicle-import-review { background: linear-gradient(180deg, #fbfefd 0%, #f6fbf9 100%); box-shadow: 0 12px 30px rgba(20, 72, 59, 0.06); }
+.vehicle-import-review .import-preview-summary { border-radius: 13px; gap: 1rem; padding: 0.9rem 1rem; }
+.vehicle-import-review .import-preview-summary strong { color: #155f47; font-size: 0.84rem; }
+.vehicle-import-review .import-preview-summary span { color: #39705f; line-height: 1.45; }
+.vehicle-import-review .import-preview-summary b { background: #fff; border: 1px solid #a9dbc5; border-radius: 999px; color: #176749; flex: 0 0 auto; font-size: 0.72rem; padding: 0.45rem 0.7rem; }
+.vehicle-preview-action { justify-content: center; min-height: 38px; padding: 0 0.8rem; }
+.vehicle-import-toolbar { background: #f4f8fa; border: 1px solid var(--line); border-radius: 12px; padding: 0.65rem; }
+.vehicle-import-review-table.supply-review-table { background: var(--surface); box-shadow: 0 8px 24px rgba(15, 39, 58, 0.06); }
+.vehicle-import-review-table.supply-review-table table { min-width: 1160px; table-layout: fixed; }
+.vehicle-import-review-table.supply-review-table th { background: #f5f8fa; position: sticky; top: 0; z-index: 2; }
+.vehicle-import-review-table.supply-review-table th,
+.vehicle-import-review-table.supply-review-table td { line-height: 1.45; padding: 0.8rem 0.75rem; white-space: normal; }
+.vehicle-import-review-table.supply-review-table th:nth-child(1), .vehicle-import-review-table.supply-review-table td:nth-child(1) { min-width: 0; width: 64px; }
+.vehicle-import-review-table.supply-review-table th:nth-child(2), .vehicle-import-review-table.supply-review-table td:nth-child(2) { width: 170px; }
+.vehicle-import-review-table.supply-review-table th:nth-child(3), .vehicle-import-review-table.supply-review-table td:nth-child(3) { min-width: 0; width: 230px; }
+.vehicle-import-review-table.supply-review-table th:nth-child(4), .vehicle-import-review-table.supply-review-table td:nth-child(4) { width: 340px; }
+.vehicle-import-review-table.supply-review-table th:nth-child(5), .vehicle-import-review-table.supply-review-table td:nth-child(5) { width: 130px; }
+.vehicle-import-review-table.supply-review-table th:nth-child(6), .vehicle-import-review-table.supply-review-table td:nth-child(6) { width: 226px; }
+.vehicle-import-review-table.supply-review-table .status-pill { display: inline-flex; max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+.vehicle-import-data-cell { color: var(--ink); overflow-wrap: anywhere; white-space: pre-wrap; }
+.vehicle-import-status-stack { align-items: flex-start; display: grid; gap: 0.4rem; justify-items: start; min-width: 0; }
+.vehicle-import-review .form-actions { align-items: center; background: #f7fafb; border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) auto; padding: 0.75rem; }
+.vehicle-import-review .form-actions > span { color: var(--ink-soft); line-height: 1.45; }
+.vehicle-import-review .form-actions .primary-button { justify-content: center; min-width: 210px; }
+
+.toll-review-toolbar { background: #f5f8fa; border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem; }
+.toll-review-toolbar > strong { color: var(--ink); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.vehicle-preview-notice { background: #fff8e8; border: 1px solid #efd7a0; border-radius: 11px; color: #81570a; line-height: 1.5; margin: 0; padding: 0.7rem 0.8rem; }
+.toll-quarterly-review-table { border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(15, 39, 58, 0.06); }
+.toll-quarterly-review-table table { min-width: 1220px; table-layout: fixed; }
+.toll-quarterly-review-table th { background: #f5f8fa; position: sticky !important; top: 0; z-index: 2; }
+.toll-quarterly-review-table th, .toll-quarterly-review-table td { line-height: 1.45; padding: 0.8rem 0.75rem; }
+.toll-quarterly-review-table th:nth-child(1), .toll-quarterly-review-table td:nth-child(1) { width: 66px; }
+.toll-quarterly-review-table th:nth-child(2), .toll-quarterly-review-table td:nth-child(2) { width: 160px; }
+.toll-quarterly-review-table th:nth-child(3), .toll-quarterly-review-table td:nth-child(3) { width: 220px; }
+.toll-quarterly-review-table th:nth-child(4), .toll-quarterly-review-table td:nth-child(4) { width: 210px; }
+.toll-quarterly-review-table th:nth-child(5), .toll-quarterly-review-table td:nth-child(5) { width: 245px; }
+.toll-quarterly-review-table th:nth-child(6), .toll-quarterly-review-table td:nth-child(6) { width: 130px; }
+.toll-quarterly-review-table th:nth-child(7), .toll-quarterly-review-table td:nth-child(7) { width: 190px; }
+.toll-quarterly-review-table .status-pill { display: inline-flex; max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+
+@media (max-width: 760px) {
+  .vehicle-import-review { padding: 0.65rem; }
+  .vehicle-import-review .import-preview-summary { align-items: flex-start; flex-direction: column; }
+  .vehicle-import-toolbar, .toll-review-toolbar, .toll-review-toolbar > div { align-items: stretch; display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
+  .vehicle-import-toolbar span { margin-left: 0; text-align: left; }
+  .vehicle-preview-action { width: 100%; }
+  .vehicle-import-review .form-actions, .toll-review .form-actions { grid-template-columns: minmax(0, 1fr); }
+  .vehicle-import-review .form-actions .primary-button { min-width: 0; width: 100%; }
+  .vehicle-import-review-table.supply-review-table table,
+  .toll-quarterly-review-table table { min-width: 0; }
+  .vehicle-import-review-table.supply-review-table thead,
+  .toll-quarterly-review-table thead { display: none; }
+  .vehicle-import-review-table.supply-review-table table,
+  .vehicle-import-review-table.supply-review-table tbody,
+  .vehicle-import-review-table.supply-review-table tr,
+  .toll-quarterly-review-table table,
+  .toll-quarterly-review-table tbody,
+  .toll-quarterly-review-table tr { display: block; width: 100%; }
+  .vehicle-import-review-table.supply-review-table tr,
+  .toll-quarterly-review-table tr { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin: 0.65rem; overflow: hidden; padding-top: 3rem; position: relative; width: calc(100% - 1.3rem); }
+  .vehicle-import-review-table.supply-review-table td,
+  .toll-quarterly-review-table td { align-items: start; border: 0; border-top: 1px solid #edf1f4; display: grid; gap: 0.65rem; grid-template-columns: 92px minmax(0, 1fr); min-width: 0 !important; padding: 0.65rem 0.75rem; text-align: left !important; width: auto !important; }
+  .vehicle-import-review-table.supply-review-table td::before,
+  .toll-quarterly-review-table td::before { color: var(--ink-soft); content: attr(data-label); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+  .vehicle-import-review-table.supply-review-table td:first-child,
+  .toll-quarterly-review-table td:first-child { border: 0; display: block; left: 0.7rem; padding: 0; position: absolute !important; top: 0.55rem; width: auto !important; }
+  .vehicle-import-review-table.supply-review-table td:first-child::before,
+  .toll-quarterly-review-table td:first-child::before { display: none; }
+  .vehicle-import-review-table.supply-review-table tr.selected,
+  .toll-quarterly-review-table tr.selected { border-color: #87ccb0; box-shadow: 0 0 0 2px rgba(32, 164, 84, 0.1); }
+}
+
 @media (max-width: 1120px) {
   .supplier-quote-import-flow .import-upload-form { grid-template-columns: 1fr; }
   .supplier-quote-import-flow .import-upload-form > .form-actions { grid-column: auto; }

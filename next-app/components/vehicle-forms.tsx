@@ -359,26 +359,24 @@ function VehicleImportReview({ preview }: { preview: VehicleImportState & { file
           <b>{selectedRows.length} đã chọn</b>
         </div>
         <div className="supply-review-toolbar vehicle-import-toolbar">
-          <button className="text-button" onClick={selectRecommended} type="button">Chọn dữ liệu mới</button>
-          <button className="text-button" onClick={selectAllImportable} type="button">Chọn tất cả có thể nhập</button>
-          <button className="text-button" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button>
+          <button className="secondary-button vehicle-preview-action" onClick={selectRecommended} type="button">Chọn dữ liệu mới</button>
+          <button className="secondary-button vehicle-preview-action" onClick={selectAllImportable} type="button">Chọn tất cả có thể nhập</button>
+          <button className="secondary-button vehicle-preview-action" onClick={() => setRows((current) => current.map((row) => ({ ...row, selected: false })))} type="button">Bỏ chọn</button>
           <span>{warningCount ? `${warningCount} dòng cảnh báo được bỏ chọn mặc định.` : "Các dòng chưa lưu được chọn tự động."}</span>
         </div>
         <div className="table-wrap import-preview-table supply-review-table vehicle-import-review-table">
           <table>
-            <thead><tr><th>Chọn</th><th>Sheet / dòng</th><th>Xe</th><th>Ngày</th><th>Dữ liệu</th><th>Chi phí</th><th>Đối chiếu dữ liệu</th><th>Cảnh báo</th></tr></thead>
+            <thead><tr><th>Chọn</th><th>Nguồn / ngày</th><th>Xe</th><th>Dữ liệu</th><th>Chi phí</th><th>Trạng thái</th></tr></thead>
             <tbody>{rows.map((row, index) => {
               const rowKey = `${row.kind}|${row.sheet}|${row.row}|${row.fingerprint}`;
               const disabled = row.comparison_status === "already_saved";
               return <tr className={row.selected ? "selected" : disabled ? "vehicle-import-row-disabled" : ""} key={rowKey}>
-                <td><label className="supply-review-check"><input aria-label={`Chọn dòng ${row.row} sheet ${row.sheet}`} checked={row.selected} className="software-asset-checkbox" disabled={disabled} onChange={(event) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} type="checkbox" /><span aria-hidden="true" className="software-asset-checkmark">✓</span></label></td>
-                <td><div className="vehicle-import-cell-copy vehicle-import-sheet-cell"><span>{row.sheet}</span><small>Dòng {row.row}</small></div></td>
-                <td><div className="vehicle-import-cell-copy vehicle-import-vehicle-cell"><strong>{row.vehicle_name}</strong><small>{row.license_plate}</small></div></td>
-                <td className="vehicle-import-date">{new Date(`${row.date}T00:00:00`).toLocaleDateString("vi-VN")}</td>
-                <td><div className="vehicle-import-data-cell">{row.kind === "fuel" ? `${row.liters ?? 0} lít · ${row.odometer_from ?? "—"} → ${row.odometer_to ?? "—"} km` : row.description}</div></td>
-                <td className="vehicle-import-money">{new Intl.NumberFormat("vi-VN").format(row.amount)} đ</td>
-                <td><span className={`status-pill ${importComparisonTone(row)}`}>{importComparisonLabel(row)}</span></td>
-                <td>{row.warning ? <span className="status-pill status-pill--attention">{row.warning}</span> : <span className="status-pill status-muted">Không</span>}</td>
+                <td data-label="Chọn"><label className="supply-review-check"><input aria-label={`Chọn dòng ${row.row} sheet ${row.sheet}`} checked={row.selected} className="software-asset-checkbox" disabled={disabled} onChange={(event) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} type="checkbox" /><span aria-hidden="true" className="software-asset-checkmark">✓</span></label></td>
+                <td data-label="Nguồn / ngày"><div className="vehicle-import-cell-copy vehicle-import-sheet-cell"><span>{row.sheet}</span><small>Dòng {row.row} · {new Date(`${row.date}T00:00:00`).toLocaleDateString("vi-VN")}</small></div></td>
+                <td data-label="Xe"><div className="vehicle-import-cell-copy vehicle-import-vehicle-cell"><strong>{row.vehicle_name}</strong><small>{row.license_plate}</small></div></td>
+                <td data-label="Dữ liệu"><div className="vehicle-import-data-cell">{row.kind === "fuel" ? `${row.liters ?? 0} lít · ${row.odometer_from ?? "—"} → ${row.odometer_to ?? "—"} km` : row.description}</div></td>
+                <td className="vehicle-import-money" data-label="Chi phí">{new Intl.NumberFormat("vi-VN").format(row.amount)} đ</td>
+                <td data-label="Trạng thái"><div className="vehicle-import-status-stack"><span className={`status-pill ${importComparisonTone(row)}`}>{importComparisonLabel(row)}</span>{row.warning ? <span className="status-pill status-pill--attention">{row.warning}</span> : null}</div></td>
               </tr>;
             })}</tbody>
           </table>

@@ -7,6 +7,7 @@ import { ActionStateToast, ActionSuccessBoundary } from "@/components/action-toa
 import { WorkbookFilePicker } from "@/components/workbook-file-picker";
 import { markTollPreviewDuplicates } from "@/lib/toll-preview-selection";
 import { sortTollQuarterlyPreviewRows } from "@/lib/vehicle-import-preview-sort";
+import { periodDueTone } from "@/lib/vehicle-due-status";
 import {
   commitTollMonthlyPdf,
   commitTollQuarterlyWorkbook,
@@ -133,6 +134,7 @@ function QuarterlyReview({ preview }: { preview: Required<Pick<TollQuarterlyPrev
     () => sortTollQuarterlyPreviewRows(markTollPreviewDuplicates(preview.rows)),
     [preview.rows],
   );
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
   const importable = rows.filter((row) => row.vehicle_id && row.comparison_status !== "already_saved" && !row.duplicate_in_file);
   const [selected, setSelected] = useState(() => new Set(importable.map((row) => row.fingerprint)));
   const [state, action, pending] = useActionState(commitTollQuarterlyWorkbook, emptyActionState);
@@ -151,25 +153,26 @@ function QuarterlyReview({ preview }: { preview: Required<Pick<TollQuarterlyPrev
     <input name="rows" type="hidden" value={JSON.stringify(selectedRows)} />
     <div className="toll-review-toolbar">
       <div>
-        <button className="text-button" onClick={() => setSelected(new Set(importable.map((row) => row.fingerprint)))} type="button">Chọn dữ liệu mới</button>
-        <button className="text-button" onClick={() => setSelected(new Set())} type="button">Bỏ chọn</button>
+        <button className="secondary-button vehicle-preview-action" onClick={() => setSelected(new Set(importable.map((row) => row.fingerprint)))} type="button">Chọn dữ liệu mới</button>
+        <button className="secondary-button vehicle-preview-action" onClick={() => setSelected(new Set())} type="button">Bỏ chọn</button>
       </div>
       <strong>{selectedRows.length} đăng ký · {formatMoney(selectedRows.reduce((sum, row) => sum + row.amount, 0))}</strong>
     </div>
-    {duplicateCount > 0 ? <p>{duplicateCount} dòng trùng xe, trạm, kỳ và chi phí trong file đã được bỏ chọn. Hãy kiểm tra ngày hiệu lực trong file nếu đây là đăng ký cho kỳ khác.</p> : null}
-    <div className="table-wrap toll-review-table">
+    {duplicateCount > 0 ? <p className="vehicle-preview-notice">{duplicateCount} dòng trùng xe, trạm, kỳ và chi phí trong file đã được bỏ chọn. Hãy kiểm tra ngày hiệu lực trong file nếu đây là đăng ký cho kỳ khác.</p> : null}
+    <div className="table-wrap toll-review-table toll-quarterly-review-table">
       <table>
         <thead><tr><th>Chọn</th><th>Sheet / dòng</th><th>Xe</th><th>Trạm đăng ký</th><th>Hiệu lực</th><th>Chi phí</th><th>Đối chiếu</th></tr></thead>
         <tbody>{rows.map((row) => {
           const disabled = row.comparison_status === "already_saved" || !row.vehicle_id || row.duplicate_in_file;
+          const due = periodDueTone(row.starts_on, row.expires_on, today);
           return <tr className={!disabled && selected.has(row.fingerprint) ? "selected" : disabled ? "vehicle-import-row-disabled" : ""} key={`${row.sheet}|${row.row}|${row.fingerprint}`}>
-            <td><input aria-label={`Chọn dòng ${row.row} sheet ${row.sheet}`} checked={!disabled && selected.has(row.fingerprint)} disabled={disabled || pending} onChange={() => toggle(row)} type="checkbox" /></td>
-            <td>{row.sheet}<small>Dòng {row.row}</small></td>
-            <td><strong>{row.license_plate}</strong><small>{row.vehicle_name}</small></td>
-            <td>{row.toll_station}</td>
-            <td>{new Date(`${row.starts_on}T00:00:00`).toLocaleDateString("vi-VN")} – {new Date(`${row.expires_on}T00:00:00`).toLocaleDateString("vi-VN")}</td>
-            <td className="vehicle-cost-cell">{formatMoney(row.amount)}</td>
-            <td><span className={`status-pill ${disabled ? "status-muted" : row.comparison_status === "changed" ? "status-pill--new" : "status-pill--active"}`}>{row.duplicate_in_file ? "Trùng trong file · bỏ qua" : !row.vehicle_id ? "Cần có hồ sơ xe" : disabled ? "Đã lưu" : row.comparison_status === "changed" ? "Có thay đổi" : "Mới · đã khớp xe"}</span></td>
+            <td data-label="Chọn"><input aria-label={`Chọn dòng ${row.row} sheet ${row.sheet}`} checked={!disabled && selected.has(row.fingerprint)} disabled={disabled || pending} onChange={() => toggle(row)} type="checkbox" /></td>
+            <td data-label="Nguồn">{row.sheet}<small>Dòng {row.row}</small></td>
+            <td data-label="Xe"><strong>{row.license_plate}</strong><small>{row.vehicle_name}</small></td>
+            <td data-label="Trạm">{row.toll_station}</td>
+            <td data-label="Hiệu lực"><div className="vehicle-import-status-stack"><span>{new Date(`${row.starts_on}T00:00:00`).toLocaleDateString("vi-VN")} – {new Date(`${row.expires_on}T00:00:00`).toLocaleDateString("vi-VN")}</span><span className={`status-pill ${due.className}`}>{due.label}</span></div></td>
+            <td className="vehicle-cost-cell" data-label="Chi phí">{formatMoney(row.amount)}</td>
+            <td data-label="Đối chiếu"><span className={`status-pill ${disabled ? "status-muted" : row.comparison_status === "changed" ? "status-pill--new" : "status-pill--active"}`}>{row.duplicate_in_file ? "Trùng trong file · bỏ qua" : !row.vehicle_id ? "Cần có hồ sơ xe" : disabled ? "Đã lưu" : row.comparison_status === "changed" ? "Có thay đổi" : "Mới · đã khớp xe"}</span></td>
           </tr>;
         })}</tbody>
       </table>
