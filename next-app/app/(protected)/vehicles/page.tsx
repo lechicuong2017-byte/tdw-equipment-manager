@@ -299,7 +299,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
         ? supabase.from("vehicle_insurances").select(insuranceSelect, { count: "exact" }).not("archived_at", "is", null).order("archived_at", { ascending: false }).range(pageFrom, pageTo)
         : supabase.from("vehicle_insurances").select(insuranceSelect, { count: "exact" }).is("archived_at", null).order("starts_on", { ascending: false }).range(pageFrom, pageTo)
       : supabase.from("vehicle_insurances").select(insuranceSelect).is("archived_at", null).order("starts_on", { ascending: false }).limit(500);
-  const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult] = await Promise.all([
+  const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult, tollAlertsResult] = await Promise.all([
     needsVehicles ? supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500) : Promise.resolve({ data: [] }),
     inspectionsPromise,
     insurancesPromise,
@@ -310,6 +310,9 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     needsPeople ? supabase.from("profiles").select("id,full_name,email").eq("active", true).order("full_name").limit(500) : Promise.resolve({ data: [] }),
     documentRecordType ? supabase.from("vehicle_documents").select("id,file_name,record_id,record_type,document_kind,stored_byte_size").eq("record_type", documentRecordType).order("created_at", { ascending: false }).limit(1500) : Promise.resolve({ data: [] }),
     neededSettingTypes.length ? supabase.from("settings").select("id,setting_type,setting_value,display_name,sort_order,active").in("setting_type", neededSettingTypes).order("setting_type").order("active", { ascending: false }).order("sort_order").order("display_name") : Promise.resolve({ data: [] }),
+    section === "overview"
+      ? supabase.from("vehicle_toll_quarterly_records").select("id,license_plate,starts_on,expires_on,toll_station,is_current").eq("is_current", true).lte("starts_on", today).order("expires_on", { ascending: true }).limit(500)
+      : Promise.resolve({ data: [] }),
   ]);
   const vehicles = vehiclesResult.data ?? [];
   const inspections = inspectionsResult.data ?? [];
@@ -352,6 +355,9 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const latestInsuranceByVehicle = new Map<string, (typeof insurances)[number]>();
   insurances.forEach((item) => { if (!latestInsuranceByVehicle.has(item.vehicle_id)) latestInsuranceByVehicle.set(item.vehicle_id, item); });
   const upcomingInsurance = [...latestInsuranceByVehicle.values()].filter((item) => daysUntil(item.expires_on, today) <= item.reminder_days).sort((a, b) => a.expires_on.localeCompare(b.expires_on));
+  const upcomingQuarterlyTolls = (tollAlertsResult.data ?? [])
+    .filter((item) => daysUntil(item.expires_on, today) <= 30)
+    .sort((a, b) => a.expires_on.localeCompare(b.expires_on));
   const currentYearRepairs = repairs.filter((item) => item.service_date.startsWith(`${currentYear}-`));
   const currentYearFuelLogs = fuelLogs.filter((item) => item.payment_date.startsWith(`${currentYear}-`));
   const totalRepairCost = currentYearRepairs.reduce((sum, item) => sum + Number(item.vat_amount || 0), 0);
@@ -396,21 +402,36 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           <article className="metric-card metric-tone-green"><span className="metric-icon"><AppIcon name="fuel" /></span><p>Chi phí nhiên liệu</p><strong className="metric-money">{formatMoney(totalFuelCost)}</strong><small>Năm {currentYear} · {currentYearFuelLogs.length} lần mua</small></article>
           <VehicleTollMetric year={Number(currentYear)} />
         </section>
-        <section className="vehicle-overview-grid">
+        <section className="vehicle-monitoring-section" aria-labelledby="vehicle-monitoring-title">
+          <div className="vehicle-monitoring-heading">
+            <div><p className="eyebrow">CẦN THEO DÕI</p><h2 id="vehicle-monitoring-title">Hạn hồ sơ và dịch vụ sắp tới</h2></div>
+            <p>Ưu tiên theo ngày hết hạn gần nhất</p>
+          </div>
+          <div className="vehicle-overview-grid">
           <article className="panel vehicle-overview-card vehicle-overview-card--inspection">
-            <div className="panel-heading"><div><p className="eyebrow">CẦN THEO DÕI</p><h2>Đăng kiểm sắp tới</h2></div><Link className="text-link" href="/vehicles?section=inspections">Xem chi tiết →</Link></div>
+            <div className="panel-heading"><div><p className="eyebrow">ĐĂNG KIỂM</p><h2>Sắp đến hạn</h2></div><Link className="text-link" href="/vehicles?section=inspections">Mở danh sách →</Link></div>
             <div className="vehicle-alert-list">
               {upcoming.slice(0, 5).map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); return <div className="vehicle-alert-item" key={item.id}><span className="vehicle-alert-icon"><AppIcon name="inspection" size={18} /></span><div><strong>{vehicle?.vehicle_name || "Chưa rõ xe"}</strong><small>{vehicle?.license_plate || "Chưa có biển số"} · hết hạn {formatDate(item.expires_on)}</small></div><span className={`status-pill ${due.className}`}>{due.label}</span></div>; })}
               {!upcoming.length ? <div className="vehicle-overview-empty"><span><AppIcon name="checkCircle" size={22} /></span><div><strong>Chưa có đăng kiểm cần xử lý</strong><p>Các xe trong hạn nhắc sẽ xuất hiện tại đây.</p></div></div> : null}
             </div>
           </article>
           <article className="panel vehicle-overview-card vehicle-overview-card--insurance">
-            <div className="panel-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>Bảo hiểm sắp hết hạn</h2></div><Link className="text-link" href="/vehicles?section=insurance">Xem chi tiết →</Link></div>
+            <div className="panel-heading"><div><p className="eyebrow">BẢO HIỂM</p><h2>Sắp hết hạn</h2></div><Link className="text-link" href="/vehicles?section=insurance">Mở danh sách →</Link></div>
             <div className="vehicle-alert-list">
               {upcomingInsurance.slice(0, 5).map((item) => { const vehicle = relatedVehicle(item.vehicles); const due = dueTone(daysUntil(item.expires_on, today)); return <div className="vehicle-alert-item" key={item.id}><span className="vehicle-alert-icon"><AppIcon name="insurance" size={18} /></span><div><strong>{vehicle?.vehicle_name || "Chưa rõ xe"}</strong><small>{vehicle?.license_plate || "Chưa có biển số"} · hết hạn {formatDate(item.expires_on)}</small></div><span className={`status-pill ${due.className}`}>{due.label}</span></div>; })}
               {!upcomingInsurance.length ? <div className="vehicle-overview-empty"><span><AppIcon name="checkCircle" size={22} /></span><div><strong>Chưa có bảo hiểm cần xử lý</strong><p>Hợp đồng đến hạn nhắc sẽ xuất hiện tại đây.</p></div></div> : null}
             </div>
           </article>
+          <article className="panel vehicle-overview-card vehicle-overview-card--toll">
+            <div className="panel-heading"><div><p className="eyebrow">VETC THEO QUÝ</p><h2>Sắp hết hạn</h2></div><Link className="text-link" href={`/vehicles?section=tolls&year=${currentYear}`}>Mở danh sách →</Link></div>
+            <div className="vehicle-alert-list">
+              {upcomingQuarterlyTolls.slice(0, 5).map((item) => { const due = dueTone(daysUntil(item.expires_on, today)); return <div className="vehicle-alert-item" key={item.id}><span className="vehicle-alert-icon"><AppIcon name="toll" size={18} /></span><div><strong>{item.license_plate || "Chưa có biển số"}</strong><small>{item.toll_station || "Chưa rõ trạm"} · hết hạn {formatDate(item.expires_on)}</small></div><span className={`status-pill ${due.className}`}>{due.label}</span></div>; })}
+              {!upcomingQuarterlyTolls.length ? <div className="vehicle-overview-empty"><span><AppIcon name="checkCircle" size={22} /></span><div><strong>Chưa có vé quý cần gia hạn</strong><p>Vé còn tối đa 30 ngày sẽ xuất hiện tại đây.</p></div></div> : null}
+            </div>
+          </article>
+          </div>
+        </section>
+        <section className="vehicle-overview-secondary-grid">
           <article className="panel vehicle-overview-card vehicle-overview-card--fleet">
             <div className="panel-heading"><div><p className="eyebrow">HỒ SƠ XE</p><h2>Tình trạng phương tiện</h2></div><Link className="text-link" href="/vehicles?section=fleet">Mở danh sách →</Link></div>
             <div className="vehicle-status-summary">
