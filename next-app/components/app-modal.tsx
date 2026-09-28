@@ -188,11 +188,20 @@ export function ModalTrigger({
   triggerLabel: string;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const parentSuccess = useContext(ActionSuccessContext);
   const handleSuccess = useCallback(() => {
     setOpen(false);
-    if (closeParentOnSuccess) parentSuccess();
-  }, [closeParentOnSuccess, parentSuccess]);
+    if (closeParentOnSuccess) {
+      parentSuccess();
+      return;
+    }
+
+    // Let React paint the closed modal first, then fetch the updated list.
+    // Starting both in the same render can keep a nested modal visible while
+    // the refreshed server component tree is still loading.
+    window.setTimeout(() => router.refresh(), 0);
+  }, [closeParentOnSuccess, parentSuccess, router]);
   return (
     <>
       <button className={triggerClassName} onClick={() => setOpen(true)} type="button">

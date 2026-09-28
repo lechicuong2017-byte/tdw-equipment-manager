@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { useActionState, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   commitVehicleImport,
@@ -15,7 +15,7 @@ import {
   type VehicleImportState,
 } from "@/app/(protected)/vehicles/actions";
 import { AppModal, ModalTrigger } from "@/components/app-modal";
-import { ActionStateToast, ActionSuccessBoundary } from "@/components/action-toast";
+import { ActionStateToast, ActionSuccessBoundary, ActionSuccessContext, useActionToast } from "@/components/action-toast";
 import { PdfInvoicePicker } from "@/components/pdf-invoice-picker";
 import { WorkbookFilePicker } from "@/components/workbook-file-picker";
 
@@ -207,10 +207,19 @@ export function InspectionForm({
 }
 
 export function RepairForm({ vehicles, maintenanceTypes, initial }: { vehicles: VehicleOption[]; maintenanceTypes: VehicleSettingOption[]; initial?: RepairFormInitial }) {
-  const [state, action, pending] = useActionState(saveVehicleRepair, initialState);
+  const onSuccess = useContext(ActionSuccessContext);
+  const { showToast } = useActionToast();
+  const saveAndClose = useCallback(async (previousState: VehicleActionState, formData: FormData) => {
+    const result = await saveVehicleRepair(previousState, formData);
+    if (result.success) {
+      showToast(result.success);
+      onSuccess();
+    }
+    return result;
+  }, [onSuccess, showToast]);
+  const [state, action, pending] = useActionState(saveAndClose, initialState);
   return (
     <form action={action} className="data-form vehicle-form">
-      <ActionStateToast state={state} />
       {initial ? <input name="id" type="hidden" value={initial.id} /> : null}
       <div className="form-grid">
         <label className="span-2">Xe *<VehicleSelect defaultValue={initial?.vehicle_id} vehicles={vehicles} /></label>

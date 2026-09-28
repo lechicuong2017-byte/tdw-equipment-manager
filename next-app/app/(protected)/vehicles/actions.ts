@@ -276,6 +276,7 @@ async function saveRow(
   table: "vehicles" | "vehicle_inspections" | "vehicle_repairs" | "vehicle_fuel_logs" | "vehicle_insurances",
   data: Record<string, unknown> & { id?: string | null },
   success: string,
+  options: { revalidate?: boolean } = {},
 ): Promise<SavedVehicleRow> {
   const { access, supabase } = await requireAccess();
   if (!can(access, "vehicles.manage")) return { error: "Bạn không có quyền quản lý xe." };
@@ -287,8 +288,10 @@ async function saveRow(
     if (result.error.code === "23505") return { error: "Mã xe, biển số hoặc bản ghi này đã tồn tại." };
     return { error: "Không thể lưu dữ liệu. Hãy kiểm tra quyền và thông tin đã nhập." };
   }
-  revalidatePath("/vehicles");
-  revalidatePath("/vehicles/reports");
+  if (options.revalidate !== false) {
+    revalidatePath("/vehicles");
+    revalidatePath("/vehicles/reports");
+  }
   if (!result.data?.id) return { error: "Không tìm thấy bản ghi vừa lưu." };
   return { recordId: result.data.id, success };
 }
@@ -436,12 +439,19 @@ export async function saveVehicleRepair(_state: VehicleActionState, formData: Fo
   if (invoice.error) return { error: invoice.error };
   const parsed = repairSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ" };
-  const saved = await saveRow("vehicle_repairs", parsed.data, parsed.data.id ? "Đã cập nhật bảo dưỡng." : "Đã ghi nhận bảo dưỡng.");
+  // The repair modal refreshes the current route after it closes. Avoid coupling
+  // the server-action response to a full route re-render, which can otherwise
+  // leave nested detail/edit modals showing "Đang lưu…" after the row is saved.
+  const saved = await saveRow(
+    "vehicle_repairs",
+    parsed.data,
+    parsed.data.id ? "Đã cập nhật bảo dưỡng." : "Đã ghi nhận bảo dưỡng.",
+    { revalidate: false },
+  );
   if (saved.error || !saved.recordId || !invoice.file) return saved;
   const context = await requireAccess();
   const plate = await vehiclePlate(context.supabase, parsed.data.vehicle_id);
   const document = await storeVehicleDocument({ ...context, compressionMethod: invoice.compressionMethod ?? "LOSSLESS", documentKind: "INVOICE", file: invoice.file, originalByteSize: invoice.originalByteSize ?? invoice.file.size, preferredBaseName: `${plate}_BAO-DUONG_${compactDateForFileName(parsed.data.service_date)}_HOA-DON`, recordId: saved.recordId, recordType: "REPAIR", vehicleId: parsed.data.vehicle_id });
-  revalidatePath("/vehicles");
   return document.error
     ? { success: `${saved.success} ${document.error} Bạn có thể mở Sửa để tải lại.` }
     : { success: `${saved.success} ${document.success}` };
