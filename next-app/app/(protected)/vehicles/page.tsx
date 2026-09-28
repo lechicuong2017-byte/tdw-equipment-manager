@@ -262,7 +262,9 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const currentYearPrefix = `${currentYear}-01-01`;
   const nextYearPrefix = `${Number(currentYear) + 1}-01-01`;
   const needsVehicles = section !== "settings" && section !== "tolls";
-  const needsInspections = ["overview", "inspections"].includes(section);
+  // Fleet rows display the latest active inspection for each vehicle, so this
+  // section must load the same current inspection dataset as the overview.
+  const needsInspections = ["overview", "fleet", "inspections"].includes(section);
   const needsInsurances = ["overview", "insurance"].includes(section);
   const needsRepairs = ["overview", "repairs"].includes(section);
   const needsFuel = ["overview", "fuel"].includes(section);
