@@ -28,7 +28,7 @@ const vehicleReports: {
 
 export function VehicleReportSection({ vehicles, showHeading = true }: { vehicles: VehicleOption[]; showHeading?: boolean }) {
   const currentYear = new Date().getFullYear();
-  const years = useMemo(() => Array.from({ length: currentYear - 1999 }, (_, index) => currentYear - index), [currentYear]);
+  const years = useMemo(() => Array.from({ length: currentYear - 1997 }, (_, index) => currentYear + 2 - index), [currentYear]);
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
   const [vehicleId, setVehicleId] = useState("");
@@ -42,6 +42,12 @@ export function VehicleReportSection({ vehicles, showHeading = true }: { vehicle
     month && year ? `Tháng ${month}/${year}` : year ? `Năm ${year}` : "Tất cả thời gian",
     selectedVehicle ? `${selectedVehicle.license_plate} · ${selectedVehicle.vehicle_name}` : "Tất cả xe",
   ].join(" · ");
+  const directXlsxUrl = (reportType: (typeof vehicleReports)[number]["type"]) => `/api/vehicles/reports/xlsx?${new URLSearchParams({
+    report_type: reportType,
+    year,
+    month: year ? month : "",
+    vehicle_id: vehicleId,
+  })}`;
 
   return (
     <section className={`vehicle-report-workspace${showHeading ? "" : " vehicle-report-workspace--standalone"}`}>
@@ -70,7 +76,7 @@ export function VehicleReportSection({ vehicles, showHeading = true }: { vehicle
           <div><p className="eyebrow">{report.eyebrow}</p><h2>{report.title}</h2><p>{report.description}</p></div>
           <div className="report-filter-chip">{report.type === "vehicles" ? (selectedVehicle ? filterSummary.split(" · ").slice(1).join(" · ") : "Tất cả xe") : filterSummary}</div>
           <div className="report-actions">
-            <ExportReportButton filters={filters} reportType={report.type} />
+            <a className="primary-button" href={directXlsxUrl(report.type)}>Xuất XLSX</a>
             <ExportReportButton buttonLabel="Xuất PDF" filters={filters} outputFormat="pdf" reportType={report.type} />
           </div>
         </article>)}
