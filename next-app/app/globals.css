@@ -4121,6 +4121,54 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   white-space: nowrap;
 }
 
+.vehicle-report-groups {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft);
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0.65rem;
+}
+
+.vehicle-report-groups button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: flex;
+  gap: 0.7rem;
+  min-height: 62px;
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.vehicle-report-groups button:hover {
+  background: #f3f9fb;
+  border-color: #cfe4eb;
+  color: var(--brand-dark);
+  transform: translateY(-1px);
+}
+
+.vehicle-report-groups button.is-active {
+  background: var(--brand-soft);
+  border-color: #bfe0e9;
+  color: var(--brand-dark);
+}
+
+.vehicle-report-groups button > span,
+.vehicle-report-groups strong,
+.vehicle-report-groups small {
+  display: block;
+}
+
+.vehicle-report-groups strong { font-size: 0.78rem; }
+.vehicle-report-groups small { color: var(--ink-soft); font-size: 0.64rem; margin-top: 0.2rem; }
+
 .report-card {
   display: grid;
   gap: 1rem;
@@ -4141,6 +4189,7 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
 .vehicle-report-card--amber { --vehicle-report-accent: #b56b0b; }
 .vehicle-report-card--violet { --vehicle-report-accent: #7559c7; }
 .vehicle-report-card--green { --vehicle-report-accent: #178361; }
+.vehicle-report-card--comparison { --vehicle-report-accent: #9a4cc4; }
 
 .vehicle-report-card .report-icon {
   background: color-mix(in srgb, var(--vehicle-report-accent) 12%, white);
@@ -4157,6 +4206,38 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   grid-column: 2;
   justify-self: start;
   padding: 0.35rem 0.6rem;
+}
+
+.vehicle-comparison-years {
+  align-items: end;
+  display: grid;
+  gap: 0.65rem;
+  grid-column: 2;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+}
+
+.vehicle-comparison-years label {
+  color: #46566a;
+  display: grid;
+  font-size: 0.66rem;
+  font-weight: 800;
+  gap: 0.35rem;
+}
+
+.vehicle-comparison-years select {
+  background: white;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 0 0.7rem;
+  width: 100%;
+}
+
+.vehicle-comparison-years > span {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding-bottom: 0.8rem;
 }
 
 .report-card p:not(.eyebrow) {
@@ -5235,6 +5316,10 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .vehicle-report-groups {
+    grid-template-columns: 1fr;
+  }
+
   .asset-report-option-list--fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5390,6 +5475,14 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
 
   .vehicle-report-filter-fields {
     grid-template-columns: 1fr;
+  }
+
+  .vehicle-comparison-years {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-comparison-years > span {
+    padding: 0;
   }
 
   .vehicle-report-filter-fields .secondary-button {
