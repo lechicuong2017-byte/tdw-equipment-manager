@@ -218,6 +218,7 @@ function VehiclePagination({
   inspectionView,
   insuranceView,
   year,
+  vehicleId,
 }: {
   section: "inspections" | "insurance" | "repairs" | "fuel";
   page: number;
@@ -225,6 +226,7 @@ function VehiclePagination({
   inspectionView?: "current" | "history";
   insuranceView?: "current" | "history";
   year?: number | null;
+  vehicleId?: string | null;
 }) {
   if (totalRows <= vehiclePageSize) return null;
   const totalPages = Math.max(1, Math.ceil(totalRows / vehiclePageSize));
@@ -236,13 +238,14 @@ function VehiclePagination({
       ? `&insuranceView=${insuranceView}`
       : "";
   const yearSuffix = year ? `&year=${year}` : "";
+  const vehicleSuffix = vehicleId ? `&vehicleId=${vehicleId}` : "";
   return (
     <nav className="vehicle-pagination" aria-label="Phân trang dữ liệu xe">
       <span>Hiển thị {from}–{to} / {totalRows} bản ghi</span>
       <div>
-        {page > 1 ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page - 1}${viewSuffix}${yearSuffix}`}>← Trước</Link> : <span className="secondary-button disabled">← Trước</span>}
+        {page > 1 ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page - 1}${viewSuffix}${yearSuffix}${vehicleSuffix}`}>← Trước</Link> : <span className="secondary-button disabled">← Trước</span>}
         <strong>Trang {page} / {totalPages}</strong>
-        {page < totalPages ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page + 1}${viewSuffix}${yearSuffix}`}>Sau →</Link> : <span className="secondary-button disabled">Sau →</span>}
+        {page < totalPages ? <Link className="secondary-button" href={`/vehicles?section=${section}&page=${page + 1}${viewSuffix}${yearSuffix}${vehicleSuffix}`}>Sau →</Link> : <span className="secondary-button disabled">Sau →</span>}
       </div>
     </nav>
   );
@@ -252,12 +255,16 @@ function VehicleYearFilter({
   section,
   selectedYear,
   currentYear,
+  vehicles,
+  selectedVehicleId,
   viewName,
   view,
 }: {
   section: "inspections" | "insurance" | "repairs" | "fuel";
   selectedYear: number | null;
   currentYear: number;
+  vehicles: { id: string; vehicle_code: string; vehicle_name: string; license_plate: string }[];
+  selectedVehicleId: string | null;
   viewName?: "inspectionView" | "insuranceView";
   view?: "current" | "history";
 }) {
@@ -273,12 +280,19 @@ function VehicleYearFilter({
           {years.map((year) => <option key={year} value={year}>{year}</option>)}
         </select>
       </label>
+      <label>
+        <span>Xe</span>
+        <select defaultValue={selectedVehicleId ?? ""} name="vehicleId">
+          <option value="">Tất cả xe</option>
+          {vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.license_plate} · {vehicle.vehicle_name}</option>)}
+        </select>
+      </label>
       <button className="secondary-button" type="submit">Lọc</button>
     </form>
   );
 }
 
-export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; tollPage?: string; tollView?: string; inspectionView?: string; insuranceView?: string }> }) {
+export default async function VehiclesPage({ searchParams }: { searchParams: Promise<{ section?: string; page?: string; year?: string; vehicleId?: string; tollPage?: string; tollView?: string; inspectionView?: string; insuranceView?: string }> }) {
   const params = await searchParams;
   const requestedSection = params.section;
   const requestedPage = Number.isFinite(Number(params.page)) ? Math.max(1, Math.trunc(Number(params.page))) : 1;
@@ -297,6 +311,9 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     : null;
   const selectedYearStart = selectedYear ? `${selectedYear}-01-01` : null;
   const selectedYearEnd = selectedYear ? `${selectedYear + 1}-01-01` : null;
+  const selectedVehicleId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(params.vehicleId ?? "")
+    ? params.vehicleId!
+    : null;
   const currentYearPrefix = `${currentYear}-01-01`;
   const nextYearPrefix = `${Number(currentYear) + 1}-01-01`;
   const needsVehicles = section !== "settings" && section !== "tolls";
@@ -328,6 +345,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     let query = supabase.from("vehicle_inspections").select(inspectionSelect, { count: "exact" });
     query = inspectionView === "history" ? query.not("archived_at", "is", null) : query.is("archived_at", null);
     if (selectedYearStart && selectedYearEnd) query = query.gte("inspection_date", selectedYearStart).lt("inspection_date", selectedYearEnd);
+    if (selectedVehicleId) query = query.eq("vehicle_id", selectedVehicleId);
     return query.order(inspectionView === "history" ? "archived_at" : "inspection_date", { ascending: false }).range(pageFrom, pageTo);
   })();
   const insuranceSelect = "id,vehicle_id,insurance_name,insurance_type,insurance_company,certificate_number,starts_on,expires_on,cost,reminder_days,note,renewed_from_id,renewed_at,renewed_by_name,archived_at,vehicles(id,vehicle_code,vehicle_name,license_plate)";
@@ -337,6 +355,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     let query = supabase.from("vehicle_insurances").select(insuranceSelect, { count: "exact" });
     query = insuranceView === "history" ? query.not("archived_at", "is", null) : query.is("archived_at", null);
     if (selectedYearStart && selectedYearEnd) query = query.gte("starts_on", selectedYearStart).lt("starts_on", selectedYearEnd);
+    if (selectedVehicleId) query = query.eq("vehicle_id", selectedVehicleId);
     return query.order(insuranceView === "history" ? "archived_at" : "starts_on", { ascending: false }).range(pageFrom, pageTo);
   })();
   const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult, tollAlertsResult] = await Promise.all([
@@ -350,6 +369,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       if (section !== "repairs") return supabase.from("vehicle_repairs").select(select).gte("service_date", currentYearPrefix).lt("service_date", nextYearPrefix).order("service_date", { ascending: false }).limit(500);
       let query = supabase.from("vehicle_repairs").select(select, { count: "exact" });
       if (selectedYearStart && selectedYearEnd) query = query.gte("service_date", selectedYearStart).lt("service_date", selectedYearEnd);
+      if (selectedVehicleId) query = query.eq("vehicle_id", selectedVehicleId);
       return query.order("service_date", { ascending: false }).range(pageFrom, pageTo);
     })(),
     (() => {
@@ -358,6 +378,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       if (section !== "fuel") return supabase.from("vehicle_fuel_logs").select(select).gte("payment_date", currentYearPrefix).lt("payment_date", nextYearPrefix).order("payment_date", { ascending: false }).limit(500);
       let query = supabase.from("vehicle_fuel_logs").select(select, { count: "exact" });
       if (selectedYearStart && selectedYearEnd) query = query.gte("payment_date", selectedYearStart).lt("payment_date", selectedYearEnd);
+      if (selectedVehicleId) query = query.eq("vehicle_id", selectedVehicleId);
       return query.order("payment_date", { ascending: false }).range(pageFrom, pageTo);
     })(),
     needsPeople ? supabase.from("departments").select("id,name").order("name").limit(500) : Promise.resolve({ data: [] }),
@@ -543,9 +564,9 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
       {section === "inspections" ? <section className="panel vehicle-section-panel vehicle-section-panel--inspections">
         <div className="panel-heading vehicle-inspection-heading">
           <div><p className="eyebrow">ĐĂNG KIỂM</p><h2>{inspectionView === "history" ? "Lịch sử đăng kiểm" : "Đăng kiểm hiện hành"}</h2></div>
-          <div className="vehicle-section-heading-actions"><VehicleYearFilter currentYear={Number(currentYear)} section="inspections" selectedYear={selectedYear} view={inspectionView} viewName="inspectionView" /><small>{inspectionsTotal} hồ sơ</small></div>
+          <div className="vehicle-section-heading-actions"><VehicleYearFilter currentYear={Number(currentYear)} section="inspections" selectedVehicleId={selectedVehicleId} selectedYear={selectedYear} vehicles={vehicleOptions} view={inspectionView} viewName="inspectionView" /><small>{inspectionsTotal} hồ sơ</small></div>
         </div>
-        <VehicleHistoryTabs active={inspectionView} currentLabel="Đang hiệu lực / cần xử lý" historyLabel="Lịch sử đăng kiểm" section="inspections" year={selectedYear ?? undefined} />
+        <VehicleHistoryTabs active={inspectionView} currentLabel="Đang hiệu lực / cần xử lý" historyLabel="Lịch sử đăng kiểm" section="inspections" vehicleId={selectedVehicleId ?? undefined} year={selectedYear ?? undefined} />
         <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Ngày đăng kiểm</th><th>Ngày hết hạn</th><th>Số chỗ</th><th>Chi phí</th><th>Thông tin</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInspections.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -625,12 +646,12 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           })}
           {!inspections.length ? <tr><td className="empty-cell" colSpan={8}>{inspectionView === "history" ? "Chưa có hồ sơ đăng kiểm trong lịch sử." : "Chưa có hồ sơ đăng kiểm hiện hành."}</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination inspectionView={inspectionView} page={inspectionsPage} section="inspections" totalRows={inspectionsTotal} year={selectedYear} />
+        <VehiclePagination inspectionView={inspectionView} page={inspectionsPage} section="inspections" totalRows={inspectionsTotal} vehicleId={selectedVehicleId} year={selectedYear} />
       </section> : null}
 
       {section === "insurance" ? <section className="panel vehicle-section-panel vehicle-section-panel--insurance">
-        <div className="panel-heading vehicle-inspection-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>{insuranceView === "history" ? "Lịch sử bảo hiểm" : "Bảo hiểm hiện hành"}</h2></div><div className="vehicle-section-heading-actions"><VehicleYearFilter currentYear={Number(currentYear)} section="insurance" selectedYear={selectedYear} view={insuranceView} viewName="insuranceView" /><small>{insurancesTotal} hợp đồng</small></div></div>
-        <VehicleHistoryTabs active={insuranceView} currentLabel="Đang hiệu lực / cần xử lý" historyLabel="Lịch sử bảo hiểm" section="insurance" year={selectedYear ?? undefined} />
+        <div className="panel-heading vehicle-inspection-heading"><div><p className="eyebrow">BẢO HIỂM XE</p><h2>{insuranceView === "history" ? "Lịch sử bảo hiểm" : "Bảo hiểm hiện hành"}</h2></div><div className="vehicle-section-heading-actions"><VehicleYearFilter currentYear={Number(currentYear)} section="insurance" selectedVehicleId={selectedVehicleId} selectedYear={selectedYear} vehicles={vehicleOptions} view={insuranceView} viewName="insuranceView" /><small>{insurancesTotal} hợp đồng</small></div></div>
+        <VehicleHistoryTabs active={insuranceView} currentLabel="Đang hiệu lực / cần xử lý" historyLabel="Lịch sử bảo hiểm" section="insurance" vehicleId={selectedVehicleId ?? undefined} year={selectedYear ?? undefined} />
         <div className="table-wrap"><table><thead><tr><th>Xe</th><th>Bảo hiểm</th><th>Ngày bắt đầu</th><th>Ngày hết hạn</th><th>Hãng / chứng nhận</th><th>Chi phí</th><th>Hồ sơ PDF</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleInsurances.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -686,11 +707,11 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           })}
           {!insurances.length ? <tr><td className="empty-cell" colSpan={8}>{insuranceView === "history" ? "Chưa có hợp đồng bảo hiểm trong lịch sử." : "Chưa có hợp đồng bảo hiểm hiện hành."}</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination insuranceView={insuranceView} page={insurancePage} section="insurance" totalRows={insurancesTotal} year={selectedYear} />
+        <VehiclePagination insuranceView={insuranceView} page={insurancePage} section="insurance" totalRows={insurancesTotal} vehicleId={selectedVehicleId} year={selectedYear} />
       </section> : null}
 
       {section === "repairs" ? <section className="panel vehicle-section-panel vehicle-section-panel--repairs">
-        <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><div className="vehicle-section-heading-actions"><VehicleYearFilter currentYear={Number(currentYear)} section="repairs" selectedYear={selectedYear} /><small>{repairsTotal} bản ghi</small></div></div>
+        <div className="panel-heading"><div><p className="eyebrow">BẢO DƯỠNG & SỬA CHỮA</p><h2>Nhật ký phương tiện</h2></div><div className="vehicle-section-heading-actions"><VehicleYearFilter currentYear={Number(currentYear)} section="repairs" selectedVehicleId={selectedVehicleId} selectedYear={selectedYear} vehicles={vehicleOptions} /><small>{repairsTotal} bản ghi</small></div></div>
         <div className="table-wrap"><table className="vehicle-record-table vehicle-repair-table"><colgroup><col className="vehicle-date-col" /><col className="vehicle-description-col" /><col className="vehicle-cost-col" /><col className="vehicle-document-col" /><col className="vehicle-action-col" /></colgroup><thead><tr><th>Ngày / xe</th><th>Nội dung</th><th className="vehicle-cost-cell">Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleRepairs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -730,11 +751,11 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           })}
           {!repairs.length ? <tr><td className="empty-cell" colSpan={5}>Chưa có lịch sử bảo dưỡng.</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination page={repairsPage} section="repairs" totalRows={repairsTotal} year={selectedYear} />
+        <VehiclePagination page={repairsPage} section="repairs" totalRows={repairsTotal} vehicleId={selectedVehicleId} year={selectedYear} />
       </section> : null}
 
       {section === "fuel" ? <section className="panel vehicle-section-panel vehicle-section-panel--fuel">
-        <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><div className="vehicle-section-heading-actions"><VehicleYearFilter currentYear={Number(currentYear)} section="fuel" selectedYear={selectedYear} /><small>{fuelTotal} bản ghi</small></div></div>
+        <div className="panel-heading"><div><p className="eyebrow">NHIÊN LIỆU</p><h2>Sổ theo dõi mua nhiên liệu</h2></div><div className="vehicle-section-heading-actions"><VehicleYearFilter currentYear={Number(currentYear)} section="fuel" selectedVehicleId={selectedVehicleId} selectedYear={selectedYear} vehicles={vehicleOptions} /><small>{fuelTotal} bản ghi</small></div></div>
         <div className="table-wrap"><table className="vehicle-record-table vehicle-fuel-table"><colgroup><col className="vehicle-date-col" /><col className="vehicle-liters-col" /><col className="vehicle-journey-col" /><col className="vehicle-cost-col" /><col className="vehicle-document-col" /><col className="vehicle-action-col" /></colgroup><thead><tr><th>Ngày / xe</th><th>Số lít</th><th>Hành trình km</th><th className="vehicle-cost-cell">Chi phí</th><th>Hóa đơn</th><th className="vehicle-actions-column">Thao tác</th></tr></thead><tbody>
           {visibleFuelLogs.map((item) => {
             const vehicle = relatedVehicle(item.vehicles);
@@ -776,10 +797,10 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
           })}
           {!fuelLogs.length ? <tr><td className="empty-cell" colSpan={6}>Chưa có lịch sử nhiên liệu.</td></tr> : null}
         </tbody></table></div>
-        <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelTotal} year={selectedYear} />
+        <VehiclePagination page={fuelPage} section="fuel" totalRows={fuelTotal} vehicleId={selectedVehicleId} year={selectedYear} />
       </section> : null}
 
-      {section === "tolls" ? <VehicleTollSection year={params.year} page={params.tollPage} view={params.tollView} /> : null}
+      {section === "tolls" ? <VehicleTollSection year={params.year} vehicleId={params.vehicleId} page={params.tollPage} view={params.tollView} /> : null}
 
       {section === "settings" ? <section className="settings-catalog-grid vehicle-settings-grid">
         {vehicleSettingTypes.map((settingType) => {

@@ -11,11 +11,17 @@ assert.match(pageSource, /gte\("inspection_date", selectedYearStart\)\.lt\("insp
 assert.match(pageSource, /gte\("starts_on", selectedYearStart\)\.lt\("starts_on", selectedYearEnd\)/);
 assert.match(pageSource, /gte\("service_date", selectedYearStart\)\.lt\("service_date", selectedYearEnd\)/);
 assert.match(pageSource, /gte\("payment_date", selectedYearStart\)\.lt\("payment_date", selectedYearEnd\)/);
+assert.equal((pageSource.match(/query = query\.eq\("vehicle_id", selectedVehicleId\)/g) || []).length, 4);
+assert.match(pageSource, /<option value="">Tất cả xe<\/option>/);
 assert.match(pageSource, /const yearSuffix = year \? `&year=\$\{year\}` : ""/);
-assert.match(pageSource, /section="inspections" year=\{selectedYear \?\? undefined\}/);
-assert.match(pageSource, /section="insurance" year=\{selectedYear \?\? undefined\}/);
+assert.match(pageSource, /const vehicleSuffix = vehicleId \? `&vehicleId=\$\{vehicleId\}` : ""/);
+assert.match(pageSource, /section="inspections"[^>]+vehicleId=\{selectedVehicleId \?\? undefined\}[^>]+year=\{selectedYear \?\? undefined\}/);
+assert.match(pageSource, /section="insurance"[^>]+vehicleId=\{selectedVehicleId \?\? undefined\}[^>]+year=\{selectedYear \?\? undefined\}/);
 assert.match(historyTabsSource, /const yearQuery = year \? `&year=\$\{year\}` : ""/);
+assert.match(historyTabsSource, /const vehicleQuery = vehicleId \? `&vehicleId=\$\{vehicleId\}` : ""/);
 assert.match(tollSource, /className="panel toll-year-filter"/);
-assert.match(tollSource, /gte\("period_month", `\$\{year\}-01-01`\)\.lt\("period_month", `\$\{year \+ 1\}-01-01`\)/);
+assert.match(tollSource, /passesQuery = passesQuery\.eq\("vehicle_id", vehicleId\)/);
+assert.match(tollSource, /from\("vehicle_toll_transactions"\)[\s\S]+\.eq\("vehicle_id", vehicleId\)/);
+assert.match(tollSource, /href=\{`\/api\/vehicles\/tolls\/report\?year=\$\{year\}\$\{vehicleId \? `&vehicle_id=\$\{vehicleId\}` : ""\}`\}/);
 
-console.log("Vehicle section year-filter checks passed: inspections, insurance, repairs, fuel and VETC filter by year and preserve the filter through tabs and pagination.");
+console.log("Vehicle combined-filter checks passed: inspections, insurance, repairs, fuel and VETC combine year, vehicle and history state through totals, tabs, exports and pagination.");

@@ -24,17 +24,20 @@ export function VehicleHistoryTabs({
   historyLabel,
   section,
   year,
+  vehicleId,
 }: {
   active: "current" | "history";
   currentLabel: string;
   historyLabel: string;
   section: HistorySection;
   year?: number;
+  vehicleId?: string;
 }) {
   const router = useRouter();
   const yearQuery = year ? `&year=${year}` : "";
-  const currentHref = `/vehicles?section=${section}&${viewParamBySection[section]}=current${yearQuery}`;
-  const historyHref = `/vehicles?section=${section}&${viewParamBySection[section]}=history${yearQuery}`;
+  const vehicleQuery = vehicleId ? `&vehicleId=${vehicleId}` : "";
+  const currentHref = `/vehicles?section=${section}&${viewParamBySection[section]}=current${yearQuery}${vehicleQuery}`;
+  const historyHref = `/vehicles?section=${section}&${viewParamBySection[section]}=history${yearQuery}${vehicleQuery}`;
 
   useEffect(() => {
     router.prefetch(active === "current" ? historyHref : currentHref);
