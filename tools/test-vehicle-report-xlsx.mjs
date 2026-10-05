@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 const require = createRequire(new URL("../next-app/package.json", import.meta.url));
 const ts = require("typescript");
 const ExcelJS = require("exceljs");
+process.chdir(fileURLToPath(new URL("../next-app/", import.meta.url)));
+const brandSource = await fs.readFile(new URL("../next-app/lib/vehicle-report-brand.ts", import.meta.url), "utf8");
+const brandModule = { exports: {} };
+new Function("exports", "module", "require", ts.transpileModule(brandSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText)(brandModule.exports, brandModule, require);
 
 const vehicle = { vehicle_code: "TDW-TEST", vehicle_name: "Xe thử nghiệm", license_plate: "51A-00000", fuel_norm_l_per_100km: 12 };
 const tables = {
@@ -48,6 +53,7 @@ const module = { exports: {} };
 const mocks = {
   "next/server": { NextResponse: Response },
   "@/lib/auth": { can: () => allowed, requireAccess: async () => ({ access: {}, supabase }) },
+  "@/lib/vehicle-report-brand": brandModule.exports,
 };
 new Function("exports", "module", "require", compiled)(module.exports, module, (id) => mocks[id] || require(id));
 
@@ -64,8 +70,15 @@ async function workbookFrom(response) {
 const repairResponse = await get("report_type=vehicle_repairs&year=2026");
 assert.equal(repairResponse.headers.get("x-report-row-count"), "502");
 const repairBook = await workbookFrom(repairResponse);
-assert.equal(repairBook.getWorksheet("Bao cao").rowCount, 507);
+assert.equal(repairBook.getWorksheet("Bao cao").rowCount, 508);
 assert.equal(repairBook.getWorksheet("Bao cao").getCell("F6").value, "Dòng 1");
+assert.equal(repairBook.getWorksheet("Bao cao").getCell("B1").value, "Công ty Cổ Phần B.O.O Nước Thủ Đức");
+assert.equal(repairBook.getWorksheet("Bao cao").getCell("B2").value, "479 Xa lộ Hà Nội, P. Linh Xuân, TP.Hồ Chí Minh, Việt Nam");
+assert.equal(repairBook.getWorksheet("Bao cao").getImages().length, 1);
+assert.equal(repairBook.getWorksheet("Bao cao").getCell("H508").value.result, 502 * 1000 + (501 * 502) / 2);
+
+const olderRepairBook = await workbookFrom(await get("report_type=vehicle_repairs&year=2025&vehicle_id=00000000-0000-4000-8000-000000000001"));
+assert.equal(olderRepairBook.getWorksheet("Bao cao").getCell("H7").value.result, 1, "Total must use only the filtered rows");
 
 const insuranceResponse = await get("report_type=vehicle_insurance&year=2026");
 assert.equal(insuranceResponse.headers.get("x-report-row-count"), "2", "Current and archived insurance rows must both be exported");
@@ -80,6 +93,7 @@ for (const reportType of ["vehicles", "vehicle_inspections", "vehicle_fuel"]) {
 
 const empty = await workbookFrom(await get("report_type=vehicle_repairs&year=2024"));
 assert.match(String(empty.getWorksheet("Bao cao").getCell("A6").value), /Không có dữ liệu/);
+assert.equal(empty.getWorksheet("Bao cao").getCell("H7").value, 0);
 assert.equal((await get("report_type=vehicle_repairs&month=8")).status, 400);
 assert.equal((await get("report_type=invalid&year=2026")).status, 400);
 allowed = false;

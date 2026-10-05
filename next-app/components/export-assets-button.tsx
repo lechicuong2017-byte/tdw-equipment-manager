@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type OutputFormat = "xlsx" | "pdf";
 
@@ -45,18 +45,21 @@ export function ExportReportButton({
       url?: string;
     }
   >({ status: "idle" });
+  const fileUrl = useRef<string | null>(null);
+
+  useEffect(() => () => { if (fileUrl.current) URL.revokeObjectURL(fileUrl.current); }, []);
 
   async function exportReport() {
     setState({ status: "loading" });
     const requestToken = idempotencyToken.current || crypto.randomUUID();
     idempotencyToken.current = requestToken;
-    const reportWindow = window.open("about:blank", "_blank");
+    const reportWindow = outputFormat === "pdf" ? window.open("about:blank", "_blank") : null;
     if (reportWindow) {
       reportWindow.opener = null;
       reportWindow.document.title = "Đang tạo báo cáo…";
     }
     try {
-      const response = await fetch("/api/integrations/google-export", {
+      const response = await fetch("/api/reports/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -66,21 +69,36 @@ export function ExportReportButton({
           filters: filters ?? {},
         }),
       });
-      const result = await response.json();
-      if (!response.ok || !result.url) {
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
         idempotencyToken.current = null;
         throw new Error(result.error || "Không thể xuất báo cáo");
       }
+      const blob = await response.blob();
+      if (fileUrl.current) URL.revokeObjectURL(fileUrl.current);
+      const url = URL.createObjectURL(blob);
+      fileUrl.current = url;
       idempotencyToken.current = null;
       setState({
         status: "success",
         message:
           outputFormat === "xlsx"
-            ? `Đã tạo tệp XLSX với ${result.row_count ?? 0} dòng.`
-            : `Đã tạo tệp PDF với ${result.row_count ?? 0} dòng.`,
-        url: result.url,
+            ? `Đã tạo tệp XLSX với ${response.headers.get("X-Report-Row-Count") ?? 0} dòng.`
+            : `Đã tạo tệp PDF với ${response.headers.get("X-Report-Row-Count") ?? 0} dòng.`,
+        url,
       });
-      if (reportWindow) reportWindow.location.replace(result.url);
+      if (outputFormat === "pdf") {
+        if (reportWindow) reportWindow.location.replace(url);
+      } else {
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filename = disposition.match(/filename="([^"]+)"/)?.[1] || "TDW_bao_cao.xlsx";
+        const download = document.createElement("a");
+        download.href = url;
+        download.download = filename;
+        document.body.appendChild(download);
+        download.click();
+        download.remove();
+      }
     } catch (error) {
       reportWindow?.close();
       setState({
@@ -104,8 +122,8 @@ export function ExportReportButton({
         <small data-status={state.status} role="status">{state.message}</small>
       ) : null}
       {state.url ? (
-        <a href={state.url} rel="noreferrer" target="_blank">
-          Mở báo cáo
+        <a download={outputFormat === "xlsx" ? "TDW_bao_cao.xlsx" : undefined} href={state.url} rel="noreferrer" target={outputFormat === "pdf" ? "_blank" : undefined}>
+          {outputFormat === "pdf" ? "Mở PDF" : "Tải lại XLSX"}
         </a>
       ) : null}
     </div>

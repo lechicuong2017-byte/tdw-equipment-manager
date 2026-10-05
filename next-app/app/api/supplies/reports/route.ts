@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 import { can, requireAccess } from "@/lib/auth";
+import { addVehicleReportHeader } from "@/lib/vehicle-report-brand";
 
 const categoryLabel = (value: string) => value === "OFFICE_SUPPLY" ? "Văn phòng phẩm" : "Dụng cụ vệ sinh";
 const formatDate = (value: string) => {
@@ -31,16 +32,9 @@ export async function GET(request: NextRequest) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "TDW Management";
   const sheet = workbook.addWorksheet("Bao cao mua sam", { views: [{ state: "frozen", ySplit: 5 }] });
-  sheet.mergeCells("A1:N1");
-  sheet.getCell("A1").value = "CÔNG TY CỔ PHẦN NƯỚC THỦ ĐỨC — TDW";
-  sheet.mergeCells("A2:N2");
-  sheet.getCell("A2").value = `BÁO CÁO VĂN PHÒNG PHẨM & DỤNG CỤ VỆ SINH NĂM ${year}`;
-  sheet.mergeCells("A3:N3");
-  sheet.getCell("A3").value = `Bộ lọc: ${quarter ? `Quý ${quarter}` : month ? `Tháng ${month}` : "Cả năm"}${category ? ` · ${categoryLabel(category)}` : " · Tất cả loại"} · Ngày xuất ${new Date().toLocaleDateString("vi-VN")}`;
-  ["A1", "A2", "A3"].forEach((cell, index) => {
-    sheet.getCell(cell).alignment = { horizontal: "center", vertical: "middle" };
-    sheet.getCell(cell).font = { bold: index < 2, color: { argb: index === 1 ? "FF08769A" : "FF17324D" }, size: index === 1 ? 17 : index === 0 ? 12 : 10 };
-  });
+  await addVehicleReportHeader(workbook, sheet, 14,
+    `BÁO CÁO VĂN PHÒNG PHẨM & DỤNG CỤ VỆ SINH NĂM ${year}`,
+    `Bộ lọc: ${quarter ? `Quý ${quarter}` : month ? `Tháng ${month}` : "Cả năm"}${category ? ` · ${categoryLabel(category)}` : " · Tất cả loại"} · Ngày xuất ${new Date().toLocaleDateString("vi-VN")}`);
   sheet.getRow(5).values = ["STT", "Số kế hoạch", "Ngày lập", "Loại", "Kỳ mua", "Tên hàng", "Đơn vị", "SL đề xuất", "Tồn kho", "SL đã duyệt", "Đơn giá đã duyệt", "Thành tiền", "Bộ phận đề nghị", "Ghi chú hồ sơ giấy"];
   const header = sheet.getRow(5);
   header.height = 28;

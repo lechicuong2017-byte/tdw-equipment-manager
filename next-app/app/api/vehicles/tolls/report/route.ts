@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
+import { addVehicleReportHeader } from "@/lib/vehicle-report-brand";
 
 export const maxDuration = 60;
 
@@ -21,8 +22,13 @@ export async function GET(request: NextRequest) {
   workbook.creator = "TDW Management";
   const monthly = workbook.addWorksheet("Ve le chi tiet");
   const quarterly = workbook.addWorksheet("Ve quy");
-  monthly.addRow(["Xe", "Trạm", "Thời gian (Việt Nam)", "Số hóa đơn", "Mã giao dịch", "Chưa thuế", "VAT", "Sau thuế"]);
-  quarterly.addRow(["Xe", "Loại xe", "Màu xe", "Trạm", "Bắt đầu", "Hết hạn", "Chi phí có VAT", "Sheet nguồn"]);
+  const label = year ? month ? `Tháng ${month}/${year}` : `Năm ${year}` : "Tất cả thời gian";
+  await Promise.all([
+    addVehicleReportHeader(workbook, monthly, 8, "VETC - CHI TIẾT VÉ LẺ", label),
+    addVehicleReportHeader(workbook, quarterly, 8, "VETC - ĐĂNG KÝ VÉ QUÝ", label),
+  ]);
+  monthly.getRow(6).values = ["Xe", "Trạm", "Thời gian (Việt Nam)", "Số hóa đơn", "Mã giao dịch", "Chưa thuế", "VAT", "Sau thuế"];
+  quarterly.getRow(6).values = ["Xe", "Loại xe", "Màu xe", "Trạm", "Bắt đầu", "Hết hạn", "Chi phí có VAT", "Sheet nguồn"];
   const monthTotals = new Map<string, number>();
   let quarterlyTotal = 0;
   // PostgREST caps response rows; paginate exports to avoid silently incomplete totals.
@@ -52,22 +58,23 @@ export async function GET(request: NextRequest) {
     if (!complete) return NextResponse.json({ error: "Báo cáo quá lớn. Hãy chọn một năm hoặc tháng cụ thể." }, { status: 422 });
   }
   const summary = workbook.addWorksheet("Tong hop");
-  summary.addRow(["Kỳ / loại chi phí", "Số tiền sau thuế"]);
+  await addVehicleReportHeader(workbook, summary, 2, "VETC - TỔNG HỢP CHI PHÍ", label);
+  summary.getRow(6).values = ["Kỳ / loại chi phí", "Số tiền sau thuế"];
   for (const [period, amount] of monthTotals) summary.addRow([`Vé lẻ ${period}`, amount]);
   summary.addRow(["Vé quý (theo ngày bắt đầu)", quarterlyTotal]);
   summary.addRow(["TỔNG CỘNG", [...monthTotals.values()].reduce((sum, value) => sum + value, quarterlyTotal)]);
   for (const sheet of workbook.worksheets) {
-    sheet.views = [{ state: "frozen", ySplit: 1 }];
-    sheet.columns.forEach((column) => { column.width = 23; });
-    sheet.getRow(1).height = 28;
-    sheet.getRow(1).eachCell((cell) => {
+    sheet.views = [{ state: "frozen", ySplit: 6 }];
+    sheet.columns.forEach((column) => { column.width = sheet === summary ? 34 : 23; });
+    sheet.getRow(6).height = 28;
+    sheet.getRow(6).eachCell((cell) => {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7490" } };
     });
-    sheet.eachRow((row, index) => { if (index > 1) {
+    sheet.eachRow((row, index) => { if (index > 6) {
       row.eachCell((cell) => { cell.alignment = { vertical: "middle", wrapText: true }; if (typeof cell.value === "number") cell.numFmt = '#,##0 "₫"'; });
     } });
-    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: sheet.rowCount, column: sheet.columnCount } };
+    sheet.autoFilter = { from: { row: 6, column: 1 }, to: { row: sheet.rowCount, column: sheet.columnCount } };
   }
   const buffer = await workbook.xlsx.writeBuffer();
   return new NextResponse(buffer as ArrayBuffer, { headers: {

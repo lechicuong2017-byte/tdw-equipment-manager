@@ -11,7 +11,7 @@
 - Danh sách thiết bị phân trang/lọc tại server.
 - Thêm, sửa, lưu trữ và xem hồ sơ thiết bị.
 - Ảnh thiết bị trong bucket private với signed URL.
-- Xuất danh sách thiết bị sang Google Sheets qua request HMAC.
+- Xuất báo cáo XLSX/PDF trực tiếp từ Supabase, tải file không cần tài khoản Google.
 - Phân quyền dữ liệu theo `all`, `department`, `assigned` hoặc `owned`.
 - Admin mời user, gán role, khóa/mở tài khoản, bắt buộc MFA và cấp data scope.
 - Auth/access được memoize trong phạm vi một server request, không cache chéo user.
@@ -39,6 +39,17 @@ npm run next:build
 ```
 
 ## Tích hợp Apps Script
+
+### Đường xuất báo cáo hiện tại
+
+Các nút xuất thiết bị, thanh lý, bảo trì, luân chuyển, phần mềm và PDF xe dùng
+`POST /api/reports/export`; XLSX xe dùng các route `/api/vehicles/reports/*`.
+VPP, viễn thông, VETC và khảo sát giữ route xuất riêng, cùng gọi
+`lib/vehicle-report-brand.ts` để căn giữa tên công ty, địa chỉ, tiêu đề và bộ lọc.
+Logo nguồn giữ nguyên màu tại `public/tdw-report-logo.png`.
+Mẫu Excel nhập câu hỏi khảo sát giữ dòng tiêu đề đầu tiên để parser đọc đúng.
+Đường xuất cũ bên dưới không còn được các nút báo cáo gọi; các tích hợp nhắc hạn
+cũ chưa thuộc thay đổi trình bày báo cáo này.
 
 Đặt cùng một secret tại:
 

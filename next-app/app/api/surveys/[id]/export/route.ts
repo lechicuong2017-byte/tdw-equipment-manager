@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { can, requireModuleAccess } from "@/lib/auth";
 import { answerText, questionTypes, type Survey, type SurveyResponse } from "@/lib/surveys";
+import { addVehicleReportHeader } from "@/lib/vehicle-report-brand";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { access, supabase } = await requireModuleAccess("surveys");
@@ -23,6 +24,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
   const workbook = new ExcelJS.Workbook(); workbook.creator = "TDW";
   const summary = workbook.addWorksheet("Tong hop"); summary.columns = [{ width: 65 }, { width: 80 }];
+  await addVehicleReportHeader(workbook, summary, 2, "KHẢO SÁT - TỔNG HỢP KẾT QUẢ", survey.title);
+  summary.getRow(6).values = ["Thông tin", "Nội dung"];
   summary.addRows([["KHẢO SÁT", survey.title], ["Lời giới thiệu", survey.description], ["Số phản hồi", rows.length], ["Thời điểm xuất (VN)", new Date(cutoff).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })], ["Bảo mật", "Chứa thông tin liên hệ của nhân viên. Chỉ sử dụng trong phạm vi quản lý khảo sát."], []]);
   for (const [index, question] of survey.questions.entries()) {
     summary.addRow([`${index + 1}. ${question.title}`, questionTypes[question.type]]);
@@ -34,14 +37,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     summary.addRow([]);
   }
   const sheet = workbook.addWorksheet("Cau tra loi");
-  sheet.columns = [{ header: "Họ tên", width: 28 }, { header: "Số điện thoại", width: 20 }, { header: "Email", width: 32 }, { header: "Ngày gửi (VN)", width: 26 }, ...survey.questions.map((q, i) => ({ header: `${i + 1}. ${q.title}`, width: 45 }))];
+  sheet.columns = [{ width: 28 }, { width: 20 }, { width: 32 }, { width: 26 }, ...survey.questions.map(() => ({ width: 45 }))];
+  await addVehicleReportHeader(workbook, sheet, 4 + survey.questions.length, "KHẢO SÁT - CHI TIẾT CÂU TRẢ LỜI", survey.title);
+  sheet.getRow(6).values = ["Họ tên", "Số điện thoại", "Email", "Ngày gửi (VN)", ...survey.questions.map((q, i) => `${i + 1}. ${q.title}`)];
   for (const row of rows) sheet.addRow([row.full_name, row.phone, row.email, new Date(row.submitted_at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }), ...survey.questions.map((q) => answerText(row.answers[q.id]))]);
-  sheet.views = [{ state: "frozen", ySplit: 1, xSplit: 1 }];
-  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: rows.length + 1, column: 4 + survey.questions.length } };
+  sheet.views = [{ state: "frozen", ySplit: 6, xSplit: 1 }];
+  sheet.autoFilter = { from: { row: 6, column: 1 }, to: { row: rows.length + 6, column: 4 + survey.questions.length } };
   for (const ws of [summary, sheet]) {
-    ws.eachRow((row) => { row.alignment = { vertical: "top", wrapText: true }; });
-    ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
-    ws.getRow(1).eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E6E8E" } }; });
+    ws.eachRow((row, index) => { if (index > 6) row.alignment = { vertical: "top", wrapText: true }; });
+    ws.getRow(6).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    ws.getRow(6).eachCell((cell) => { cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E6E8E" } }; });
   }
   return new NextResponse(await workbook.xlsx.writeBuffer() as ArrayBuffer, { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="Khao_sat_${id.slice(0, 8)}.xlsx"`, "Cache-Control": "private, no-store" } });
 }

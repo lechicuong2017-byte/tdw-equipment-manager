@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 const require = createRequire(new URL('../next-app/package.json', import.meta.url));
 const ts = require('typescript'); const { Workbook } = require('exceljs');
+process.chdir(fileURLToPath(new URL('../next-app/', import.meta.url)));
 let permitted = true; let failSecondPage = false;
 const questionId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const survey = { id: '11111111-1111-4111-8111-111111111111', title: 'Tiêu đề thử', description: 'Chỉ dữ liệu synthetic', questions: [{ id: questionId, title: 'Bạn chọn gì?', type: 'multiple', required: true, options: ['A', 'B'] }] };
@@ -27,11 +29,13 @@ let result = await route.GET(new Request('http://localhost'), { params: Promise.
 assert.equal(result.status, 200); assert.equal(result.headers.get('cache-control'), 'private, no-store');
 const workbook = new Workbook(); await workbook.xlsx.load(await result.arrayBuffer());
 const responseSheet = workbook.getWorksheet('Cau tra loi');
-assert.equal(responseSheet.rowCount, 502); assert.equal(responseSheet.getRow(2).getCell(1).value, '=1+1');
-assert.equal(responseSheet.getRow(2).getCell(1).type, 3); // Plain text, not formula.
-assert.equal(responseSheet.getRow(2).getCell(2).value, '0900000000');
-assert.equal(responseSheet.getRow(2).getCell(5).value, 'A; B');
-assert.equal(workbook.getWorksheet('Tong hop').getRow(3).getCell(2).value, 501);
+assert.equal(responseSheet.rowCount, 507); assert.equal(responseSheet.getRow(7).getCell(1).value, '=1+1');
+assert.equal(responseSheet.getRow(7).getCell(1).type, 3); // Plain text, not formula.
+assert.equal(responseSheet.getRow(7).getCell(2).value, '0900000000');
+assert.equal(responseSheet.getRow(7).getCell(5).value, 'A; B');
+assert.equal(responseSheet.getCell('B1').alignment.horizontal, 'center');
+assert.equal(responseSheet.getImages().length, 1);
+assert.equal(workbook.getWorksheet('Tong hop').getRow(9).getCell(2).value, 501);
 result = await template.GET(); const model = new Workbook(); await model.xlsx.load(await result.arrayBuffer());
 assert.deepEqual(model.worksheets[0].getRow(1).values.slice(1), ['Câu hỏi', 'Loại', 'Lựa chọn', 'Bắt buộc']);
 assert.equal(model.worksheets[0].rowCount, 5);

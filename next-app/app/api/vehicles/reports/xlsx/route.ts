@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
+import { addVehicleReportHeader } from "@/lib/vehicle-report-brand";
 
 export const maxDuration = 60;
 
@@ -162,24 +163,20 @@ function scopeLabel(year?: number, month?: number) {
   return "Tất cả thời gian";
 }
 
-function buildWorkbook(reportType: ReportType, rows: ExportRow[], year?: number, month?: number) {
+async function buildWorkbook(reportType: ReportType, rows: ExportRow[], year?: number, month?: number) {
   const config = reportCatalog[reportType];
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "TDW Management";
   workbook.created = new Date();
   const sheet = workbook.addWorksheet("Bao cao", { views: [{ state: "frozen", ySplit: 5 }] });
   const endColumn = config.columns.length;
-  sheet.mergeCells(1, 1, 1, endColumn);
-  sheet.getCell(1, 1).value = "CÔNG TY CỔ PHẦN NƯỚC THỦ ĐỨC — TDW";
-  sheet.mergeCells(2, 1, 2, endColumn);
-  sheet.getCell(2, 1).value = config.title;
-  sheet.mergeCells(3, 1, 3, endColumn);
-  sheet.getCell(3, 1).value = `Bộ lọc: ${reportType === "vehicles" ? "Danh sách hiện hành" : scopeLabel(year, month)} · Ngày xuất ${new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date())}`;
-  [1, 2, 3].forEach((rowNumber) => {
-    const cell = sheet.getCell(rowNumber, 1);
-    cell.alignment = { horizontal: "center", vertical: "middle" };
-    cell.font = { bold: rowNumber < 3, size: rowNumber === 2 ? 17 : rowNumber === 1 ? 12 : 10, color: { argb: rowNumber === 2 ? "FF08769A" : "FF17324D" } };
-  });
+  await addVehicleReportHeader(
+    workbook,
+    sheet,
+    endColumn,
+    config.title,
+    `Bộ lọc: ${reportType === "vehicles" ? "Danh sách hiện hành" : scopeLabel(year, month)} · Ngày xuất ${new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date())}`,
+  );
   const header = sheet.getRow(5);
   header.values = config.columns.map((column) => column.label);
   header.height = 32;
@@ -190,7 +187,7 @@ function buildWorkbook(reportType: ReportType, rows: ExportRow[], year?: number,
     cell.border = { top: { style: "thin", color: { argb: "FFBFD8E4" } }, bottom: { style: "thin", color: { argb: "FFBFD8E4" } }, left: { style: "thin", color: { argb: "FFBFD8E4" } }, right: { style: "thin", color: { argb: "FFBFD8E4" } } };
   });
   rows.forEach((item, index) => {
-    const row = sheet.addRow(config.columns.map((column) => item[column.key] ?? ""));
+    const row = sheet.addRow(config.columns.map((column) => column.money ? (Number(item[column.key]) || 0) : item[column.key] ?? ""));
     row.height = 30;
     row.eachCell((cell, columnNumber) => {
       cell.alignment = { vertical: "middle", wrapText: true };
@@ -207,6 +204,25 @@ function buildWorkbook(reportType: ReportType, rows: ExportRow[], year?: number,
     emptyRow.height = 38;
     emptyRow.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
     emptyRow.getCell(1).font = { italic: true, color: { argb: "FF5C7086" } };
+  }
+  const moneyColumns = config.columns.map((column, index) => column.money ? { key: column.key, columnIndex: index + 1 } : null).filter((column): column is { key: string; columnIndex: number } => column !== null);
+  if (moneyColumns.length) {
+    const totalRow = sheet.addRow([]);
+    totalRow.getCell(1).value = "TỔNG CHI PHÍ";
+    moneyColumns.forEach((column) => {
+      const columnLetter = sheet.getColumn(column.columnIndex).letter;
+      const sum = rows.reduce((total, row) => total + (Number(row[column.key]) || 0), 0);
+      const cell = totalRow.getCell(column.columnIndex);
+      cell.value = rows.length ? { formula: `SUM(${columnLetter}6:${columnLetter}${5 + rows.length})`, result: sum } : 0;
+      cell.numFmt = '#,##0 "₫"';
+    });
+    totalRow.height = 34;
+    for (let column = 1; column <= endColumn; column += 1) {
+      const cell = totalRow.getCell(column);
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF075D80" } };
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.alignment = { vertical: "middle", wrapText: true };
+    }
   }
   sheet.columns = config.columns.map((column) => ({ width: column.width }));
   sheet.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5, column: endColumn } };
@@ -225,7 +241,7 @@ export async function GET(request: NextRequest) {
   const { report_type: reportType, year, month, vehicle_id: vehicleId } = parsed.data;
   try {
     const rows = await readRows(supabase, reportType, year, month, vehicleId);
-    const workbook = buildWorkbook(reportType, rows, year, month);
+    const workbook = await buildWorkbook(reportType, rows, year, month);
     const buffer = await workbook.xlsx.writeBuffer();
     const config = reportCatalog[reportType];
     const suffix = reportType === "vehicles" ? "" : year ? `_${year}${month ? `_T${String(month).padStart(2, "0")}` : ""}` : "_TAT-CA";

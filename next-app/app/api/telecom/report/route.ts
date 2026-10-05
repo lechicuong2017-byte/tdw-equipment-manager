@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 import { can, hasModule, requireAccess } from "@/lib/auth";
 import { telecomCategoryLabel, telecomFilterSchema, telecomPeriod } from "@/lib/telecom-invoices";
+import { addVehicleReportHeader } from "@/lib/vehicle-report-brand";
 
 export const maxDuration=60;
 export async function GET(request:NextRequest) {
@@ -14,9 +15,15 @@ export async function GET(request:NextRequest) {
   const summary=workbook.addWorksheet("Tong hop thang");
   const sims=workbook.addWorksheet("Tong hop thue bao");
   const detail=workbook.addWorksheet("Chi tiet hoa don");
-  summary.addRow(["Kỳ cước","Hạng mục","Số hóa đơn","Chưa thuế","VAT","Tổng thanh toán","Chưa thanh toán"]);
-  sims.addRow(["Thuê bao trên hóa đơn","Hạng mục","Số hóa đơn","Chưa thuế","VAT","Tổng thanh toán","Chưa thanh toán"]);
-  detail.addRow(["Kỳ cước","Thuê bao trên hóa đơn","Hạng mục","Nhóm / bộ phận","Nhà cung cấp","Ký hiệu","Số hóa đơn","Ngày lập","Hợp đồng","Dịch vụ","Chưa thuế","VAT","Thanh toán","Ngày thanh toán","Ghi chú","File nguồn","Trang"]);
+  const scope=`${month ? `Tháng ${String(month).padStart(2,"0")}/` : "Năm "}${year}${category ? ` · ${telecomCategoryLabel(category)}` : " · Tất cả hạng mục"}`;
+  await Promise.all([
+    addVehicleReportHeader(workbook,summary,7,"VIỄN THÔNG - TỔNG HỢP THEO THÁNG",scope),
+    addVehicleReportHeader(workbook,sims,7,"VIỄN THÔNG - TỔNG HỢP THUÊ BAO",scope),
+    addVehicleReportHeader(workbook,detail,17,"VIỄN THÔNG - CHI TIẾT HÓA ĐƠN",scope),
+  ]);
+  summary.getRow(6).values=["Kỳ cước","Hạng mục","Số hóa đơn","Chưa thuế","VAT","Tổng thanh toán","Chưa thanh toán"];
+  sims.getRow(6).values=["Thuê bao trên hóa đơn","Hạng mục","Số hóa đơn","Chưa thuế","VAT","Tổng thanh toán","Chưa thanh toán"];
+  detail.getRow(6).values=["Kỳ cước","Thuê bao trên hóa đơn","Hạng mục","Nhóm / bộ phận","Nhà cung cấp","Ký hiệu","Số hóa đơn","Ngày lập","Hợp đồng","Dịch vụ","Chưa thuế","VAT","Thanh toán","Ngày thanh toán","Ghi chú","File nguồn","Trang"];
   type Total={count:number;before:number;tax:number;gross:number;unpaid:number};
   const months=new Map<string,Total>();const subscribers=new Map<string,Total>();
   let complete=false;
@@ -46,10 +53,10 @@ export async function GET(request:NextRequest) {
   }
   for(const col of [11,12,13])detail.getColumn(col).numFmt='#,##0.00 "₫"';
   for(const sheet of workbook.worksheets) {
-    sheet.views=[{state:"frozen",ySplit:1}];sheet.columns.forEach((c)=>{c.width=23;});
-    sheet.getRow(1).height=32;sheet.getRow(1).eachCell((c)=>{c.font={bold:true,color:{argb:"FFFFFFFF"}};c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF0E7490"}};});
-    sheet.eachRow((r)=>r.eachCell((c)=>{c.alignment={vertical:"middle",wrapText:true};}));
-    sheet.autoFilter={from:{row:1,column:1},to:{row:Math.max(1,sheet.rowCount-(sheet===detail?0:1)),column:sheet.columnCount}};
+    sheet.views=[{state:"frozen",ySplit:6}];sheet.columns.forEach((c)=>{c.width=23;});
+    sheet.getRow(6).height=32;sheet.getRow(6).eachCell((c)=>{c.font={bold:true,color:{argb:"FFFFFFFF"}};c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF0E7490"}};c.alignment={horizontal:"center",vertical:"middle",wrapText:true};});
+    sheet.eachRow((r,index)=>{if(index>6)r.eachCell((c)=>{c.alignment={vertical:"middle",wrapText:true};});});
+    sheet.autoFilter={from:{row:6,column:1},to:{row:Math.max(6,sheet.rowCount-(sheet===detail?0:1)),column:sheet.columnCount}};
   }
   detail.getColumn(15).width=38;detail.getColumn(16).width=40;
   const buffer=await workbook.xlsx.writeBuffer();
