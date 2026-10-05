@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 const require = createRequire(new URL("../next-app/package.json", import.meta.url));
 const ts = require("typescript");
 const ExcelJS = require("exceljs");
+process.chdir(fileURLToPath(new URL("../next-app/", import.meta.url)));
+const brandSource = await fs.readFile(new URL("../next-app/lib/vehicle-report-brand.ts", import.meta.url), "utf8");
+const brandModule = { exports: {} };
+new Function("exports", "module", "require", ts.transpileModule(brandSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText)(brandModule.exports, brandModule, require);
 const vehicleId = "00000000-0000-4000-8000-000000000001";
 const secondVehicleId = "00000000-0000-4000-8000-000000000002";
 const tables = {
@@ -61,7 +66,7 @@ const source = await fs.readFile(new URL("../next-app/app/api/vehicles/reports/c
 assert.doesNotMatch(source, /callAppsScript|docs\.google\.com|drive\.google\.com/);
 const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
 const module = { exports: {} };
-const mocks = { "next/server": { NextResponse: Response }, "@/lib/auth": { can: () => allowed, requireAccess: async () => ({ access: {}, supabase }) } };
+const mocks = { "next/server": { NextResponse: Response }, "@/lib/auth": { can: () => allowed, requireAccess: async () => ({ access: {}, supabase }) }, "@/lib/vehicle-report-brand": brandModule.exports };
 new Function("exports", "module", "require", compiled)(module.exports, module, (id) => mocks[id] || require(id));
 const get = (query) => module.exports.GET({ nextUrl: new URL(`http://example.invalid/report?${query}`) });
 
@@ -72,12 +77,43 @@ assert.match(response.headers.get("content-disposition") || "", /2025-2026\.xlsx
 const workbook = new ExcelJS.Workbook();
 await workbook.xlsx.load(Buffer.from(await response.arrayBuffer()));
 const summary = workbook.getWorksheet("So sanh theo xe");
+assert.equal(summary.getCell("B1").value, "Công ty Cổ Phần B.O.O Nước Thủ Đức");
+assert.equal(summary.getCell("B2").value, "479 Xa lộ Hà Nội, P. Linh Xuân, TP.Hồ Chí Minh, Việt Nam");
+assert.equal(summary.getImages().length, 1);
 assert.equal(summary.getCell("I7").value, 1075);
 assert.equal(summary.getCell("O7").value, 1200);
 assert.equal(summary.getCell("P7").value, 125);
 assert.equal(summary.getCell("Q7").value, 125 / 1075);
 assert.equal(summary.getCell("I8").value, 0);
-assert.equal(workbook.getWorksheet("Chi tiet theo muc").rowCount, 21);
+assert.equal(workbook.getWorksheet("Chi tiet theo muc").rowCount, 26);
+assert.equal(workbook.getWorksheet("Chi tiet theo muc").getImages().length, 1);
+assert.equal(summary.getCell("I9").value.result, 1075);
+assert.equal(summary.getCell("O9").value.result, 1200);
+
+const selectedResponse = await get("year_a=2025&year_b=2026&categories_selected=1&category=repair&category=fuel");
+assert.equal(selectedResponse.status, 200);
+const selectedWorkbook = new ExcelJS.Workbook();
+await selectedWorkbook.xlsx.load(Buffer.from(await selectedResponse.arrayBuffer()));
+const selectedSummary = selectedWorkbook.getWorksheet("So sanh theo xe");
+assert.deepEqual([selectedSummary.getCell("D6").value, selectedSummary.getCell("E6").value, selectedSummary.getCell("F6").value], ["Bảo dưỡng / sửa chữa", "Nhiên liệu", "Tổng"]);
+assert.equal(selectedSummary.getCell("F7").value, 700);
+assert.equal(selectedSummary.getCell("I7").value, 770);
+assert.equal(selectedSummary.getCell("J7").value, 70);
+assert.equal(selectedSummary.getCell("K7").value, 0.1);
+assert.equal(selectedSummary.columnCount, 11);
+const selectedDetail = selectedWorkbook.getWorksheet("Chi tiet theo muc");
+assert.equal(selectedDetail.rowCount, 14);
+assert.deepEqual([selectedDetail.getCell("E7").value, selectedDetail.getCell("E8").value], ["Bảo dưỡng / sửa chữa", "Nhiên liệu"]);
+
+const tollResponse = await get("year_a=2025&year_b=2026&categories_selected=1&category=toll");
+assert.equal(tollResponse.status, 200);
+const tollWorkbook = new ExcelJS.Workbook();
+await tollWorkbook.xlsx.load(Buffer.from(await tollResponse.arrayBuffer()));
+assert.equal(tollWorkbook.getWorksheet("So sanh theo xe").getCell("E7").value, 75);
+assert.equal(tollWorkbook.getWorksheet("So sanh theo xe").getCell("G7").value, 90);
+assert.equal(tollWorkbook.getWorksheet("Chi tiet theo muc").rowCount, 10);
+assert.equal((await get("year_a=2025&year_b=2026&categories_selected=1")).status, 400);
+assert.equal((await get("year_a=2025&year_b=2026&category=unknown")).status, 400);
 
 const filtered = await get(`year_a=2025&year_b=2026&vehicle_id=${vehicleId}`);
 assert.equal(filtered.headers.get("x-report-row-count"), "1");
@@ -87,5 +123,6 @@ assert.equal((await get("year_a=2025&year_b=2026")).status, 403);
 allowed = true;
 failTable = "vehicle_repairs";
 assert.equal((await get("year_a=2025&year_b=2026")).status, 500);
+assert.equal((await get("year_a=2025&year_b=2026&category=fuel")).status, 200);
 
-console.log("Vehicle cost comparison checks passed: two-year per-vehicle totals, category breakdown, VETC plate matching, vehicle filter, direct XLSX, permission and database errors.");
+console.log("Vehicle cost comparison checks passed: two-year per-vehicle totals, selectable category columns/details, VETC plate matching, empty/invalid selections, vehicle filter, direct XLSX, permission and database errors.");

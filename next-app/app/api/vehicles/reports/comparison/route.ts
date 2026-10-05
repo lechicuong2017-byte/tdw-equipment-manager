@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { can, requireAccess } from "@/lib/auth";
+import { addVehicleReportHeader } from "@/lib/vehicle-report-brand";
 
 export const maxDuration = 60;
 
@@ -71,15 +72,6 @@ function yearOf(value: string) {
   return Number(value.slice(0, 4));
 }
 
-function styleTitleSheet(sheet: ExcelJS.Worksheet, endColumn: number) {
-  [1, 2, 3].forEach((rowNumber) => {
-    sheet.mergeCells(rowNumber, 1, rowNumber, endColumn);
-    const cell = sheet.getCell(rowNumber, 1);
-    cell.alignment = { horizontal: "center", vertical: "middle" };
-    cell.font = { bold: rowNumber < 3, size: rowNumber === 2 ? 17 : rowNumber === 1 ? 12 : 10, color: { argb: rowNumber === 2 ? "FF08769A" : "FF17324D" } };
-  });
-}
-
 function styleHeader(row: ExcelJS.Row, fill = "FF08769A") {
   row.height = 30;
   row.eachCell((cell) => {
@@ -90,17 +82,38 @@ function styleHeader(row: ExcelJS.Row, fill = "FF08769A") {
   });
 }
 
-function addComparisonSheet(workbook: ExcelJS.Workbook, vehicles: VehicleRow[], costs: Map<string, Map<number, CostBucket>>, yearA: number, yearB: number) {
+async function addComparisonSheet(workbook: ExcelJS.Workbook, vehicles: VehicleRow[], costs: Map<string, Map<number, CostBucket>>, yearA: number, yearB: number, selectedCategories: typeof categories) {
+  const firstTotalColumn = 4 + selectedCategories.length;
+  const secondStartColumn = firstTotalColumn + 1;
+  const secondTotalColumn = secondStartColumn + selectedCategories.length;
+  const differenceColumn = secondTotalColumn + 1;
+  const percentColumn = differenceColumn + 1;
   const sheet = workbook.addWorksheet("So sanh theo xe", { views: [{ state: "frozen", ySplit: 6, xSplit: 3 }] });
-  styleTitleSheet(sheet, 17);
-  sheet.getCell("A1").value = "CÔNG TY CỔ PHẦN NƯỚC THỦ ĐỨC — TDW";
-  sheet.getCell("A2").value = `SO SÁNH CHI PHÍ XE NĂM ${yearA} VÀ ${yearB}`;
-  sheet.getCell("A3").value = `Mỗi xe một dòng · Chi phí gồm đăng kiểm, bảo hiểm, bảo dưỡng, nhiên liệu và VETC · Ngày xuất ${new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date())}`;
-  sheet.getRow(5).values = ["Mã xe", "Tên xe", "Biển số", `Năm ${yearA}`, "", "", "", "", "", `Năm ${yearB}`, "", "", "", "", "", "Chênh lệch", "Tỷ lệ tăng/giảm"];
-  sheet.getRow(6).values = ["", "", "", ...categories.map((item) => item.label), "Tổng", ...categories.map((item) => item.label), "Tổng", "", ""];
-  ["A5", "B5", "C5", "P5", "Q5"].forEach((address) => sheet.mergeCells(`${address}:${address[0]}6`));
-  sheet.mergeCells("D5:I5");
-  sheet.mergeCells("J5:O5");
+  await addVehicleReportHeader(
+    workbook,
+    sheet,
+    percentColumn,
+    `SO SÁNH CHI PHÍ XE NĂM ${yearA} VÀ ${yearB}`,
+    `Khoản chi: ${selectedCategories.map((item) => item.label).join(", ")} · Ngày xuất ${new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date())}`,
+  );
+  ["Mã xe", "Tên xe", "Biển số"].forEach((label, index) => {
+    sheet.getCell(5, index + 1).value = label;
+    sheet.mergeCells(5, index + 1, 6, index + 1);
+  });
+  sheet.getCell(5, 4).value = `Năm ${yearA}`;
+  sheet.mergeCells(5, 4, 5, firstTotalColumn);
+  sheet.getCell(5, secondStartColumn).value = `Năm ${yearB}`;
+  sheet.mergeCells(5, secondStartColumn, 5, secondTotalColumn);
+  sheet.getCell(5, differenceColumn).value = "Chênh lệch";
+  sheet.mergeCells(5, differenceColumn, 6, differenceColumn);
+  sheet.getCell(5, percentColumn).value = "Tỷ lệ tăng/giảm";
+  sheet.mergeCells(5, percentColumn, 6, percentColumn);
+  selectedCategories.forEach((item, index) => {
+    sheet.getCell(6, 4 + index).value = item.label;
+    sheet.getCell(6, secondStartColumn + index).value = item.label;
+  });
+  sheet.getCell(6, firstTotalColumn).value = "Tổng";
+  sheet.getCell(6, secondTotalColumn).value = "Tổng";
   styleHeader(sheet.getRow(5), "FF075D80");
   styleHeader(sheet.getRow(6), "FF128396");
   vehicles.forEach((vehicle, index) => {
@@ -110,8 +123,8 @@ function addComparisonSheet(workbook: ExcelJS.Workbook, vehicles: VehicleRow[], 
     const percent = first.total ? difference / first.total : second.total ? 1 : 0;
     const row = sheet.addRow([
       vehicle.vehicle_code, vehicle.vehicle_name, vehicle.license_plate,
-      ...categories.map((item) => first[item.key]), first.total,
-      ...categories.map((item) => second[item.key]), second.total,
+      ...selectedCategories.map((item) => first[item.key]), first.total,
+      ...selectedCategories.map((item) => second[item.key]), second.total,
       difference, percent,
     ]);
     row.height = 30;
@@ -119,39 +132,45 @@ function addComparisonSheet(workbook: ExcelJS.Workbook, vehicles: VehicleRow[], 
       cell.alignment = { vertical: "middle", wrapText: true };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: index % 2 ? "FFF2F7FA" : "FFFFFFFF" } };
       cell.border = { bottom: { style: "thin", color: { argb: "FFD2E2EA" } }, left: { style: "thin", color: { argb: "FFD2E2EA" } }, right: { style: "thin", color: { argb: "FFD2E2EA" } } };
-      if (columnNumber >= 4 && columnNumber <= 16) cell.numFmt = '#,##0 "₫"';
-      if (columnNumber === 17) cell.numFmt = "0.0%;[Red]-0.0%";
+      if (columnNumber >= 4 && columnNumber <= differenceColumn) cell.numFmt = '#,##0 "₫"';
+      if (columnNumber === percentColumn) cell.numFmt = "0.0%;[Red]-0.0%";
     });
   });
   const totalRowNumber = 7 + vehicles.length;
+  const columnTotals = Array.from({ length: differenceColumn - 3 }, (_, index) =>
+    vehicles.reduce((total, _, rowIndex) => total + Number(sheet.getRow(7 + rowIndex).getCell(index + 4).value ?? 0), 0));
+  const firstTotal = columnTotals[firstTotalColumn - 4];
+  const secondTotal = columnTotals[secondTotalColumn - 4];
+  const totalDifference = secondTotal - firstTotal;
   const totalRow = sheet.addRow([
     "", "TỔNG CỘNG", "",
-    ...Array.from({ length: 13 }, (_, index) => ({ formula: `SUM(${sheet.getColumn(index + 4).letter}7:${sheet.getColumn(index + 4).letter}${6 + vehicles.length})` })),
-    { formula: `IF(I${totalRowNumber}=0,IF(O${totalRowNumber}=0,0,1),(O${totalRowNumber}-I${totalRowNumber})/I${totalRowNumber})` },
+    ...columnTotals.map((result, index) => ({ formula: `SUM(${sheet.getColumn(index + 4).letter}7:${sheet.getColumn(index + 4).letter}${6 + vehicles.length})`, result })),
+    { formula: `IF(${sheet.getColumn(firstTotalColumn).letter}${totalRowNumber}=0,IF(${sheet.getColumn(secondTotalColumn).letter}${totalRowNumber}=0,0,1),(${sheet.getColumn(secondTotalColumn).letter}${totalRowNumber}-${sheet.getColumn(firstTotalColumn).letter}${totalRowNumber})/${sheet.getColumn(firstTotalColumn).letter}${totalRowNumber})`, result: firstTotal ? totalDifference / firstTotal : secondTotal ? 1 : 0 },
   ]);
   sheet.mergeCells(totalRow.number, 2, totalRow.number, 3);
   totalRow.eachCell((cell, columnNumber) => {
     cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF075D80" } };
-    if (columnNumber >= 4 && columnNumber <= 16) cell.numFmt = '#,##0 "₫"';
-    if (columnNumber === 17) cell.numFmt = "0.0%;[Red]-0.0%";
+    if (columnNumber >= 4 && columnNumber <= differenceColumn) cell.numFmt = '#,##0 "₫"';
+    if (columnNumber === percentColumn) cell.numFmt = "0.0%;[Red]-0.0%";
   });
-  sheet.columns = [18, 33, 16, 18, 18, 21, 18, 18, 20, 18, 18, 21, 18, 18, 20, 20, 18].map((width) => ({ width }));
-  sheet.autoFilter = { from: "A6", to: "Q6" };
+  sheet.columns = [18, 33, 16, ...selectedCategories.map(() => 20), 20, ...selectedCategories.map(() => 20), 20, 20, 18].map((width) => ({ width }));
+  sheet.autoFilter = { from: "A6", to: `${sheet.getColumn(percentColumn).letter}6` };
   sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
 }
 
-function addDetailSheet(workbook: ExcelJS.Workbook, vehicles: VehicleRow[], costs: Map<string, Map<number, CostBucket>>, years: number[]) {
-  const sheet = workbook.addWorksheet("Chi tiet theo muc", { views: [{ state: "frozen", ySplit: 1 }] });
-  sheet.addRow(["Mã xe", "Tên xe", "Biển số", "Năm", "Hạng mục", "Chi phí"]);
-  styleHeader(sheet.getRow(1));
+async function addDetailSheet(workbook: ExcelJS.Workbook, vehicles: VehicleRow[], costs: Map<string, Map<number, CostBucket>>, years: number[], selectedCategories: typeof categories) {
+  const sheet = workbook.addWorksheet("Chi tiet theo muc", { views: [{ state: "frozen", ySplit: 6 }] });
+  await addVehicleReportHeader(workbook, sheet, 6, "CHI TIẾT CHI PHÍ THEO HẠNG MỤC", `Năm ${years[0]} và ${years[1]} · Khoản chi: ${selectedCategories.map((item) => item.label).join(", ")}`);
+  sheet.getRow(6).values = ["Mã xe", "Tên xe", "Biển số", "Năm", "Hạng mục", "Chi phí"];
+  styleHeader(sheet.getRow(6));
   for (const vehicle of vehicles) for (const year of years) {
     const bucket = costs.get(vehicle.id)?.get(year) ?? emptyBucket();
-    for (const category of categories) sheet.addRow([vehicle.vehicle_code, vehicle.vehicle_name, vehicle.license_plate, year, category.label, bucket[category.key]]);
+    for (const category of selectedCategories) sheet.addRow([vehicle.vehicle_code, vehicle.vehicle_name, vehicle.license_plate, year, category.label, bucket[category.key]]);
   }
   sheet.columns = [18, 33, 16, 12, 24, 20].map((width) => ({ width }));
   sheet.getColumn(6).numFmt = '#,##0 "₫"';
-  sheet.autoFilter = { from: "A1", to: "F1" };
+  sheet.autoFilter = { from: "A6", to: "F6" };
 }
 
 export async function GET(request: NextRequest) {
@@ -162,6 +181,16 @@ export async function GET(request: NextRequest) {
   const input = Object.fromEntries([...request.nextUrl.searchParams.entries()].filter(([, value]) => value));
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return NextResponse.json({ error: "Hai năm so sánh hoặc xe chưa hợp lệ." }, { status: 400 });
+  const requestedCategories = request.nextUrl.searchParams.getAll("category");
+  const allowedCategories = new Set<CostCategory>(categories.map((item) => item.key));
+  if (requestedCategories.some((item) => !allowedCategories.has(item as CostCategory))) {
+    return NextResponse.json({ error: "Hạng mục chi phí chưa hợp lệ." }, { status: 400 });
+  }
+  if (request.nextUrl.searchParams.has("categories_selected") && requestedCategories.length === 0) {
+    return NextResponse.json({ error: "Hãy chọn ít nhất một khoản chi." }, { status: 400 });
+  }
+  const selectedKeys = new Set<CostCategory>(requestedCategories.length ? requestedCategories as CostCategory[] : categories.map((item) => item.key));
+  const selectedCategories = categories.filter((item) => selectedKeys.has(item.key));
   const { year_a: yearA, year_b: yearB, vehicle_id: vehicleId } = parsed.data;
   const firstYear = Math.min(yearA, yearB);
   const lastYear = Math.max(yearA, yearB);
@@ -172,12 +201,12 @@ export async function GET(request: NextRequest) {
     if (vehicleId) vehicleQuery = vehicleQuery.eq("id", vehicleId);
     const [vehicleResult, inspectionRows, insuranceRows, repairRows, fuelRows, monthlyTollRows, quarterlyTollRows] = await Promise.all([
       vehicleQuery,
-      costRows(supabase, "vehicle_inspections", "inspection_date", "cost", start, end, vehicleId),
-      costRows(supabase, "vehicle_insurances", "starts_on", "cost", start, end, vehicleId),
-      costRows(supabase, "vehicle_repairs", "service_date", "vat_amount", start, end, vehicleId),
-      costRows(supabase, "vehicle_fuel_logs", "payment_date", "amount", start, end, vehicleId),
-      costRows(supabase, "vehicle_toll_transactions", "transaction_at", "amount_after_tax", `${start}T00:00:00+07:00`, `${end}T00:00:00+07:00`, vehicleId, true),
-      costRows(supabase, "vehicle_toll_quarterly_passes", "starts_on", "amount", start, end, vehicleId, true),
+      selectedKeys.has("inspection") ? costRows(supabase, "vehicle_inspections", "inspection_date", "cost", start, end, vehicleId) : [],
+      selectedKeys.has("insurance") ? costRows(supabase, "vehicle_insurances", "starts_on", "cost", start, end, vehicleId) : [],
+      selectedKeys.has("repair") ? costRows(supabase, "vehicle_repairs", "service_date", "vat_amount", start, end, vehicleId) : [],
+      selectedKeys.has("fuel") ? costRows(supabase, "vehicle_fuel_logs", "payment_date", "amount", start, end, vehicleId) : [],
+      selectedKeys.has("toll") ? costRows(supabase, "vehicle_toll_transactions", "transaction_at", "amount_after_tax", `${start}T00:00:00+07:00`, `${end}T00:00:00+07:00`, vehicleId, true) : [],
+      selectedKeys.has("toll") ? costRows(supabase, "vehicle_toll_quarterly_passes", "starts_on", "amount", start, end, vehicleId, true) : [],
     ]);
     if (vehicleResult.error) throw new Error(vehicleResult.error.message);
     const vehicles = (vehicleResult.data ?? []) as VehicleRow[];
@@ -203,8 +232,8 @@ export async function GET(request: NextRequest) {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "TDW Management";
     workbook.created = new Date();
-    addComparisonSheet(workbook, vehicles, costs, yearA, yearB);
-    addDetailSheet(workbook, vehicles, costs, [yearA, yearB]);
+    await addComparisonSheet(workbook, vehicles, costs, yearA, yearB, selectedCategories);
+    await addDetailSheet(workbook, vehicles, costs, [yearA, yearB], selectedCategories);
     const buffer = await workbook.xlsx.writeBuffer();
     return new NextResponse(buffer as ArrayBuffer, { headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

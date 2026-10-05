@@ -26,6 +26,15 @@ const vehicleReports: {
   { type: "vehicle_fuel", eyebrow: "NHIÊN LIỆU", title: "Theo dõi mua nhiên liệu", description: "Số lít, hành trình, số tiền và người mua theo từng xe.", icon: "fuel", tone: "green" },
 ];
 
+const comparisonCategories = [
+  { key: "inspection", label: "Đăng kiểm" },
+  { key: "insurance", label: "Bảo hiểm" },
+  { key: "repair", label: "Bảo dưỡng / sửa chữa" },
+  { key: "fuel", label: "Nhiên liệu" },
+  { key: "toll", label: "VETC" },
+] as const;
+type ComparisonCategory = (typeof comparisonCategories)[number]["key"];
+
 export function VehicleReportSection({ vehicles, showHeading = true }: { vehicles: VehicleOption[]; showHeading?: boolean }) {
   const currentYear = new Date().getFullYear();
   const years = useMemo(() => Array.from({ length: currentYear - 1997 }, (_, index) => currentYear + 2 - index), [currentYear]);
@@ -35,6 +44,7 @@ export function VehicleReportSection({ vehicles, showHeading = true }: { vehicle
   const [vehicleId, setVehicleId] = useState("");
   const [compareYearA, setCompareYearA] = useState(String(currentYear - 1));
   const [compareYearB, setCompareYearB] = useState(String(currentYear));
+  const [selectedCategories, setSelectedCategories] = useState<ComparisonCategory[]>(comparisonCategories.map((category) => category.key));
   const filters: ReportExportFilters = {
     year: year ? Number(year) : undefined,
     month: year && month ? Number(month) : undefined,
@@ -51,14 +61,19 @@ export function VehicleReportSection({ vehicles, showHeading = true }: { vehicle
     month: year ? month : "",
     vehicle_id: vehicleId,
   })}`;
-  const comparisonUrl = `/api/vehicles/reports/comparison?${new URLSearchParams({
+  const comparisonParams = new URLSearchParams({
     year_a: compareYearA,
     year_b: compareYearB,
     vehicle_id: vehicleId,
-  })}`;
+    categories_selected: "1",
+  });
+  selectedCategories.forEach((category) => comparisonParams.append("category", category));
+  const comparisonUrl = `/api/vehicles/reports/comparison?${comparisonParams}`;
   const renderReportCard = (report: (typeof vehicleReports)[number]) => <article className={`panel report-card vehicle-report-card vehicle-report-card--${report.tone}`} key={report.type}>
-    <div className="report-icon"><AppIcon name={report.icon} size={22} /></div>
-    <div><p className="eyebrow">{report.eyebrow}</p><h2>{report.title}</h2><p>{report.description}</p></div>
+    <div className="vehicle-report-card-header">
+      <div className="report-icon"><AppIcon name={report.icon} size={22} /></div>
+      <div><p className="eyebrow">{report.eyebrow}</p><h2>{report.title}</h2><p>{report.description}</p></div>
+    </div>
     <div className="report-filter-chip">{report.type === "vehicles" ? (selectedVehicle ? filterSummary.split(" · ").slice(1).join(" · ") : "Tất cả xe") : filterSummary}</div>
     <div className="report-actions">
       <a className="primary-button" href={directXlsxUrl(report.type)}>Xuất XLSX</a>
@@ -88,19 +103,33 @@ export function VehicleReportSection({ vehicles, showHeading = true }: { vehicle
       </nav>
       {activeGroup === "costs" ? <div className="report-grid vehicle-report-grid vehicle-report-grid--costs" role="tabpanel">
         <article className="panel report-card vehicle-report-card vehicle-report-card--comparison">
-          <div className="report-icon"><AppIcon name="reports" size={22} /></div>
-          <div><p className="eyebrow">SO SÁNH CHI PHÍ</p><h2>Hai năm theo từng xe</h2><p>Mỗi xe một dòng; đối chiếu đăng kiểm, bảo hiểm, bảo dưỡng, nhiên liệu, VETC, tổng chi phí và tỷ lệ tăng giảm.</p></div>
+          <div className="vehicle-report-card-header">
+            <div className="report-icon"><AppIcon name="reports" size={22} /></div>
+            <div><p className="eyebrow">SO SÁNH CHI PHÍ</p><h2>Hai năm theo từng xe</h2><p>Chọn khoản chi cần so sánh cho từng xe; file xuất sẽ tính lại tổng chi phí và tỷ lệ tăng giảm theo lựa chọn.</p></div>
+          </div>
           <div className="vehicle-comparison-years">
             <label>Năm gốc<select onChange={(event) => setCompareYearA(event.target.value)} value={compareYearA}>{years.map((item) => <option disabled={String(item) === compareYearB} key={item} value={item}>{item}</option>)}</select></label>
             <span>so với</span>
             <label>Năm đối chiếu<select onChange={(event) => setCompareYearB(event.target.value)} value={compareYearB}>{years.map((item) => <option disabled={String(item) === compareYearA} key={item} value={item}>{item}</option>)}</select></label>
           </div>
+          <fieldset className="vehicle-comparison-categories">
+            <legend>Chọn khoản chi đưa vào báo cáo</legend>
+            <div className="vehicle-comparison-category-list">
+              {comparisonCategories.map((category) => <label key={category.key}>
+                <input checked={selectedCategories.includes(category.key)} onChange={(event) => setSelectedCategories((current) => event.target.checked ? [...current, category.key] : current.filter((key) => key !== category.key))} type="checkbox" />
+                <span>{category.label}</span>
+              </label>)}
+            </div>
+            {selectedCategories.length === 0 ? <small role="alert">Chọn ít nhất một khoản chi để xuất báo cáo.</small> : null}
+          </fieldset>
           <div className="report-filter-chip">{selectedVehicle ? `${selectedVehicle.license_plate} · ${selectedVehicle.vehicle_name}` : "Tất cả xe"}</div>
-          <div className="report-actions"><a className="primary-button" href={comparisonUrl}>Xuất XLSX so sánh</a></div>
+          <div className="report-actions"><a aria-disabled={selectedCategories.length === 0} className="primary-button" href={selectedCategories.length ? comparisonUrl : undefined} onClick={(event) => { if (!selectedCategories.length) event.preventDefault(); }}>Xuất XLSX so sánh</a></div>
         </article>
         <article className="panel report-card vehicle-report-card vehicle-report-card--cyan">
-          <div className="report-icon"><AppIcon name="toll" size={22} /></div>
-          <div><p className="eyebrow">VETC</p><h2>Chi phí qua trạm</h2><p>Tổng hợp theo tháng, chi tiết vé lẻ sau thuế và đăng ký vé quý theo ngày bắt đầu.</p></div>
+          <div className="vehicle-report-card-header">
+            <div className="report-icon"><AppIcon name="toll" size={22} /></div>
+            <div><p className="eyebrow">VETC</p><h2>Chi phí qua trạm</h2><p>Tổng hợp theo tháng, chi tiết vé lẻ sau thuế và đăng ký vé quý theo ngày bắt đầu.</p></div>
+          </div>
           <div className="report-filter-chip">{filterSummary}</div>
           <div className="report-actions"><a className="primary-button" href={`/api/vehicles/tolls/report?${new URLSearchParams({ year, month: year ? month : "", vehicle_id: vehicleId })}`}>Xuất Excel</a></div>
         </article>
