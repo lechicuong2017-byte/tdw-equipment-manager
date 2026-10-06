@@ -84,9 +84,14 @@ export function parseTelecomInvoice(text: string, page: number): TelecomInvoiceI
   const subscriberText = field(/Số thuê bao\s*:\s*(.*?)\s*Kỳ cước/i);
   const subscriber = subscriberText.match(/^(?:Đại diện\s*\(\s*)?(\+?\d{6,20})\s*\)?$/i)?.[1] || "";
   const issued = field(/Ngày lập\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
-  const service = t.match(/\b1\s+(Dịch vụ.*?)\s+0?1\s+[\d.]+\s+[\d.,]+%/i)?.[1] || "";
-  // This template represents one subscriber per invoice. Aggregate/unknown
-  // templates must be reviewed rather than assigning all costs to one SIM.
+  const serviceLine = t.match(/\b1\s+(Dịch vụ.*?)\s+(\d{1,6})\s+[\d.]+\s+[\d.,]+%/i);
+  const quantity = Number(serviceLine?.[2] || 0);
+  // A grouped invoice prints one representative number, not every SIM number.
+  // Preserve the printed quantity in the service description and keep ONE row
+  // with the invoice total. Never multiply that total by the subscription count.
+  const service = serviceLine && quantity > 0
+    ? `${serviceLine[1]}${quantity > 1 ? ` · Hóa đơn gộp ${quantity} thuê bao (số đại diện)` : ""}`
+    : "";
   const parsed = telecomInvoiceSchema.safeParse({
     page,
     provider: /VIỄN THÔNG QUÂN ĐỘI/i.test(t) ? "Viettel" : "",
@@ -102,7 +107,7 @@ export function parseTelecomInvoice(text: string, page: number): TelecomInvoiceI
     tax_amount: totals ? Number(totals[2].replaceAll(".", "")) : -1,
     amount_after_tax: totals ? Number(totals[3].replaceAll(".", "")) : -1,
   });
-  if (!parsed.success) throw new Error(`Trang ${page}: thiếu thông tin thuê bao/kỳ cước hoặc tổng tiền không hợp lệ. Hãy kiểm tra hóa đơn.`);
+  if (!parsed.success) throw new Error(`Trang ${page}: thiếu thông tin thuê bao/kỳ cước/dịch vụ hoặc tổng tiền không hợp lệ. Hãy kiểm tra hóa đơn.`);
   return parsed.data;
 }
 

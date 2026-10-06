@@ -11,6 +11,17 @@ assert.equal(r.period_month,'2026-08-01');assert.equal(r.issued_on,'2026-09-02')
 assert.equal(r.subscriber,'123456789');assert.equal(r.amount_after_tax,30000);
 assert.equal(parseTelecomInvoice(viettel.replace('CỘNG 27.273 2.727 30.000 TỔNG CỘNG TIỀN THANH TOÁN','CỘNG 27.273 2.727 TỔNG CỘNG TIỀN THANH TOÁN 30.000'),1).amount_after_tax,30000);
 assert.equal(telecomInvoiceKey(r),'0100109106|1K26TEST|123');
+const grouped=viettel.replace('Di động 01','Di động 02').replaceAll('27.273','54.545').replaceAll('2.727','5.455').replaceAll('30.000','60.000');
+const groupedRow=parseTelecomInvoice(grouped,1);
+assert.equal(groupedRow.subscriber,r.subscriber);
+assert.equal(groupedRow.amount_after_tax,60000);
+assert.match(groupedRow.service,/Hóa đơn gộp 2 thuê bao \(số đại diện\)/);
+assert.equal(telecomInvoiceKey(groupedRow),telecomInvoiceKey(r));
+assert.throws(()=>parseTelecomInvoice(viettel.replace('Di động 01','Di động 00'),1));
+const batch=[groupedRow,...Array.from({length:46},(_,i)=>parseTelecomInvoice(viettel.replace('Số: 000123',`Số: ${i+200}`),i+2))];
+assert.equal(batch.length,47);
+assert.equal(new Set(batch.map(telecomInvoiceKey)).size,47);
+assert.equal(batch.reduce((sum,row)=>sum+row.amount_after_tax,0),60000+46*30000);
 assert.throws(()=>parseTelecomInvoice(viettel.replace('Tháng 08','Tháng 13'),1));
 assert.throws(()=>parseTelecomInvoice(viettel.replace('CỘNG 27.273 2.727 30.000','CỘNG 27.273 2.727 99.000'),1));
 assert.throws(()=>parseTelecomInvoice('Unreadable scanned PDF',1));
@@ -40,7 +51,7 @@ if(process.argv.length>2) {
         const text=telecomPageText(content.items.filter(item=>'str' in item));
         rows.push(parseTelecomInvoice(text,pageNo));page.cleanup();
       }
-      console.log(JSON.stringify({pages:doc.numPages,invoices:rows.length,unique:new Set(rows.map(telecomInvoiceKey)).size,periods:[...new Set(rows.map(r=>r.period_month))],before:rows.reduce((s,r)=>s+r.amount_before_tax,0),vat:rows.reduce((s,r)=>s+r.tax_amount,0),gross:rows.reduce((s,r)=>s+r.amount_after_tax,0)}));
+      console.log(JSON.stringify({pages:doc.numPages,invoices:rows.length,unique:new Set(rows.map(telecomInvoiceKey)).size,grouped:rows.filter(r=>r.service.includes('Hóa đơn gộp')).length,totalsValid:rows.every(r=>Math.abs(r.amount_before_tax+r.tax_amount-r.amount_after_tax)<=1)}));
     } finally {await doc.destroy();}
   }
 }
