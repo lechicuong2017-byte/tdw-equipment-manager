@@ -8,6 +8,7 @@ import {
   formatNumber,
   labelStatus,
   statusTone,
+  vietnamToday,
 } from "@/lib/format";
 import type { Asset, DashboardStats } from "@/lib/types";
 
@@ -15,12 +16,7 @@ export const metadata = { title: "Tổng quan" };
 
 export default async function DashboardPage() {
   const { supabase, access } = await requireAccess();
-  const currentYear = Number(
-    new Intl.DateTimeFormat("en", {
-      timeZone: "Asia/Ho_Chi_Minh",
-      year: "numeric",
-    }).format(new Date()),
-  );
+  const currentYear = Number(vietnamToday().slice(0, 4));
   const [{ data: statsData }, { data: recentAssets }] = await Promise.all([
     supabase.rpc("get_dashboard_stats"),
     supabase

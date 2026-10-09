@@ -2,6 +2,7 @@ import "server-only";
 
 import { callAppsScript } from "@/lib/apps-script";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { vietnamToday } from "@/lib/format";
 
 const reminderDays = new Set([30, 7, 0]);
 
@@ -19,10 +20,6 @@ type InspectionNotification = {
 
 type ClaimedInspectionNotification = InspectionNotification & { notification_id: string };
 
-function vietnamDate() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
-}
-
 function daysBetween(from: string, to: string) {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
 }
@@ -36,7 +33,7 @@ function notificationType(dueDate: string, today: string) {
 
 export async function runVehicleInspectionReminders() {
   const supabase = createAdminClient();
-  const today = vietnamDate();
+  const today = vietnamToday();
   const { data: inspections, error } = await supabase
     .from("vehicle_inspections")
     .select("id,vehicle_id,expires_on,vehicles(vehicle_code,vehicle_name,license_plate,responsible_user_id,deleted_at)")

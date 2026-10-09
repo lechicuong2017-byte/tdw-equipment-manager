@@ -26,17 +26,16 @@ export default async function EquipmentReportPage({ params }: { params: Promise<
     .select("id,asset_code,asset_name,asset_group,asset_group_label,asset_type,purchase_year,last_maintenance_date,warranty_end_date,status,department_legacy_name,departments(name)")
     .is("deleted_at", null);
   if (report.slug !== "liquidations") assetQuery = assetQuery.neq("status", "DA_THANH_LY");
-  const { data: assetData } = needsAssets
-    ? await assetQuery.order("asset_code")
-    : { data: [] };
-  const assets = assetData ?? [];
-  const [{ data: maintenanceTypeData }, { data: softwareData }] = await Promise.all([
+  // Các danh mục bộ lọc độc lập: tải song song, không chờ xong thiết bị rồi
+  // mới tải hình thức bảo trì/phần mềm. Quyền đã kiểm tra trước truy vấn.
+  const [{ data: assetData }, { data: maintenanceTypeData }, { data: softwareData }] = await Promise.all([
+    needsAssets ? assetQuery.order("asset_code") : Promise.resolve({ data: [] }),
     report.slug === "maintenance"
       ? supabase
           .from("settings")
           .select("setting_value,display_name")
           .eq("setting_type", "maintenance_type")
-          .eq("is_active", true)
+          .eq("active", true)
           .order("sort_order")
       : Promise.resolve({ data: [] }),
     report.slug === "software"
@@ -46,6 +45,7 @@ export default async function EquipmentReportPage({ params }: { params: Promise<
           .order("software_name")
       : Promise.resolve({ data: [] }),
   ]);
+  const assets = assetData ?? [];
 
   function uniqueOptions(values: Array<{ value: string; label: string }>) {
     return [...new Map(values.filter((item) => item.value).map((item) => [item.value, item])).values()]

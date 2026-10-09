@@ -3906,36 +3906,6 @@ tbody tr.asset-row.interactive-data-row:focus-visible > td:first-child {
   padding: 0.7rem 0.8rem;
 }
 
-.migration-panel {
-  max-width: 720px;
-  padding: 2rem;
-}
-
-.migration-panel p,
-.migration-panel li {
-  color: var(--ink-soft);
-  font-size: 0.84rem;
-}
-
-.migration-panel ul {
-  display: grid;
-  gap: 0.6rem;
-  margin: 1.25rem 0 0;
-  padding-left: 1.2rem;
-}
-
-.migration-badge {
-  background: var(--amber-soft);
-  border-radius: 999px;
-  color: var(--amber);
-  display: inline-flex;
-  font-size: 0.65rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  margin-bottom: 1rem;
-  padding: 0.35rem 0.6rem;
-}
-
 .report-grid {
   display: grid;
   gap: 1rem;

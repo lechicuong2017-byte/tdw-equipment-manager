@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { SystemModule } from "@/lib/system-modules";
 import type { AccessProfile } from "@/lib/types";
 
+// React cache chỉ khử lặp trong cùng lượt render (layout + trang + component).
+// Không thay bằng cache toàn cục/TTL: quyền, tài khoản và MFA là theo từng user.
 const getAccessSession = cache(async (): Promise<{
   supabase: Awaited<ReturnType<typeof createClient>>;
   access: AccessProfile;

@@ -12,7 +12,6 @@ export const maxDuration = 60;
 const reportTypes = ["assets", "liquidations", "maintenance", "movement", "software", "vehicles", "vehicle_inspections", "vehicle_insurance", "vehicle_repairs", "vehicle_fuel"] as const;
 type ReportType = (typeof reportTypes)[number];
 const outputFormats = ["xlsx", "pdf"] as const;
-type OutputFormat = (typeof outputFormats)[number];
 
 const assetReportFields = [
   "relation",

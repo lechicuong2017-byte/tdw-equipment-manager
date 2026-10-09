@@ -4,7 +4,7 @@ import { SoftwareForm } from "@/components/software-form";
 import { InteractiveTableRow } from "@/components/interactive-table-row";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
-import { formatDate } from "@/lib/format";
+import { formatDate, vietnamToday } from "@/lib/format";
 import { deleteSoftwareLicense } from "./actions";
 
 export const metadata = { title: "Phần mềm" };
@@ -163,9 +163,7 @@ export default async function SoftwarePage() {
 
   const canDelete = can(access, "software.delete");
   const showActions = canManage || canDelete;
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date());
+  const today = vietnamToday();
 
   return (
     <>

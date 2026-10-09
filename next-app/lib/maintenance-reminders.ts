@@ -2,6 +2,7 @@ import "server-only";
 
 import { callAppsScript } from "@/lib/apps-script";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { vietnamToday } from "@/lib/format";
 
 const reminderDays = new Set([7, 3, 1, 0]);
 const maxNotificationsPerRun = 200;
@@ -56,12 +57,6 @@ function relatedAsset(value: RelatedAsset) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function vietnamDate() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date());
-}
-
 function daysBetween(from: string, to: string) {
   const fromTime = Date.parse(`${from}T00:00:00Z`);
   const toTime = Date.parse(`${to}T00:00:00Z`);
@@ -93,7 +88,7 @@ function candidateKey(candidate: {
 
 export async function runMaintenanceReminders(): Promise<ReminderRunResult> {
   const supabase = createAdminClient();
-  const today = vietnamDate();
+  const today = vietnamToday();
   const { data: plans, error: plansError } = await supabase
     .from("maintenance_plans")
     .select(

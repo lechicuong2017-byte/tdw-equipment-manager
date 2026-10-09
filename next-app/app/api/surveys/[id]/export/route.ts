@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { can, requireModuleAccess } from "@/lib/auth";
-import { answerText, questionTypes, type Survey, type SurveyResponse } from "@/lib/surveys";
+import { answerText, questionTypes, summarizeAnswers, type Survey, type SurveyResponse } from "@/lib/surveys";
 import { addVehicleReportHeader } from "@/lib/vehicle-report-brand";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,10 +29,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   summary.addRows([["KHẢO SÁT", survey.title], ["Lời giới thiệu", survey.description], ["Số phản hồi", rows.length], ["Thời điểm xuất (VN)", new Date(cutoff).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })], ["Bảo mật", "Chứa thông tin liên hệ của nhân viên. Chỉ sử dụng trong phạm vi quản lý khảo sát."], []]);
   for (const [index, question] of survey.questions.entries()) {
     summary.addRow([`${index + 1}. ${question.title}`, questionTypes[question.type]]);
-    const answered = rows.filter((r) => !!answerText(r.answers[question.id]).trim());
-    summary.addRow(["Số người trả lời", answered.length]);
+    const result = summarizeAnswers(question, rows);
+    summary.addRow(["Số người trả lời", result.answered]);
     if (["single", "multiple"].includes(question.type)) {
-      for (const option of question.options) summary.addRow([option, answered.filter((r) => Array.isArray(r.answers[question.id]) ? (r.answers[question.id] as string[]).includes(option) : String(r.answers[question.id]) === option).length]);
+      for (const option of question.options) summary.addRow([option, result.counts.get(option) ?? 0]);
     }
     summary.addRow([]);
   }

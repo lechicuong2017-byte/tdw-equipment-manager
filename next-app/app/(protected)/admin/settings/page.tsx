@@ -111,7 +111,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 <span className="status-pill">{activeRows.length} đang dùng</span>
               </div>
               <div className="setting-list">
-                {rows.map((setting, index) => {
+                {rows.map((setting) => {
                   const activeIndex = activeRows.findIndex((item) => item.id === setting.id);
                   return (
                     <div className={`setting-item ${setting.active ? "" : "setting-item-inactive"}`} key={setting.id}>

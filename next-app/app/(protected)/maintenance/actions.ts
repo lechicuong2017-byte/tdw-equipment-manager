@@ -446,7 +446,8 @@ export async function createMaintenanceLog(
 
   let uploadedMedia = 0;
   const createdLog = createdLogs[0];
-  if (createdLog) {
+  // Không tải ảnh thì không cần thêm truy vấn lấy mã thiết bị để đặt tên file.
+  if (createdLog && mediaFiles.files.length) {
     const assetCode = await assetCodeForMedia(supabase, createdLog.asset_id);
     for (const file of mediaFiles.files) {
       const result = await storeMaintenanceMedia({

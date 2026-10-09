@@ -126,6 +126,8 @@ export function ActionStateToast({
   state: { success?: string };
 }) {
   const { showToast } = useActionToast();
+  // Toast của form popup phải nằm BÊN TRONG ActionSuccessBoundary/ModalTrigger
+  // để sự kiện lưu thành công đóng đúng popup, không chỉ hiện thông báo.
   const onSuccess = useContext(ActionSuccessContext);
   const previousState = useRef(state);
 

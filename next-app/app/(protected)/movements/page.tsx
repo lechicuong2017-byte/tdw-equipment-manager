@@ -4,7 +4,7 @@ import { InteractiveTableRow } from "@/components/interactive-table-row";
 import { MovementForm } from "@/components/movement-form";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
-import { formatDate } from "@/lib/format";
+import { formatDate, vietnamToday } from "@/lib/format";
 
 export const metadata = { title: "Luân chuyển" };
 
@@ -37,9 +37,7 @@ export default async function MovementsPage() {
       .limit(100),
   ]);
 
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date());
+  const today = vietnamToday();
 
   return (
     <>

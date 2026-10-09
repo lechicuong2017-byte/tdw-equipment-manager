@@ -12,6 +12,25 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   year: "numeric",
 });
 
+// Chỉ tái sử dụng formatter, không lưu ngày hiện tại: các trang và job nhắc
+// hạn phải đổi ngày/năm đúng theo giờ Việt Nam kể cả server chạy theo UTC.
+const vietnamDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Ho_Chi_Minh",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Ngày nghiệp vụ YYYY-MM-DD cho thiết bị, xe, VPP và viễn thông. */
+export function vietnamToday(date = new Date()) {
+  return vietnamDateFormatter.format(date);
+}
+
+/** Kỳ YYYY-MM để gom giao dịch VETC theo tháng tại Việt Nam. */
+export function vietnamMonth(date: Date) {
+  return vietnamToday(date).slice(0, 7);
+}
+
 export function formatMoney(value: number | string | null | undefined) {
   const numericValue = Number(value ?? 0);
   return moneyFormatter.format(Number.isFinite(numericValue) ? numericValue : 0);

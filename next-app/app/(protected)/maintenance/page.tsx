@@ -7,7 +7,7 @@ import { MaintenancePlanEditor } from "@/components/maintenance-plan-editor";
 import { MaintenanceReminderButton } from "@/components/maintenance-reminder-button";
 import { PageHeader } from "@/components/page-header";
 import { can, requireAccess } from "@/lib/auth";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, vietnamToday } from "@/lib/format";
 import {
   deleteMaintenanceRecord,
   toggleMaintenancePlan,
@@ -72,9 +72,7 @@ export default async function MaintenancePage() {
         data: [] as { owner_id: string }[],
       };
 
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date());
+  const today = vietnamToday();
   const canDelete = can(access, "maintenance.delete");
   const assetOptions = assets ?? [];
   const settingRows = settings ?? [];

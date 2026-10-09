@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { ModalTrigger } from "@/components/app-modal";
 import { PageHeader } from "@/components/page-header";
 import { requireAccess } from "@/lib/auth";
+import { groupBy } from "@/lib/collections";
 import { systemModuleDefinitions } from "@/lib/system-modules";
 import {
   inviteUser,
@@ -67,6 +68,10 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
   const moduleAccess = moduleAccessResult.data;
   const departments = departmentsResult.data;
 
+  // Chỉ lập chỉ mục trong request của admin; không thay đổi vai trò hay RLS.
+  const scopesByUser = groupBy(scopes ?? [], (scope) => scope.user_id);
+  const modulesByUser = groupBy(moduleAccess ?? [], (item) => item.user_id);
+
   const roleCodeById = new Map((roles ?? []).map((role) => [role.id, role.code]));
   const roleByUser = new Map(
     (userRoles ?? []).map((item) => [
@@ -117,13 +122,9 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       <section className="user-access-grid">
         {(profiles ?? []).map((profile) => {
           const roleCode = roleByUser.get(profile.id) ?? "viewer";
-          const userScopes = (scopes ?? []).filter(
-            (scope) => scope.user_id === profile.id,
-          );
+          const userScopes = scopesByUser.get(profile.id) ?? [];
           const grantedModules = new Set(
-            (moduleAccess ?? [])
-              .filter((item) => item.user_id === profile.id)
-              .map((item) => item.module),
+            (modulesByUser.get(profile.id) ?? []).map((item) => item.module),
           );
           const isAdmin = roleCode === "admin";
           return (

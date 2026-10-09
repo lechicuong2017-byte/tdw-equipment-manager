@@ -25,6 +25,24 @@ export type Survey = SurveyInput & { id: string; public_token: string; status: "
 export type SurveyResponse = Identity & { id: string; answers: Answers; submitted_at: string };
 export const surveyStatuses = { draft: "Bản nháp", open: "Đang nhận phản hồi", closed: "Đã đóng" };
 export const answerText = (value: Answers[string] | undefined) => Array.isArray(value) ? value.join("; ") : value === undefined ? "" : String(value);
+
+/** Báo cáo khảo sát: một lượt đọc câu trả lời thay cho lọc lại theo từng option. */
+export function summarizeAnswers(question: Question, rows: readonly Pick<SurveyResponse, "answers">[]) {
+  const counts = new Map(question.options.map((option) => [option, 0]));
+  let answered = 0;
+  for (const row of rows) {
+    const answer = row.answers[question.id];
+    if (!answerText(answer).trim()) continue;
+    answered += 1;
+    if (!counts.size) continue; // Câu điền thông tin chỉ cần tổng số người trả lời.
+    // Một người chỉ tính một lần cho cùng option, kể cả dữ liệu cũ có lặp.
+    for (const option of new Set(Array.isArray(answer) ? answer : [String(answer)])) {
+      if (counts.has(option)) counts.set(option, counts.get(option)! + 1);
+    }
+  }
+  return { answered, counts };
+}
+
 export function surveyError(message: string) {
   if (message.includes("SURVEY_STALE")) return "Khảo sát đã được thay đổi. Hãy tải lại trang trước khi sửa tiếp.";
   if (message.includes("SURVEY_QUESTIONS_LOCKED")) return "Khảo sát đã được mở, không thể thay đổi câu hỏi.";

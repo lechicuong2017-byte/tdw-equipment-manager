@@ -10,6 +10,7 @@ import { ActionStateToast } from "@/components/action-toast";
 import { ModalTrigger } from "@/components/app-modal";
 import { ImageFilePicker } from "@/components/image-file-picker";
 import { normalizeSearchText } from "@/lib/search";
+import { groupBy } from "@/lib/collections";
 
 type AssetOption = {
   id: string;
@@ -104,12 +105,7 @@ export function MaintenanceForms({
   const [logAssetIds, setLogAssetIds] = useState<Set<string>>(() => new Set());
 
   const planBatches = useMemo(() => {
-    const plansByBatch = new Map<string, PlanOption[]>();
-    plans.forEach((plan) => {
-      const current = plansByBatch.get(plan.batch_id) ?? [];
-      current.push(plan);
-      plansByBatch.set(plan.batch_id, current);
-    });
+    const plansByBatch = groupBy(plans, (plan) => plan.batch_id);
 
     const grouped: PlanBatchOption[] = [];
     const legacyPlans: PlanOption[] = [];

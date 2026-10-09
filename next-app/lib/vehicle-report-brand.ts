@@ -6,6 +6,9 @@ export const VEHICLE_REPORT_COMPANY = "Công ty Cổ Phần B.O.O Nước Thủ 
 export const VEHICLE_REPORT_ADDRESS = "479 Xa lộ Hà Nội, P. Linh Xuân, TP.Hồ Chí Minh, Việt Nam";
 
 let logoPromise: Promise<Buffer> | undefined;
+// Một ảnh/logo cho mỗi workbook, nhiều sheet cùng dùng lại imageId.
+// WeakMap không giữ workbook đã xuất xong và không trộn dữ liệu báo cáo.
+const logoIds = new WeakMap<ExcelJS.Workbook, number>();
 
 function logoPng() {
   // Keep the supplied PNG untouched so the TDW gradient and tagline retain their colors.
@@ -25,7 +28,11 @@ export async function addVehicleReportHeader(
   subtitle: string,
 ) {
   const logo = await logoPng();
-  const imageId = workbook.addImage({ base64: logo.toString("base64"), extension: "png" });
+  let imageId = logoIds.get(workbook);
+  if (imageId === undefined) {
+    imageId = workbook.addImage({ base64: logo.toString("base64"), extension: "png" });
+    logoIds.set(workbook, imageId);
+  }
   sheet.addImage(imageId, { tl: { col: 0.08, row: 0.12 }, ext: { width: 124, height: 46 } });
 
   const lines = [VEHICLE_REPORT_COMPANY, VEHICLE_REPORT_ADDRESS, title, subtitle];

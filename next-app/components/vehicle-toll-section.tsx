@@ -3,7 +3,7 @@ import { AppIcon } from "@/components/app-icon";
 import { ConfirmAction } from "@/components/app-modal";
 import { VehicleHistoryTabs } from "@/components/vehicle-history-tabs";
 import { can, requireAccess } from "@/lib/auth";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, vietnamMonth, vietnamToday } from "@/lib/format";
 import { periodDueTone } from "@/lib/vehicle-due-status";
 import { deleteTollMonthlyBatch, deleteTollQuarterlyPass } from "@/app/(protected)/vehicles/vehicle-tolls-actions";
 
@@ -23,7 +23,7 @@ export async function VehicleTollSection({
   view: requestedView,
 }: { year?: string; vehicleId?: string; page?: string; view?: string }) {
   const { access, supabase } = await requireAccess();
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+  const today = vietnamToday();
   const year = /^\d{4}$/.test(requestedYear || "") && Number(requestedYear) >= 2000 && Number(requestedYear) <= 2100
     ? Number(requestedYear) : Number(today.slice(0, 4));
   const view: "current" | "history" = requestedView === "history" ? "history" : "current";
@@ -56,7 +56,7 @@ export async function VehicleTollSection({
   const selectedVehicle = vehiclesResult.data?.find((vehicle) => vehicle.id === vehicleId);
   const filteredMonths = new Map<string, { id: string; period_month: string; transaction_count: number; vehicle_count: number; station_count: number; amount_after_tax: number; stations: Set<string> }>();
   for (const transaction of vehicleTransactions.data || []) {
-    const period = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(transaction.transaction_at));
+    const period = vietnamMonth(new Date(transaction.transaction_at));
     const row = filteredMonths.get(period) || { id: `vehicle-${vehicleId}-${period}`, period_month: `${period}-01`, transaction_count: 0, vehicle_count: 1, station_count: 0, amount_after_tax: 0, stations: new Set<string>() };
     row.transaction_count += 1;
     row.amount_after_tax += Number(transaction.amount_after_tax || 0);

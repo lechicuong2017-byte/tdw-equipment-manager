@@ -27,4 +27,12 @@ for (const columnCount of [2, 6, 17]) {
   assert.equal(loaded.worksheets[0].getImages().length, 1);
   assert.equal(loaded.worksheets[0].getCell("B3").value, "BÁO CÁO THỬ");
 }
-console.log("Shared XLSX branding checks passed: source-color logo, centered company/address/title, narrow and wide sheets.");
+// Several concurrent headers in the same workbook must share the image data.
+const multiWorkbook = new ExcelJS.Workbook();
+const multiSheets = [2, 6, 17].map((width) => ({ sheet: multiWorkbook.addWorksheet(`Sheet ${width}`), width }));
+await Promise.all(multiSheets.map(({ sheet, width }) => brand.exports.addVehicleReportHeader(multiWorkbook, sheet, width, "BÁO CÁO THỬ", "Dữ liệu thử")));
+assert.equal(multiWorkbook.model.media.length, 1, "One logo asset per workbook, not per sheet");
+const reloaded = new ExcelJS.Workbook();
+await reloaded.xlsx.load(await multiWorkbook.xlsx.writeBuffer());
+for (const sheet of reloaded.worksheets) assert.equal(sheet.getImages().length, 1);
+console.log("Shared XLSX branding checks passed: original logo, centered headers, narrow/wide sheets and one logo asset for concurrent multi-sheet exports.");

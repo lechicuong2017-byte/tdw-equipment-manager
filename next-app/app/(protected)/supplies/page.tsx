@@ -12,6 +12,8 @@ import {
 import { archiveSupplyItem, deleteSupplyQuote, deleteSupplyRequest } from "./actions";
 import { can, requireAccess } from "@/lib/auth";
 import { normalizeSearchText } from "@/lib/search";
+import { groupBy } from "@/lib/collections";
+import { vietnamToday } from "@/lib/format";
 
 export const metadata = { title: "Văn phòng phẩm & Dụng cụ vệ sinh" };
 type SuppliesPageProps = { searchParams: Promise<{ section?: string; year?: string; quarter?: string; month?: string; category?: string; q?: string; vendor?: string; price_min?: string; price_max?: string }> };
@@ -37,11 +39,7 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const { access, supabase } = await requireAccess();
   if (!can(access, "supplies.view")) redirect("/modules");
   const params = await searchParams;
-  const [currentYearText, currentMonthText] = new Intl.DateTimeFormat("en-CA", {
-    month: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-  }).format(new Date()).split("-");
+  const [currentYearText, currentMonthText] = vietnamToday().split("-");
   const currentYear = Number(currentYearText);
   const currentQuarter = Math.ceil(Number(currentMonthText) / 3);
   const section = ["overview", "catalog", "warehouse", "requests", "quotes", "reports"].includes(params.section ?? "") ? params.section! : "overview";
@@ -53,6 +51,7 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const supplyVendor = String(params.vendor ?? "").trim().slice(0, 160);
   const supplyPriceMin = Math.max(0, Number(params.price_min) || 0);
   const supplyPriceMax = Math.max(0, Number(params.price_max) || 0);
+  const supplySearchTokens = normalizeSearchText(supplySearch).split(" ").filter(Boolean);
   const needsRequests = ["overview", "requests", "reports"].includes(section);
   const needsQuotes = ["overview", "catalog", "warehouse", "quotes"].includes(section);
   const needsInventory = ["catalog", "warehouse"].includes(section);
@@ -95,10 +94,9 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
   const inventoryBalances = balancesResult.data ?? [];
   const inventoryMovements = movementsResult.data ?? [];
   const inventoryError = balancesResult.error || movementsResult.error;
-  const linesByRequest = new Map<string, typeof lines>();
-  lines.forEach((line) => linesByRequest.set(line.request_id, [...(linesByRequest.get(line.request_id) ?? []), line]));
-  const linesByQuote = new Map<string, typeof quoteLines>();
-  quoteLines.forEach((line) => linesByQuote.set(line.quote_id, [...(linesByQuote.get(line.quote_id) ?? []), line]));
+  // Một lượt gom nhóm thay cho sao chép lại toàn bộ nhóm ở mỗi dòng hàng.
+  const linesByRequest = groupBy(lines, (line) => line.request_id);
+  const linesByQuote = groupBy(quoteLines, (line) => line.quote_id);
   const supplierByItem = new Map<string, SupplierSnapshot>();
   quotes.forEach((quote) => {
     (linesByQuote.get(quote.id) ?? []).forEach((line) => {
@@ -117,13 +115,12 @@ export default async function SuppliesPage({ searchParams }: SuppliesPageProps) 
     if (supplyVendor && snapshot?.vendorName !== supplyVendor) return false;
     if (supplyPriceMin && price < supplyPriceMin) return false;
     if (supplyPriceMax && price > supplyPriceMax) return false;
-    const query = normalizeSearchText(supplySearch);
-    if (!query) return true;
+    if (!supplySearchTokens.length) return true;
     const haystack = normalizeSearchText([
       item.item_code, item.item_name, categoryLabel(item.category || ""), item.unit, item.description,
       snapshot?.vendorName, price, price.toLocaleString("vi-VN"),
     ].filter(Boolean).join(" "));
-    return query.split(" ").every((token) => haystack.includes(token));
+    return supplySearchTokens.every((token) => haystack.includes(token));
   };
   const filteredCatalogItems = items.filter(matchesSupplyFilter);
   const filteredInventoryBalances = inventoryBalances.filter(matchesSupplyFilter);

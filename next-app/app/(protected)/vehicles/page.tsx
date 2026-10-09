@@ -10,7 +10,7 @@ import { VehicleHistoryTabs } from "@/components/vehicle-history-tabs";
 import { VehicleSettingEditor } from "@/components/vehicle-setting-editor";
 import { VehicleTollActions } from "@/components/vehicle-toll-imports";
 import { can, requireAccess } from "@/lib/auth";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, vietnamToday } from "@/lib/format";
 import { vehicleSettingTypeDefinitions, vehicleSettingTypes } from "@/lib/settings";
 import type { Setting } from "@/lib/types";
 import { dueTone } from "@/lib/vehicle-due-status";
@@ -178,10 +178,6 @@ function VehicleInsuranceRenewalHistory({
 
 function settingLabel(labels: Map<string, string>, value: string) {
   return labels.get(value) ?? value.replaceAll("_", " ");
-}
-
-function vietnamToday() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 }
 
 function daysUntil(date: string, today: string) {
@@ -359,7 +355,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     if (selectedVehicleId) query = query.eq("vehicle_id", selectedVehicleId);
     return query.order(insuranceView === "history" ? "expires_on" : "starts_on", { ascending: false }).order("id").range(pageFrom, pageTo);
   })();
-  const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, documentsResult, settingsResult, tollAlertsResult] = await Promise.all([
+  const [vehiclesResult, inspectionsResult, insurancesResult, archivedInsurancesResult, repairsResult, fuelResult, departmentsResult, usersResult, settingsResult, tollAlertsResult] = await Promise.all([
     needsVehicles ? supabase.from("vehicles").select("id,vehicle_code,vehicle_name,license_plate,brand,model,production_year,seat_count,fuel_norm_l_per_100km,assigned_driver,status,note,department_id,responsible_user_id,departments(name)").is("deleted_at", null).order("vehicle_code").limit(500) : Promise.resolve({ data: [] }),
     inspectionsPromise,
     insurancesPromise,
@@ -384,7 +380,6 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
     })(),
     needsPeople ? supabase.from("departments").select("id,name").order("name").limit(500) : Promise.resolve({ data: [] }),
     needsPeople ? supabase.from("profiles").select("id,full_name,email").eq("active", true).order("full_name").limit(500) : Promise.resolve({ data: [] }),
-    documentRecordType ? supabase.from("vehicle_documents").select("id,file_name,record_id,record_type,document_kind,stored_byte_size").eq("record_type", documentRecordType).order("created_at", { ascending: false }).limit(1500) : Promise.resolve({ data: [] }),
     neededSettingTypes.length ? supabase.from("settings").select("id,setting_type,setting_value,display_name,sort_order,active").in("setting_type", neededSettingTypes).order("setting_type").order("active", { ascending: false }).order("sort_order").order("display_name") : Promise.resolve({ data: [] }),
     section === "overview"
       ? supabase.from("vehicle_toll_quarterly_records").select("id,license_plate,starts_on,expires_on,toll_station,is_current").eq("is_current", true).lte("starts_on", today).order("expires_on", { ascending: true }).limit(500)
@@ -396,6 +391,18 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   const archivedInsurances = archivedInsurancesResult.data ?? [];
   const repairs = repairsResult.data ?? [];
   const fuelLogs = fuelResult.data ?? [];
+  // Tài liệu chỉ phục vụ popup của trang hiện tại. Lọc theo ID đã phân trang
+  // tránh tải cả kho PDF và tránh bỏ sót tài liệu cũ do giới hạn 1.500 dòng.
+  const documentRecordIds = (section === "inspections" ? inspections
+    : section === "insurance" ? insurances
+      : section === "repairs" ? repairs
+        : section === "fuel" ? fuelLogs : []).map((record) => record.id);
+  const documentsResult = documentRecordType && documentRecordIds.length
+    ? await supabase.from("vehicle_documents")
+        .select("id,file_name,record_id,record_type,document_kind,stored_byte_size")
+        .eq("record_type", documentRecordType).in("record_id", documentRecordIds)
+        .order("created_at", { ascending: false })
+    : { data: [] };
   const vehicleSettings = (settingsResult.data ?? []) as Setting[];
   const maintenanceSettings = vehicleSettings.filter((item) => item.setting_type === "vehicle_maintenance_type");
   const insuranceSettings = vehicleSettings.filter((item) => item.setting_type === "vehicle_insurance_type");

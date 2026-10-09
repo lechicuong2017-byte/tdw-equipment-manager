@@ -1,6 +1,8 @@
 # TDW Equipment Manager — Next.js
 
-Ứng dụng mới chạy song song với frontend hiện tại trong thời gian chuyển đổi.
+Ứng dụng Next.js chính của hệ thống quản lý nội bộ TDW, sử dụng Supabase.
+Xem [bản đồ mã nguồn theo phân hệ](../docs/41-system-code-map-and-performance.md)
+để tìm đúng nơi sửa chức năng và kiểm tra các phụ thuộc còn tồn tại.
 
 ## Phạm vi đã triển khai
 
@@ -16,7 +18,9 @@
 - Admin mời user, gán role, khóa/mở tài khoản, bắt buộc MFA và cấp data scope.
 - Auth/access được memoize trong phạm vi một server request, không cache chéo user.
 
-Các module bảo trì, luân chuyển, phần mềm và quản trị đã có schema/RLS và trang định tuyến; giao diện nghiệp vụ tiếp tục được chuyển theo kế hoạch.
+Các phân hệ có giao diện nghiệp vụ gồm thiết bị, bảo trì, luân chuyển, phần mềm,
+xe/VETC, VPP, viễn thông, khảo sát và quản trị. Việc tồn tại một trang không thay
+thế kiểm thử quyền truy cập, dữ liệu và luồng nghiệp vụ khi triển khai thay đổi.
 
 ## Cấu hình local
 
@@ -38,7 +42,7 @@ npm run next:typecheck
 npm run next:build
 ```
 
-## Tích hợp Apps Script
+## Xuất báo cáo và phụ thuộc Google còn lại
 
 ### Đường xuất báo cáo hiện tại
 
@@ -49,7 +53,11 @@ VPP, viễn thông, VETC và khảo sát giữ route xuất riêng, cùng gọi
 Logo nguồn giữ nguyên màu tại `public/tdw-report-logo.png`.
 Mẫu Excel nhập câu hỏi khảo sát giữ dòng tiêu đề đầu tiên để parser đọc đúng.
 Đường xuất cũ bên dưới không còn được các nút báo cáo gọi; các tích hợp nhắc hạn
-cũ chưa thuộc thay đổi trình bày báo cáo này.
+cũ vẫn còn gọi Apps Script qua `lib/maintenance-reminders.ts` và
+`lib/vehicle-inspection-reminders.ts`. Trang trạng thái cũng kiểm tra tích hợp
+này. Chưa được coi toàn bộ tích hợp Google là code chết.
+
+### Cấu hình tích hợp cũ khi còn sử dụng
 
 Đặt cùng một secret tại:
 

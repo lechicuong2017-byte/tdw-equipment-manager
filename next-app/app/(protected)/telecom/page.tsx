@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { can, requireModuleAccess } from "@/lib/auth";
+import { vietnamToday } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { TelecomImport } from "@/components/telecom-import";
 import { TelecomInvoiceDetail, type TelecomInvoiceRecord } from "@/components/telecom-invoice-detail";
@@ -12,7 +13,7 @@ export default async function TelecomPage({searchParams}:{searchParams:Promise<R
   const {access,supabase}=await requireModuleAccess("telecom");
   if(!can(access,"telecom.view"))return <p className="form-error">Bạn chưa có quyền xem chi phí viễn thông.</p>;
   const raw=await searchParams;
-  const currentYear=Number(new Intl.DateTimeFormat("en",{year:"numeric",timeZone:"Asia/Ho_Chi_Minh"}).format(new Date()));
+  const currentYear=Number(vietnamToday().slice(0,4));
   const filter=telecomFilterSchema.safeParse({year:raw.year||currentYear,month:raw.month||undefined,page:raw.page||1,category:raw.category||undefined});
   if(!filter.success)return <><PageHeader title="Bộ lọc không hợp lệ"/><Link href="/telecom">Về chi phí viễn thông</Link></>;
   const {year,month,page,category}=filter.data;const {start,end}=telecomPeriod(year,month);const pageSize=20;

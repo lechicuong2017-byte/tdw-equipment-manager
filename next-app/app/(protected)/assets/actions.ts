@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { can, requireAccess } from "@/lib/auth";
 import { assetCodePrefix, currentAssetCodeYear } from "@/lib/asset-code";
 import { safeAssetsReturnTo } from "@/lib/asset-navigation";
+import { vietnamToday } from "@/lib/format";
 import { compactDateForFileName, normalizeUploadedFileName } from "@/lib/upload-file-name";
 
 const emptyToNull = (value: unknown) =>
@@ -413,9 +414,7 @@ export async function liquidateAsset(
     return { error: parsed.error.issues[0]?.message ?? "Thông tin thanh lý chưa hợp lệ." };
   }
 
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date());
+  const today = vietnamToday();
   if (parsed.data.liquidation_date > today) {
     return { error: "Ngày thanh lý không được lớn hơn ngày hiện tại." };
   }
