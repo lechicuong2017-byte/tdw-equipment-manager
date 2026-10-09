@@ -302,8 +302,6 @@ export function MaintenanceForms({
 
   return (
     <div className="module-action-bar">
-      <ActionStateToast state={planState} />
-      <ActionStateToast state={logState} />
       <ModalTrigger
         description="Tạo lịch cho một thiết bị, nhóm thiết bị hoặc toàn bộ loại thiết bị."
         eyebrow="KẾ HOẠCH"
@@ -312,6 +310,7 @@ export function MaintenanceForms({
         triggerLabel="+ Lịch định kỳ"
       >
       <form action={planAction} className="panel data-form compact-form">
+        <ActionStateToast state={planState} />
         <div className="panel-heading">
           <div>
             <p className="eyebrow">KẾ HOẠCH</p>
@@ -444,6 +443,7 @@ export function MaintenanceForms({
         triggerLabel="+ Nhật ký bảo trì"
       >
       <form action={logAction} className="panel data-form compact-form">
+        <ActionStateToast state={logState} />
         <div className="panel-heading">
           <div>
             <p className="eyebrow">NHẬT KÝ</p>
