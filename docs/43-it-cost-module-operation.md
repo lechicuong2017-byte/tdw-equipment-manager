@@ -83,4 +83,6 @@ Bucket `it-cost-documents` private, tối đa 20 MB/tệp; chính sách theo mod
 
 `tools/it-cost-release.mjs` dùng token Supabase đang có trong file local ngoài Git, chỉ ghi network evidence gồm host/path/method/status/byte count. `tools/sql-migration-record.mjs` gói schema và migration history vào một transaction, đã kiểm tra trên PostgreSQL tổng hợp. Không log Authorization, nội dung OCR hoặc chứng từ.
 
-Supabase đã xác minh 7 bảng, 8 danh mục, bucket private và migration history đúng; chưa nhập khoản chi hay chứng từ thật. Trạng thái ứng dụng production sẽ được cập nhật sau khi xác minh deployment. Không dùng rollback drop bảng đã có dữ liệu; rollback ứng dụng vẫn giữ schema và hồ sơ đã tạo.
+Supabase đã xác minh 7 bảng, 8 danh mục, bucket private và migration history đúng; chưa nhập khoản chi hay chứng từ thật. Commit tính năng `57a70a1` đã được Vercel xác nhận triển khai thành công: [deployment](https://vercel.com/tonyle2017/tdw-equipment-manager/4DAsbZf7UW4CAnWEv8tmPHpuxVyU). Production đã hiển thị khối mới đúng vị trí, icon/màu riêng và trang Tổng quan tải được 8 danh mục. Mở tại https://tdw-equipment-manager-one.vercel.app/it-costs. Không dùng rollback drop bảng đã có dữ liệu; rollback ứng dụng vẫn giữ schema và hồ sơ đã tạo.
+
+Đã tải file thực tế từ production bằng phiên ứng dụng đang đăng nhập: XLSX có đủ ba sheet, mỗi sheet một logo và tên công ty căn giữa; PDF hai trang có đúng tiêu đề và tên công ty. Đây là báo cáo rỗng vì chưa nhập khoản chi, không phải kiểm thử ghi dữ liệu trên production. Không cần tài khoản Gmail cho thao tác tải file.

@@ -1,7 +1,7 @@
 # Kế hoạch triển khai phân hệ Chi phí công nghệ thông tin
 
 Ngày lập: 14/10/2026. Người thực hiện dự kiến: Sol 6.1.
-Mã nguồn tham chiếu: commit `75a385f`. Đây là kế hoạch bàn giao; chưa triển khai phân hệ hay nhập các chứng từ mẫu vào hệ thống.
+Mã nguồn tham chiếu khi lập kế hoạch: commit `75a385f`. Đây là kế hoạch gốc trước triển khai; kết quả thực hiện và bản đồ vận hành được cập nhật tại [43-it-cost-module-operation.md](43-it-cost-module-operation.md). Chứng từ mẫu không được tự nhập vào production.
 
 ## 1. Mục tiêu và phạm vi
 
