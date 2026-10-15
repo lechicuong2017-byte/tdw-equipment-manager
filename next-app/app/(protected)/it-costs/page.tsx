@@ -309,15 +309,20 @@ export default async function ItCostsPage({
       {["overview", "costs", "reports", "services", "documents"].includes(
         tab,
       ) ? (
-        <form key={`${tab}:${JSON.stringify(filter)}`} className="panel it-filter" method="get">
+        <form
+          key={`${tab}:${JSON.stringify(filter)}`}
+          className="panel it-filter"
+          method="get"
+        >
           <input type="hidden" name="tab" value={tab} />
           {history ? <input type="hidden" name="history" value="1" /> : null}
           <label>
             Năm{tab === "services" ? " bắt đầu kỳ" : ""}
             <select name="year" defaultValue={filter.year}>
               <option value="">Tất cả năm</option>
-              {Array.from({ length: Math.min(31, Number(today.slice(0, 4)) + 4 - 2000) }, (_, i) =>
-                String(Number(today.slice(0, 4)) + 3 - i),
+              {Array.from(
+                { length: Math.min(31, Number(today.slice(0, 4)) + 4 - 2000) },
+                (_, i) => String(Number(today.slice(0, 4)) + 3 - i),
               ).map((y) => (
                 <option key={y}>{y}</option>
               ))}

@@ -51,8 +51,16 @@ assert.equal(sheet.getImages().length, 1);
 
 const pdf = await renderReportPdf(report);
 assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
-const { PDFDocument } = appRequire("pdf-lib");
-assert.equal((await PDFDocument.load(pdf)).getPageCount(), 1);
+const { PDFDocument, PDFName, PDFDict } = appRequire("pdf-lib");
+const parsedPdf=await PDFDocument.load(pdf);
+assert.equal(parsedPdf.getPageCount(), 1);
+const pdfFonts=parsedPdf.getPage(0).node.Resources().lookup(PDFName.of("Font"),PDFDict);
+assert.ok(pdfFonts.values().length>=2,"regular and bold fonts must be embedded, even on fontless serverless hosts");
+for(const ref of pdfFonts.values()){
+  const font=parsedPdf.context.lookup(ref,PDFDict);
+  assert.equal(font.get(PDFName.of("Subtype")).toString(),"/Type0");
+  assert.ok(font.get(PDFName.of("ToUnicode")),"Vietnamese PDF text needs a Unicode map for extraction/copying");
+}
 const longPdf = await renderReportPdf({
   ...report,
   rows: [{ ...report.rows[0], description: "Nội dung chi tiết phải giữ đầy đủ trên các trang PDF. ".repeat(35) }],

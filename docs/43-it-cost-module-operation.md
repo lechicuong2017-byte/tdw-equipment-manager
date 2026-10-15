@@ -45,6 +45,8 @@ Các đường dẫn dưới đây tính từ thư mục gốc repository.
 
 Các helper dùng lại: Auth/MFA, ModalTrigger/AppModal, ActionSuccessContext/toast, formatMoney/formatDate/vietnamToday, periodDueTone, addVehicleReportHeader và renderReportPdf. Việc chọn module vẫn áp dụng Auth/RLS của hệ thống, không tạo cơ chế đăng nhập riêng.
 
+PDF dùng chung tại `next-app/lib/local-report-file.ts` nhúng Noto Sans Regular/Bold từ `next-app/public/fonts/` qua pdf-lib/fontkit. Cách này sửa lỗi ô vuông trên môi trường serverless thiếu font, giữ chữ tìm kiếm/copy được và không phụ thuộc raster SVG/Sharp. `next.config.ts` khai báo trace font cho các API. Test renderer kiểm tra font Type0/ToUnicode, trang dài không mất nội dung; đã render và trích xuất chữ tiếng Việt để đối chiếu.
+
 ## Database và quyền
 
 Migration bổ sung: `supabase/migrations/202610140001_it_cost_management.sql`. Không sửa migration đã có. Bảy bảng:

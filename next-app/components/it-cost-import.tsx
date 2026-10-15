@@ -538,7 +538,11 @@ export function ItCostImport({
                       onChange={(e) => setTarget(e.target.value)}
                     >
                       <option value="">Chọn hồ sơ để liên kết</option>
-                      {target && !entries.some(e=>e.id===target) ? <option value={target}>Hồ sơ từ hợp đồng tham chiếu đã chọn</option> : null}
+                      {target && !entries.some((e) => e.id === target) ? (
+                        <option value={target}>
+                          Hồ sơ từ hợp đồng tham chiếu đã chọn
+                        </option>
+                      ) : null}
                       {entries.map((e) => (
                         <option key={e.id} value={e.id}>
                           {e.recognized_on} · {e.provider} ·{" "}
