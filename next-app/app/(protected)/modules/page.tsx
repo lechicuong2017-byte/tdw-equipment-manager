@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
 import { hasModule, requireAccess } from "@/lib/auth";
+import "@/app/it-costs.css";
 
 export const metadata = { title: "Chọn phân hệ" };
 
@@ -36,6 +37,7 @@ export default async function ModulesPage() {
       tone: "amber",
     },
     { href: "/telecom", icon: "telecom" as const, eyebrow: "DỊCH VỤ", title: "Chi phí viễn thông", description: "Tuyến ống & ICCPs, điện thoại bàn, điện thoại TGĐ. Tổng hợp thanh toán và báo cáo tháng/năm.", available: hasModule(access,"telecom"), tone: "cyan" },
+    { href: "/it-costs", icon: "server" as const, eyebrow: "CÔNG NGHỆ THÔNG TIN", title: "Chi phí công nghệ thông tin", description: "Tên miền, hosting, SSL, Internet và máy chủ. Quản lý chứng từ, gia hạn và báo cáo chi phí năm.", available: hasModule(access, "it_costs"), tone: "magenta" },
   ];
 
   return (

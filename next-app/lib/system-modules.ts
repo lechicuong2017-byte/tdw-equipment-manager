@@ -1,4 +1,5 @@
 export const systemModuleDefinitions = [
+  { code: "it_costs", label: "Chi phí công nghệ thông tin", description: "Tên miền, hosting, SSL, Internet, máy chủ; chứng từ và báo cáo chi phí năm." },
   { code: "surveys", label: "Khảo sát công ty", description: "Tạo khảo sát, chia sẻ link cho nhân viên và xuất kết quả Excel. Quyền xem bao gồm thông tin người trả lời." },
   {
     code: "equipment",

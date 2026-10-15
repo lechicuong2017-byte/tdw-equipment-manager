@@ -1,6 +1,7 @@
 import type { ReactNode, SVGProps } from "react";
 
 export type AppIconName =
+  | "server"
   | "telecom"
   | "alertCircle"
   | "archive"
@@ -35,6 +36,7 @@ type AppIconProps = Omit<SVGProps<SVGSVGElement>, "children"> & {
 };
 
 const iconPaths: Record<AppIconName, ReactNode> = {
+  server: <><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6M12 10v4"/></>,
   telecom: <><path d="M7 3h7l4 4v14H6V4a1 1 0 0 1 1-1Z"/><rect x="9" y="10" width="6" height="7" rx="1"/><path d="M12 10v7M9 13.5h6"/></>,
   alertCircle: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5h.01" /></>,
   archive: <><path d="M4 7.5h16v12H4zM3 4.5h18v3H3z" /><path d="M9 11.5h6" /></>,

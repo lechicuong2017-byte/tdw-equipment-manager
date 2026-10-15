@@ -1,0 +1,25 @@
+import fs from 'node:fs/promises';import assert from 'node:assert/strict';import {createRequire}from 'node:module';
+const require=createRequire(new URL('../next-app/package.json',import.meta.url)),ts=require('typescript'),cache=new Map();
+async function load(name){const source=await fs.readFile(new URL(`../next-app/lib/${name}.ts`,import.meta.url),'utf8');const m={exports:{}};
+ const output=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;
+ new Function('exports','module','require',output)(m.exports,m,id=>id.startsWith('./')?cache.get(id.slice(2)):require(id));cache.set(name,m.exports);return m.exports;}
+const d=await load('it-costs'),p=await load('it-cost-documents');
+for(const [s,n]of [['9.504.000',9504000],['9,504,000',9504000],['229.424',229424],['10,5',10.5],['100000',100000],['9.504.000,50',9504000.5]])assert.equal(p.parseItMoney(s),n);
+assert.equal(p.parseItMoney('12%'),null);assert.equal(p.parseItMoney('01/02/2026'),null);
+const src=[{ref:'Trang 1',ocr:true,text:'Gia hạn Email Server | 17/12/2027 | 10.248.600 | 1.024.860 | 11.273.460\n2 | vpdt.synthetic.invalid | 04/01/2028 | 212.430 | 16.994 | 229.424\n3 | mail.synthetic.invalid | 15/12/2027 | 212.430 | 16.994 | 229.424\n4 | Tên miền | 18/11/2027 | 136.000 | 10.800 | 395.800\nTổng cộng: 12.128.108'}];
+const draft=p.draftItDocument(src);assert.equal(draft.lines.length,4);assert.equal(draft.total_amount,12128108);
+assert.equal(draft.lines[0].amount_before_tax,10248600);assert.equal(draft.lines[0].tax_amount,1024860);assert.equal(draft.lines[0].expires_on,'2027-12-17');
+assert.ok(Number.isNaN(draft.lines[3].amount_before_tax),'mixed fee total must not be guessed');assert.equal(draft.lines[3].amount_after_tax,395800);
+assert.equal(new Set(draft.lines.map(l=>l.source_key)).size,4);
+const unknown=p.draftItDocument([{ref:'document.xml',ocr:false,text:'Hosting chưa có tiền'}]);assert.equal(unknown.total_amount,null);assert.ok(Number.isNaN(unknown.lines[0].amount_after_tax));
+const cat='11111111-1111-4111-8111-111111111111',service='22222222-2222-4222-8222-222222222222';
+const line={...d.emptyItLine(),category_id:cat,description:'Synthetic',amount_before_tax:100,tax_amount:10,amount_after_tax:110};
+assert.ok(d.itLineSchema.safeParse(line).success);assert.ok(!d.itLineSchema.safeParse({...line,amount_after_tax:120}).success);
+assert.ok(!d.itLineSchema.safeParse({...line,starts_on:'2026-01-01',expires_on:''}).success);
+assert.ok(d.itLineSchema.safeParse({...line,new_service_name:'Hosting',starts_on:'2026-01-01',expires_on:'2026-12-31'}).success);
+assert.equal(d.itPeriodHistory({expires_on:'2026-10-14',status:'active'},'2026-10-14'),false);assert.equal(d.itPeriodHistory({expires_on:'2026-10-14',status:'active'},'2026-10-15'),true);
+const entry={request_id:cat,provider:'Synthetic',recognized_on:'2026-01-01',lines:[line],payment_status:'paid'};assert.ok(!d.itEntrySchema.safeParse(entry).success);assert.ok(d.itEntrySchema.safeParse({...entry,paid_on:'2026-01-02'}).success);
+assert.equal(d.parseItFilter({year:'2026',month:'8',category:cat,service,payment:'paid',page:'2'}).page,2);
+const JSZip=require('jszip'),zip=new JSZip();zip.file('[Content_Types].xml','<Types/>');zip.file('word/document.xml','<document/>');p.checkDocxArchive(await zip.generateAsync({type:'uint8array'}));
+assert.throws(()=>p.checkDocxArchive(new Uint8Array(30)),/không phải/);
+console.log('PASS IT domain: money formats, mixed taxes, four services, unknown fields, source IDs, dates/payment validation and bounded DOCX ZIP.');

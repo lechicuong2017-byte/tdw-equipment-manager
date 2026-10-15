@@ -9,6 +9,12 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+# Generated OCR runtime; the Vietnamese model is a versioned public asset.
+next-app/public/ocr/*.wasm
+next-app/public/ocr/*.wasm.js
+next-app/public/ocr/worker.min.js
+next-app/public/ocr/tesseract-js-LICENSE.md
+next-app/public/ocr/tesseract-core-LICENSE
 
 # Local environment and credentials
 .env

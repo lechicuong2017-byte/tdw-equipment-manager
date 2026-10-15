@@ -1,0 +1,357 @@
+/* IT costs: scoped layout shared by management forms, import review and reports. */
+.module-picker-magenta {
+  color: #aa458c;
+}
+.it-cost-page {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.it-cost-page > *,
+.it-cost-page .panel {
+  min-width: 0;
+}
+.it-tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  overflow-x: auto;
+  border: 1px solid #dce6ee;
+  border-radius: 18px;
+  background: #fff;
+}
+.it-tabs a {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  white-space: nowrap;
+  color: #556679;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.it-tabs a[aria-current="page"] {
+  background: #f8e9f3;
+  color: #963a7a;
+}
+.it-filter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+.it-filter label,
+.it-form label,
+.it-import label {
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: #405167;
+  min-width: 0;
+}
+.it-filter input,
+.it-filter select,
+.it-form input:not([type="checkbox"]),
+.it-form select,
+.it-import input:not([type="checkbox"]),
+.it-import select {
+  min-height: 46px;
+  width: 100%;
+}
+.it-filter-actions,
+.it-toolbar,
+.it-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.it-row-actions .text-button {
+  white-space: nowrap;
+}
+.it-form,
+.it-import {
+  display: grid;
+  gap: 1.2rem;
+}
+.it-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.it-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.it-fields textarea,
+.it-form textarea {
+  width: 100%;
+  min-height: 84px;
+  line-height: 1.6;
+}
+.it-line-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.it-span {
+  grid-column: 1/-1;
+}
+.it-form .it-checkbox,
+.it-import .it-checkbox,
+.it-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 500;
+}
+.it-checkbox input {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+}
+.it-form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  border-top: 1px solid #dce6ee;
+  padding-top: 1.2rem;
+  margin-top: 0.5rem;
+}
+.it-form-footer p {
+  color: #62748a;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 60ch;
+}
+.it-form-footer button {
+  flex-shrink: 0;
+  min-height: 46px;
+}
+.it-line-list {
+  display: grid;
+  gap: 1rem;
+}
+.it-line-card {
+  padding: 1.1rem;
+  border: 1px solid #dce6ee;
+  background: #f7fafc;
+  border-radius: 16px;
+}
+.it-line-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.it-line-saved {
+  opacity: 0.65;
+}
+.it-review-summary {
+  padding: 1rem;
+  border-radius: 14px;
+  background: #eaf7f3;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.it-notice {
+  background: #fff8e6;
+  border: 1px solid #efddae;
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  color: #785e24;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.it-source-review {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 1.5rem;
+}
+.it-source-pane object {
+  width: 100%;
+  height: 480px;
+  border: 1px solid #dae4ee;
+  border-radius: 14px;
+}
+.it-source-pane pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+  max-height: 300px;
+  overflow: auto;
+  background: #f5f7fa;
+  padding: 1rem;
+}
+.it-document-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.it-document-list > div {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.it-cost-page .section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.it-cost-page .section-heading h2 {
+  margin: 0;
+}
+.it-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+.it-metrics section {
+  border-top: 4px solid #aa458c;
+  display: grid;
+  gap: 0.5rem;
+}
+.it-metrics section > strong {
+  font-size: 1.8rem;
+  color: #183247;
+}
+.it-metrics section > small {
+  color: #718197;
+}
+.it-category-totals,
+.it-service-grid,
+.it-due-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.it-category-totals > a {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #f5f8fb;
+}
+.it-service-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid #dde7ef;
+  border-radius: 14px;
+}
+.it-service-card small,
+.it-due-card small {
+  display: block;
+  color: #6d7e93;
+}
+.it-due-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid #dde7ef;
+  border-radius: 14px;
+}
+.it-due-card > div {
+  flex: 1;
+}
+.it-description {
+  min-width: 230px;
+  max-width: 420px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.it-money {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.it-cost-page table th,
+.it-cost-page table td {
+  overflow: visible;
+}
+.it-cost-page table td small {
+  display: block;
+  margin-top: 0.4rem;
+  color: #687b90;
+}
+.it-cost-page .table-wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+.it-pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  color: #687b90;
+}
+.it-pagination > div {
+  display: flex;
+  gap: 0.6rem;
+}
+.it-report-choices {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1.3rem 0;
+}
+@media (max-width: 1000px) {
+  .it-filter {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .it-source-review {
+    grid-template-columns: 1fr;
+  }
+  .it-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .it-fields,
+  .it-line-fields,
+  .it-filter,
+  .it-service-grid,
+  .it-category-totals,
+  .it-due-grid {
+    grid-template-columns: 1fr;
+  }
+  .it-form-footer,
+  .it-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .it-form-footer button {
+    width: 100%;
+  }
+  .it-line-card {
+    padding: 0.85rem;
+  }
+  .it-line-heading {
+    align-items: flex-start;
+  }
+  .it-cost-page .section-heading {
+    flex-wrap: wrap;
+  }
+  .it-tabs a {
+    padding: 0.7rem 0.85rem;
+  }
+  .it-source-pane object {
+    height: 340px;
+  }
+}

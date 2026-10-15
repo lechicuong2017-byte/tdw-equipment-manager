@@ -66,6 +66,15 @@ export function Sidebar({ access }: { access: AccessProfile }) {
   const isSupplyModule = pathname.startsWith("/supplies");
   const isTelecomModule = pathname.startsWith("/telecom");
   const isSurveyModule = pathname.startsWith("/surveys");
+  const isItModule = pathname.startsWith("/it-costs");
+  const itNavItems = [
+    { href: "/it-costs", label: "Tổng quan CNTT", icon: "server" as const, permission: "it_costs.view", tone: "rose" },
+    { href: "/it-costs?tab=services", label: "Dịch vụ & gia hạn", icon: "timeline" as const, permission: "it_costs.view", tone: "violet" },
+    { href: "/it-costs?tab=costs", label: "Chi phí", icon: "value" as const, permission: "it_costs.view", tone: "blue" },
+    { href: "/it-costs?tab=documents", label: "Chứng từ", icon: "assets" as const, permission: "it_costs.view", tone: "cyan" },
+    { href: "/it-costs?tab=reports", label: "Báo cáo năm", icon: "reports" as const, permission: "reports.it_costs.export", tone: "rose" },
+    { href: "/it-costs?tab=categories", label: "Danh mục", icon: "settings" as const, permission: "it_costs.settings", tone: "amber" },
+  ];
   const telecomNavItems = [
     { href: "/telecom/phones", label: "Số điện thoại", icon: "telecom" as const, permission: "telecom.view", tone: "cyan" },
     { href: "/telecom", label: "Chi phí viễn thông", icon: "telecom" as const, permission: "telecom.view", tone: "cyan" },
@@ -75,7 +84,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
     { href: "/surveys", label: "Danh sách khảo sát", icon: "inspection" as const, permission: "surveys.view", tone: "violet" },
     { href: "/surveys/new", label: "Tạo khảo sát", icon: "assets" as const, permission: "surveys.manage", tone: "cyan" },
   ];
-  const navItems = isSurveyModule ? surveyNavItems : isTelecomModule ? telecomNavItems : isVehicleModule ? vehicleNavItems : isSupplyModule ? supplyNavItems : equipmentNavItems;
+  const navItems = isItModule ? itNavItems : isSurveyModule ? surveyNavItems : isTelecomModule ? telecomNavItems : isVehicleModule ? vehicleNavItems : isSupplyModule ? supplyNavItems : equipmentNavItems;
   const initials = (access.full_name || access.email)
     .split(/\s+/)
     .filter(Boolean)
@@ -94,7 +103,7 @@ export function Sidebar({ access }: { access: AccessProfile }) {
           src="/tdw-logo.webp"
           width={126}
         />
-        <small>{isAdminArea ? "System Administration" : isAccountArea ? "Account Settings" : isSurveyModule ? "Survey Manager" : isTelecomModule ? "Telecom Manager" : isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
+        <small>{isItModule ? "IT Cost Manager" : isAdminArea ? "System Administration" : isAccountArea ? "Account Settings" : isSurveyModule ? "Survey Manager" : isTelecomModule ? "Telecom Manager" : isVehicleModule ? "Vehicle Manager" : isSupplyModule ? "Supply Manager" : "Equipment Manager"}</small>
       </div>
 
       <nav aria-label="Điều hướng chính">

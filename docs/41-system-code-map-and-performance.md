@@ -143,3 +143,11 @@ tổng hợp. Các test nghiệp vụ khác trong `tools/test-*.mjs` có yêu c�
 Giữ nguyên Auth/RLS và phạm vi người dùng trong mọi tối ưu. Network log của một
 phiên Git/curl chỉ chứng minh kết nối của các lệnh đó, không bao phủ toàn bộ
 runtime; không dùng nó để tuyên bố không có upload/egress hoặc đã bật ZDR.
+
+## 8. Phân hệ Chi phí công nghệ thông tin
+
+Phân hệ mới tại `/it-costs`, độc lập trong chọn phân hệ và cấp quyền. Bản đồ
+route/component/parser/RPC/Storage, quy tắc tiền, gia hạn và cách kiểm thử nằm ở
+[43-it-cost-module-operation.md](43-it-cost-module-operation.md). Tổng chi phí
+được tính tại PostgreSQL cùng bộ lọc; tài liệu scan dùng OCR Worker tải theo nhu
+cầu. Không dùng các truy vấn VETC để tính tổng CNTT.
