@@ -43,6 +43,22 @@ function splitStatements(sql: string) {
   return out;
 }
 
+/** Chạy một tệp SQL (vd. dữ liệu chuyển từ Supabase) trên một kết nối */
+export async function runSqlText(sql: string) {
+  const conn = await getPool().getConnection();
+  let statements = 0;
+  try {
+    for (const stmt of splitStatements(sql)) {
+      await execute(conn, stmt);
+      statements++;
+    }
+  } finally {
+    await execute(conn, "SET FOREIGN_KEY_CHECKS = 1").catch(() => undefined);
+    conn.release();
+  }
+  return statements;
+}
+
 export async function initializeSchema() {
   const dir = path.join(process.cwd(), "db");
   const files = (await readdir(dir)).filter((f) => /^\d+_.*\.sql$/.test(f)).sort();

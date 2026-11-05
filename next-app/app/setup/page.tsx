@@ -35,11 +35,12 @@ export default async function SetupPage({ searchParams }: { searchParams: Promis
         {ready ? (
           <Link className="primary-button" href="/login">Đi đến đăng nhập</Link>
         ) : canSetup ? (
-          <form action={runSetup} className="auth-form">
+          <form action={runSetup} className="auth-form" encType="multipart/form-data">
             <label>Mã khởi tạo (SETUP_TOKEN)<input name="token" type="password" required autoComplete="off" /></label>
             <label>Email quản trị viên<input name="email" type="email" required autoComplete="email" /></label>
             <label>Họ tên<input name="full_name" required /></label>
             <label>Mật khẩu (tối thiểu 12 ký tự)<input name="password" type="password" minLength={12} required autoComplete="new-password" /></label>
+            <label>Dữ liệu chuyển từ hệ thống cũ (05_data.sql, không bắt buộc)<input name="data_file" type="file" accept=".sql" /></label>
             <button className="primary-button" type="submit">Khởi tạo hệ thống</button>
           </form>
         ) : state?.connected && !process.env.SETUP_TOKEN ? (
