@@ -50,7 +50,26 @@ function convert(value, type) {
   return value;
 }
 
+// Chuẩn hoá dữ liệu cũ theo đúng các migration (dòng tạo trước khi migration đổi giá trị)
+const NORMALIZE = {
+  supply_requests: (r) => {
+    const map = { SUBMITTED: "DRAFT", APPROVED: "READY_TO_BUY", CLOSED: "COMPLETED", REJECTED: "CANCELLED" };
+    return map[r.status] ? { ...r, status: map[r.status], __changed: `status ${r.status}->${map[r.status]}` } : r;
+  },
+};
+const normalized = [];
+for (const [table, fn] of Object.entries(NORMALIZE)) {
+  if (!Array.isArray(data[table])) continue;
+  data[table] = data[table].map((r) => {
+    const out = fn(r);
+    if (out.__changed) normalized.push(`${table} ${r.id}: ${out.__changed}`);
+    delete out.__changed;
+    return out;
+  });
+}
+
 const report = [];
+const rowErrors = [];
 let failed = 0;
 for (const [key, rows] of Object.entries(data)) {
   const table = key;
@@ -63,13 +82,22 @@ for (const [key, rows] of Object.entries(data)) {
   const present = columns.filter((c) => rows.some((r) => c.name in r));
   const missing = Object.keys(rows[0]).filter((k) => !columns.some((c) => c.name === k));
   await my.query(`DELETE FROM \`${table}\``);
+  const insertSql = (n) =>
+    `INSERT INTO \`${table}\` (${present.map((c) => `\`${c.name}\``).join(",")}) VALUES ${Array.from({ length: n }, () => `(${present.map(() => "?").join(",")})`).join(",")}`;
   for (let i = 0; i < rows.length; i += 200) {
     const batch = rows.slice(i, i + 200);
-    const params = batch.flatMap((r) => present.map((c) => convert(r[c.name], c.type)));
-    await my.query(
-      `INSERT INTO \`${table}\` (${present.map((c) => `\`${c.name}\``).join(",")}) VALUES ${batch.map(() => `(${present.map(() => "?").join(",")})`).join(",")}`,
-      params,
-    );
+    try {
+      await my.query(insertSql(batch.length), batch.flatMap((r) => present.map((c) => convert(r[c.name], c.type))));
+    } catch {
+      // Lô lỗi: nạp từng dòng để chỉ ra đúng dòng hỏng
+      for (const r of batch) {
+        try {
+          await my.query(insertSql(1), present.map((c) => convert(r[c.name], c.type)));
+        } catch (e) {
+          rowErrors.push(`${table} ${r.id ?? JSON.stringify(r).slice(0, 80)}: ${e.sqlMessage ?? e.message}`);
+        }
+      }
+    }
   }
   const [[{ n }]] = await my.query(`SELECT COUNT(*) AS n FROM \`${table}\``);
   const ok = Number(n) === rows.length;
@@ -91,6 +119,8 @@ for (const fk of fks) {
   if (Number(n)) orphans.push(`${fk.t}.${fk.c} -> ${fk.rt}: ${n}`);
 }
 console.log(report.join("\n"));
+if (normalized.length) console.log(`\nĐã chuẩn hoá theo migration:\n${normalized.join("\n")}`);
+if (rowErrors.length) console.log(`\nDÒNG LỖI (${rowErrors.length}):\n${rowErrors.join("\n")}`);
 console.log(orphans.length ? `\nDữ liệu mồ côi:\n${orphans.join("\n")}` : "\nKhoá ngoại: không có dữ liệu mồ côi.");
 
 if (sqlOut) {
