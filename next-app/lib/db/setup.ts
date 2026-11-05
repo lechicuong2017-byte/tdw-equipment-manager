@@ -13,7 +13,8 @@ export async function databaseState() {
     if (count === 0) return { connected: true, initialized: false, hasAdmin: false } as const;
     const admins = await query<{ n: number }>(
       getPool(),
-      "SELECT COUNT(*) AS n FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE r.code = 'admin'",
+      `SELECT COUNT(*) AS n FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+       JOIN auth_users u ON u.id = ur.user_id WHERE r.code = 'admin' AND u.password_hash IS NOT NULL`,
     ).catch(() => [{ n: 0 }]);
     return { connected: true, initialized: true, hasAdmin: Number(admins[0]?.n ?? 0) > 0 } as const;
   } catch (error) {
@@ -45,19 +46,39 @@ function splitStatements(sql: string) {
 export async function initializeSchema() {
   const dir = path.join(process.cwd(), "db");
   const files = (await readdir(dir)).filter((f) => /^\d+_.*\.sql$/.test(f)).sort();
-  const pool = getPool();
+  // Một kết nối duy nhất: các lệnh SET (FOREIGN_KEY_CHECKS...) có hiệu lực theo phiên
+  const conn = await getPool().getConnection();
   let statements = 0;
-  for (const file of files) {
-    const sql = await readFile(path.join(dir, file), "utf8");
-    for (const stmt of splitStatements(sql)) {
-      await execute(pool, stmt);
-      statements++;
+  try {
+    for (const file of files) {
+      const sql = await readFile(path.join(dir, file), "utf8");
+      for (const stmt of splitStatements(sql)) {
+        await execute(conn, stmt);
+        statements++;
+      }
     }
+  } finally {
+    conn.release();
   }
   return { files: files.length, statements };
 }
 
+/**
+ * Tài khoản đã chuyển từ Supabase (không mang theo mật khẩu): đặt mật khẩu mới cho quản trị viên có sẵn.
+ * Chưa có tài khoản: tạo quản trị viên mới.
+ */
 export async function createFirstAdmin(email: string, fullName: string, password: string) {
+  const [existing] = await query<{ id: string; is_admin: number }>(
+    getPool(),
+    `SELECT u.id, EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.code = 'admin') AS is_admin
+     FROM auth_users u WHERE u.email = ?`,
+    [email],
+  );
+  if (existing) {
+    if (!Number(existing.is_admin)) throw new Error("Email này không phải quản trị viên trong dữ liệu đã chuyển.");
+    await setPassword(existing.id, password);
+    return existing.id;
+  }
   const userId = await createUser(email, fullName);
   await setPassword(userId, password);
   await withTransaction(async (conn) => {

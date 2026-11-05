@@ -38,3 +38,4 @@ supabase/.temp/
 
 # Công cụ chuyển MariaDB
 tools/mariadb/node_modules/
+next-app/db/05_data.sql

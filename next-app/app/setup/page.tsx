@@ -25,7 +25,7 @@ export default async function SetupPage({ searchParams }: { searchParams: Promis
               ? "Hãy khai báo biến môi trường DATABASE_URL (hoặc DB_HOST, DB_NAME, DB_USER, DB_PASSWORD) trong cấu hình Web App."
               : !state?.connected
                 ? "Kiểm tra lại máy chủ, tên CSDL, người dùng và mật khẩu MariaDB."
-                : "Tạo bảng dữ liệu và tài khoản quản trị đầu tiên. Thao tác chỉ chạy được một lần."}
+                : "Tạo bảng, nạp dữ liệu (nếu có) và đặt mật khẩu quản trị viên. Nếu đã chuyển dữ liệu cũ, nhập email quản trị viên cũ để đặt mật khẩu mới."}
         </p>
         {error ? <p className="form-error" role="alert">{error}</p> : null}
         <div className="setup-status" data-ready={ready}>

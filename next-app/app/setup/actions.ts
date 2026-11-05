@@ -31,6 +31,12 @@ export async function runSetup(formData: FormData) {
   if (!state.initialized) await initializeSchema();
   else if (!(await hitRateLimit("setup", 5, 60))) redirect(`/setup?error=${encodeURIComponent("Thử quá nhiều lần")}`);
   state = await databaseState();
-  if (!state.hasAdmin) await createFirstAdmin(parsed.data.email, parsed.data.full_name, parsed.data.password);
+  if (!state.hasAdmin) {
+    try {
+      await createFirstAdmin(parsed.data.email, parsed.data.full_name, parsed.data.password);
+    } catch (error) {
+      redirect(`/setup?error=${encodeURIComponent((error as Error).message)}`);
+    }
+  }
   redirect("/login?status=setup-complete");
 }
