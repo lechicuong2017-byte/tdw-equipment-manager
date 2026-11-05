@@ -13,6 +13,7 @@ import {
   registerItDocument,
   linkItDocument,
   findItEntryCandidates,
+  discardItUpload,
 } from "@/app/(protected)/it-costs/actions";
 import {
   itDocumentSchema,
@@ -29,7 +30,6 @@ import {
   type ItTextSource,
 } from "@/lib/it-cost-documents";
 import { formatMoney } from "@/lib/format";
-import { createClient } from "@/lib/supabase/client";
 
 type Compare = Awaited<ReturnType<typeof compareItDocument>>;
 export function ItCostImport({
@@ -209,18 +209,18 @@ export function ItCostImport({
         if (upload.error || !upload.token || !upload.path)
           throw new Error(upload.error || "Không tải được tệp.");
         path = upload.path;
-        const supabase = createClient();
-        const uploaded = await supabase.storage
-          .from("it-cost-documents")
-          .uploadToSignedUrl(path, upload.token, file, { contentType: mime });
-        if (uploaded.error)
+        const uploaded = await fetch(upload.token, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": mime },
+        });
+        if (!uploaded.ok)
           throw new Error("Tải tệp thất bại. Vui lòng thử lại.");
         const saved = await registerItDocument(meta.data);
         if (saved.error || !saved.id)
           throw new Error(saved.error || "Không lưu được chứng từ.");
         id = saved.id;
-        if (id !== uploadId.current)
-          await supabase.storage.from("it-cost-documents").remove([path]);
+        if (id !== uploadId.current) await discardItUpload(path);
         path = "";
       }
       if (request !== revision.current) return;
@@ -241,8 +241,7 @@ export function ItCostImport({
         finish();
       }
     } catch (e) {
-      if (path)
-        await createClient().storage.from("it-cost-documents").remove([path]);
+      if (path) await discardItUpload(path);
       if (request === revision.current)
         setError(e instanceof Error ? e.message : "Không lưu được chứng từ.");
     } finally {

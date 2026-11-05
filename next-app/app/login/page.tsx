@@ -37,7 +37,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         {pageStatus ? <p className="form-success" role="status">{pageStatus}</p> : null}
         <LoginForm nextPath={next} />
         <p className="security-note">
-          Phiên đăng nhập được bảo vệ bằng cookie phía server và quyền truy cập dữ liệu được kiểm tra tại PostgreSQL.
+          Phiên đăng nhập được bảo vệ bằng cookie phía server và quyền truy cập dữ liệu được kiểm tra trên máy chủ.
         </p>
       </section>
     </main>

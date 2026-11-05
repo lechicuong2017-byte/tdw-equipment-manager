@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { runMaintenanceReminders } from "@/lib/maintenance-reminders";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +26,10 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Việc hằng ngày trước đây chạy bằng pg_cron trên Supabase
+    const aged = await createAdminClient().rpc("refresh_asset_age_statuses", {});
     const result = await runMaintenanceReminders();
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, asset_age_updates: aged.data ?? 0, ...result });
   } catch (error) {
     console.error("maintenance_reminder_job_failed", {
       reason:

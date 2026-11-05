@@ -129,7 +129,7 @@ export default async function MaintenancePage() {
       <PageHeader
         eyebrow="BẢO TRÌ"
         title="Bảo trì thiết bị"
-        description="Kế hoạch và lịch sử được đọc trực tiếp từ PostgreSQL, giới hạn theo quyền từng thiết bị."
+        description="Kế hoạch và lịch sử được đọc trực tiếp từ CSDL, giới hạn theo quyền từng thiết bị."
         actions={
           access.roles.includes("admin") ? <MaintenanceReminderButton /> : null
         }

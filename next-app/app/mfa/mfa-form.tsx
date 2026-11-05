@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { prepareMfa, verifyMfa } from "./actions";
 
 type MfaMode =
   | { kind: "loading" }
@@ -19,46 +19,9 @@ export function MfaForm() {
     let active = true;
 
     async function prepare() {
-      const supabase = createClient();
-      const { data, error: listError } = await supabase.auth.mfa.listFactors();
+      const result = await prepareMfa().catch(() => ({ kind: "error" as const, message: "Không thể đọc cấu hình MFA." }));
       if (!active) return;
-      if (listError) {
-        setMode({ kind: "error", message: "Không thể đọc cấu hình MFA." });
-        return;
-      }
-
-      const verified = data.totp.find((factor) => factor.status === "verified");
-      if (verified) {
-        setMode({ kind: "challenge", factorId: verified.id });
-        return;
-      }
-
-      const pendingFactors = data.totp.filter(
-        (factor) => factor.status !== "verified",
-      );
-      await Promise.all(
-        pendingFactors.map((factor) =>
-          supabase.auth.mfa.unenroll({ factorId: factor.id }),
-        ),
-      );
-
-      const { data: enrollment, error: enrollError } =
-        await supabase.auth.mfa.enroll({
-          factorType: "totp",
-          friendlyName: "TDW Equipment Manager",
-        });
-      if (!active) return;
-      if (enrollError || !enrollment.totp) {
-        setMode({ kind: "error", message: "Không thể khởi tạo mã xác thực." });
-        return;
-      }
-
-      setMode({
-        kind: "enroll",
-        factorId: enrollment.id,
-        qrCode: enrollment.totp.qr_code,
-        secret: enrollment.totp.secret,
-      });
+      setMode(result);
     }
 
     prepare();
@@ -77,23 +40,9 @@ export function MfaForm() {
 
     setPending(true);
     setError("");
-    const supabase = createClient();
-    const { data: challenge, error: challengeError } =
-      await supabase.auth.mfa.challenge({ factorId: mode.factorId });
-
-    if (challengeError || !challenge) {
-      setError("Không thể tạo thử thách MFA.");
-      setPending(false);
-      return;
-    }
-
-    const { error: verifyError } = await supabase.auth.mfa.verify({
-      factorId: mode.factorId,
-      challengeId: challenge.id,
-      code,
-    });
-    if (verifyError) {
-      setError("Mã không đúng hoặc đã hết hạn.");
+    const result = await verifyMfa(mode.factorId, code).catch(() => ({ error: "Không thể xác minh mã." }));
+    if (result.error) {
+      setError(result.error);
       setPending(false);
       return;
     }
@@ -114,7 +63,7 @@ export function MfaForm() {
       {mode.kind === "enroll" ? (
         <div className="mfa-enroll">
           <p>Quét mã bằng Google Authenticator, Microsoft Authenticator hoặc ứng dụng TOTP khác.</p>
-          {/* Supabase returns a local data URI; no remote image is loaded here. */}
+          {/* Mã QR là data URI tạo phía server; không tải ảnh từ bên ngoài. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img alt="Mã QR thiết lập MFA" height="210" src={mode.qrCode} width="210" />
           <details>

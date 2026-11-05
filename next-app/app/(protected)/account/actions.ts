@@ -2,10 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireAccess } from "@/lib/auth";
-import { getSupabaseEnv } from "@/lib/env";
+import { findUserByEmail, hitRateLimit, verifyPassword } from "@/lib/db/auth-core";
 
 const changePasswordSchema = z
   .object({
@@ -42,31 +41,11 @@ export async function changeOwnPassword(formData: FormData) {
   }
 
   const { supabase, access } = await requireAccess();
-  const { url, publishableKey } = getSupabaseEnv();
-  const verificationClient = createSupabaseClient(url, publishableKey, {
-    auth: {
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      persistSession: false,
-    },
-  });
-  let verificationError: { status?: number } | null = null;
-  try {
-    const result = await verificationClient.auth.signInWithPassword({
-      email: access.email,
-      password: parsed.data.current_password,
-    });
-    verificationError = result.error;
-    if (result.data.session) {
-      await verificationClient.auth.signOut({ scope: "local" });
-    }
-  } catch {
-    accountError("Không thể xác minh mật khẩu lúc này. Vui lòng thử lại.");
-  }
-  if (verificationError?.status === 429) {
+  if (!(await hitRateLimit(`pw-change:${access.user_id}`, 5, 15))) {
     accountError("Bạn đã thử quá nhiều lần. Vui lòng chờ một lúc rồi thử lại.");
   }
-  if (verificationError) {
+  const account = await findUserByEmail(access.email);
+  if (!account || !(await verifyPassword(parsed.data.current_password, account.password_hash))) {
     accountError("Mật khẩu hiện tại không đúng.");
   }
 

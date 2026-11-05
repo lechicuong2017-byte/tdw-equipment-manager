@@ -17,29 +17,29 @@ function readPositiveInteger(value: string | undefined) {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-export function getSupabaseCapacityLimits(): {
+/** Hạn mức hiển thị: ổ đĩa gói Hostinger dùng chung cho CSDL và file (mặc định 50 GB) */
+export function getCapacityLimits(): {
   database: CapacityLimit;
   storage: CapacityLimit;
 } {
-  const databaseOverride = readPositiveInteger(
-    process.env.SUPABASE_DATABASE_LIMIT_BYTES,
-  );
-  const storageOverride = readPositiveInteger(
-    process.env.SUPABASE_STORAGE_LIMIT_BYTES,
-  );
-  const planLabel = process.env.SUPABASE_CAPACITY_PLAN_LABEL?.trim() || "Free";
-
+  const databaseOverride = readPositiveInteger(process.env.CAPACITY_DATABASE_LIMIT_BYTES);
+  const storageOverride = readPositiveInteger(process.env.CAPACITY_STORAGE_LIMIT_BYTES);
+  const planLabel = process.env.CAPACITY_PLAN_LABEL?.trim() || "Hostinger";
+  const disk = 50 * BYTES_PER_GB;
   return {
     database: {
-      bytes: databaseOverride ?? 500 * BYTES_PER_MB,
+      bytes: databaseOverride ?? disk,
       label: databaseOverride ? "Hạn mức cấu hình" : `Gói ${planLabel}`,
     },
     storage: {
-      bytes: storageOverride ?? BYTES_PER_GB,
+      bytes: storageOverride ?? disk,
       label: storageOverride ? "Hạn mức cấu hình" : `Gói ${planLabel}`,
     },
   };
 }
+
+/** Tên cũ — giữ để tương thích */
+export const getSupabaseCapacityLimits = getCapacityLimits;
 
 export function parseCapacityUsage(data: unknown): CapacityUsage | null {
   if (!data || typeof data !== "object" || Array.isArray(data)) {

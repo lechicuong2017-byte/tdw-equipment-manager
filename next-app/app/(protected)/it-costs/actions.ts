@@ -151,6 +151,12 @@ export async function prepareItUpload(id: string, mime: string) {
     };
   return { path, token: data.token };
 }
+/** Xoá tệp tạm vừa tải lên (chưa gắn chứng từ) */
+export async function discardItUpload(path: string) {
+  const { access, supabase } = await requireModuleAccess("it_costs");
+  if (!can(access, "it_costs.import") || !path.startsWith(`${access.user_id}/`)) return;
+  await supabase.storage.from("it-cost-documents").remove([path]);
+}
 export async function linkItDocument(
   documentId: string,
   kind: string,

@@ -1,20 +1,8 @@
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabasePublishableKey =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+import { hasDatabaseEnv } from "@/lib/db/env";
 
+/** Giữ tên cũ để các trang kiểm tra cấu hình không phải sửa */
 export function hasSupabaseEnv() {
-  return Boolean(supabaseUrl?.trim() && supabasePublishableKey?.trim());
+  return hasDatabaseEnv();
 }
 
-export function getSupabaseEnv() {
-  if (!hasSupabaseEnv()) {
-    throw new Error(
-      "Supabase chưa được cấu hình. Hãy thiết lập NEXT_PUBLIC_SUPABASE_URL và NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-    );
-  }
-
-  return {
-    url: supabaseUrl!,
-    publishableKey: supabasePublishableKey!,
-  };
-}
+export { hasDatabaseEnv };

@@ -1,26 +1,2 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { getSupabaseEnv } from "@/lib/env";
-
-export async function createClient() {
-  const cookieStore = await cookies();
-  const { url, publishableKey } = getSupabaseEnv();
-
-  return createServerClient(url, publishableKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        } catch {
-          // Server Components cannot always write cookies. The root proxy
-          // refreshes the session and applies response headers.
-        }
-      },
-    },
-  });
-}
+// Giữ đường dẫn import cũ: createClient() giờ trả về client MariaDB theo phiên đăng nhập.
+export { createUserDb as createClient } from "@/lib/db/client";

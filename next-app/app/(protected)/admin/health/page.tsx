@@ -34,14 +34,14 @@ async function checkSupabase(
   return error
     ? {
         key: "supabase",
-        name: "Supabase PostgreSQL",
+        name: "MariaDB (Hostinger)",
         status: "down",
         latencyMs,
         detail: "Không thể đọc dữ liệu bằng phiên quản trị hiện tại.",
       }
     : {
         key: "supabase",
-        name: "Supabase PostgreSQL",
+        name: "MariaDB (Hostinger)",
         status: latencyMs > 2000 ? "degraded" : "operational",
         latencyMs,
         detail: "Kết nối cơ sở dữ liệu và RLS của quản trị viên phản hồi hợp lệ.",
@@ -160,20 +160,20 @@ export default async function HealthPage() {
             <h2>Dung lượng còn lại</h2>
           </div>
           <p>
-            Số đã dùng tải trực tiếp từ Supabase; hạn mức đang theo gói Free hiện tại.
+            Số đã dùng đọc trực tiếp từ MariaDB và thư mục lưu file trên Hostinger.
           </p>
         </div>
 
         <div className="capacity-grid">
           <CapacityCard
-            name="Supabase Database"
+            name="CSDL MariaDB"
             usedBytes={capacityUsage?.databaseBytes ?? null}
             limit={capacityLimits.database}
             progress={databaseCapacity}
-            detail="Bao gồm dữ liệu và chỉ mục PostgreSQL."
+            detail="Bao gồm dữ liệu và chỉ mục MariaDB."
           />
           <CapacityCard
-            name="Supabase Storage"
+            name="Thư mục lưu file"
             usedBytes={capacityUsage?.storageBytes ?? null}
             limit={capacityLimits.storage}
             progress={storageCapacity}
@@ -183,16 +183,16 @@ export default async function HealthPage() {
           />
           <article className="capacity-card capacity-card-unmetered">
             <div className="capacity-card-topline">
-              <span>Vercel Runtime</span>
-              <span className="capacity-source">Không áp dụng</span>
+              <span>Hostinger Web App</span>
+              <span className="capacity-source">Ổ đĩa bền vững</span>
             </div>
-            <strong>Không lưu file bền vững</strong>
+            <strong>File lưu ngoài thư mục web</strong>
             <p>
-              Ứng dụng chạy trên Vercel, còn hóa đơn và tài liệu được lưu ở
-              Supabase Storage. Ổ đĩa runtime của Vercel chỉ là tạm thời.
+              Hóa đơn, ảnh và tài liệu được lưu trong thư mục riêng trên hosting
+              (STORAGE_DIR), chỉ tải được qua liên kết ký có thời hạn.
             </p>
-            <a href="https://vercel.com/dashboard/usage" rel="noreferrer" target="_blank">
-              Mở Usage Vercel ↗
+            <a href="https://hpanel.hostinger.com" rel="noreferrer" target="_blank">
+              Mở hPanel Hostinger ↗
             </a>
           </article>
         </div>
@@ -204,8 +204,8 @@ export default async function HealthPage() {
           <h2>Những gì màn hình này xác nhận</h2>
         </div>
         <ul>
-          <li>Next.js render được trang bảo vệ bằng Supabase Auth và MFA.</li>
-          <li>Supabase chấp nhận truy vấn theo RLS của quản trị viên.</li>
+          <li>Next.js render được trang bảo vệ bằng phiên đăng nhập và MFA.</li>
+          <li>MariaDB chấp nhận truy vấn theo phân quyền của quản trị viên.</li>
           <li>Apps Script xác minh đúng timestamp, nonce và chữ ký HMAC từ server.</li>
         </ul>
       </section>

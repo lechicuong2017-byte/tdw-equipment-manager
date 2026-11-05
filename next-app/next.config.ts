@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
     return config;
   },
   outputFileTracingIncludes: {
+    "/setup": ["./db/*.sql"],
     "/api/**": ["./public/fonts/*.ttf"],
     "/vehicles": [
       "./node_modules/pdfjs-dist/legacy/build/*.mjs",
@@ -26,15 +27,9 @@ const nextConfig: NextConfig = {
     ],
   },
   poweredByHeader: false,
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**.supabase.co",
-        pathname: "/storage/v1/**",
-      },
-    ],
-  },
+  // Chạy bằng "node .next/standalone/server.js" trên Hostinger (gói gọn node_modules cần thiết)
+  output: "standalone",
+  serverExternalPackages: ["mysql2", "bcryptjs", "nodemailer"],
   experimental: {
     serverActions: {
       bodySizeLimit: "30mb",

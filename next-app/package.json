@@ -7,24 +7,28 @@
     "predev": "node scripts/prepare-it-ocr-assets.mjs",
     "dev": "NEXT_TELEMETRY_DISABLED=1 next dev",
     "build": "NEXT_TELEMETRY_DISABLED=1 next build --webpack",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "typecheck": "tsc --noEmit",
     "audit:code": "node ../tools/audit-code.mjs --strict",
     "e2e": "playwright test",
-    "e2e:production": "E2E_BASE_URL=https://tdw-equipment-manager-one.vercel.app playwright test"
+    "e2e:production": "E2E_BASE_URL=https://tdw-equipment-manager-one.vercel.app playwright test",
+    "test:db": "node --conditions=react-server --import tsx tests/db/run.mts",
+    "postbuild": "node scripts/copy-standalone-assets.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "1.1.1",
-    "@supabase/ssr": "0.12.4",
-    "@supabase/supabase-js": "2.111.0",
+    "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "jszip": "3.10.1",
+    "mysql2": "^3.24.6",
     "next": "16.3.8",
+    "nodemailer": "^10.3.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.394",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
     "sharp": "0.35.5",
     "tesseract.js": "6.0.1",
     "zod": "4.1.12"
@@ -32,9 +36,11 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@types/node": "24.10.1",
+    "@types/nodemailer": "^8.0.2",
     "@types/qrcode": "^1.5.6",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "tsx": "^4.23.15",
     "typescript": "5.9.3"
   },
   "overrides": {

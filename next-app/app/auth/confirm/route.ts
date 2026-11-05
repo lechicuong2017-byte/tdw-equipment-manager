@@ -1,4 +1,4 @@
-import type { EmailOtpType } from "@supabase/supabase-js";
+type EmailOtpType = "email" | "email_change" | "invite" | "magiclink" | "recovery" | "signup";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 

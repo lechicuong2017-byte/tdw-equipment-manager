@@ -35,3 +35,6 @@ coverage/
 supabase/.temp/
 .playwright/
 **/playwright/.auth/
+
+# Công cụ chuyển MariaDB
+tools/mariadb/node_modules/

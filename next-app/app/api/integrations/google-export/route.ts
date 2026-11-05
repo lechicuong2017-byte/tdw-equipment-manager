@@ -899,12 +899,12 @@ async function buildReportPayload(
       return true;
     }).flatMap((license) => {
       const { assets, software_license_assets: assignments, ...fields } = license;
-      const assignedAssets = (assignments ?? []).map((assignment) => ({
+      const assignedAssets = ((assignments ?? []) as any[]).map((assignment: any) => ({
         asset_id: assignment.asset_id,
         asset: Array.isArray(assignment.assets) ? assignment.assets[0] : assignment.assets,
       }));
       const fallbackAsset = relatedAsset(assets);
-      const rows = assignedAssets.length
+      const rows: { asset_id: string; asset: any }[] = assignedAssets.length
         ? assignedAssets
         : [{ asset_id: "", asset: fallbackAsset }];
 
@@ -916,7 +916,7 @@ async function buildReportPayload(
         asset_group: asset?.asset_group_label ?? "",
         asset_type: asset?.asset_type ?? "",
         department: relatedAssetDepartment(asset),
-      })).filter((row) => matchesAssetFilters({
+      })).filter((row: any) => matchesAssetFilters({
         ...row,
         asset_group: row.asset_group_code,
       }, filters));

@@ -154,7 +154,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         title={scope === "liquidated" ? "Thiết bị đã thanh lý" : "Thiết bị"}
         description={scope === "liquidated"
           ? "Hồ sơ đã thanh lý được lưu riêng để tra cứu và xuất báo cáo."
-          : "Dữ liệu được lọc và phân trang trực tiếp tại PostgreSQL."}
+          : "Dữ liệu được lọc và phân trang trực tiếp tại máy chủ CSDL."}
         actions={
           can(access, "assets.manage") ? (
             <>
