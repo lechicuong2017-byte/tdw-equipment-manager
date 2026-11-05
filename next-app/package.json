@@ -6,7 +6,7 @@
     "prebuild": "node scripts/prepare-it-ocr-assets.mjs",
     "predev": "node scripts/prepare-it-ocr-assets.mjs",
     "dev": "NEXT_TELEMETRY_DISABLED=1 next dev",
-    "build": "NEXT_TELEMETRY_DISABLED=1 next build --webpack",
+    "build": "NEXT_TELEMETRY_DISABLED=1 UV_THREADPOOL_SIZE=4 RAYON_NUM_THREADS=2 TOKIO_WORKER_THREADS=2 next build --webpack",
     "start": "node .next/standalone/server.js",
     "typecheck": "tsc --noEmit",
     "audit:code": "node ../tools/audit-code.mjs --strict",

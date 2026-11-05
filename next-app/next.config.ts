@@ -35,6 +35,11 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "30mb",
     },
     typedEnv: true,
+    // Hosting chia sẻ (Hostinger) giới hạn ~120 tiến trình/luồng: không để build mở hàng chục worker
+    cpus: Number(process.env.NEXT_BUILD_CPUS || 2),
+    workerThreads: false,
+    staticGenerationMaxConcurrency: 2,
+    staticGenerationMinPagesPerWorker: 100,
   },
   async headers() {
     return [
