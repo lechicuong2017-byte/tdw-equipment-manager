@@ -158,6 +158,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         actions={
           can(access, "assets.manage") ? (
             <>
+              {access.roles.includes("admin") ? (
+                <Link className="secondary-button" href="/assets/settings">Cấu hình</Link>
+              ) : null}
               {can(access, "assets.delete") ? (
                 <AssetLiquidationAction assets={[]} lazy />
               ) : null}

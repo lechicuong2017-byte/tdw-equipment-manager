@@ -37,6 +37,7 @@ async function requireAdmin() {
 
 function revalidateSettingsConsumers() {
   revalidatePath("/admin/settings");
+  revalidatePath("/assets/settings");
   revalidatePath("/assets/new");
   revalidatePath("/assets");
   revalidatePath("/maintenance");
@@ -196,6 +197,7 @@ export async function saveDepartment(
   if (error) return { error: "Không thể lưu phòng ban." };
 
   revalidatePath("/admin/settings");
+  revalidatePath("/assets/settings");
   revalidatePath("/admin/users");
   revalidatePath("/assets/new");
   revalidatePath("/assets");

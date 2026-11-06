@@ -24,6 +24,8 @@ const equipmentNavItems: ReadonlyArray<{
   { href: "/movements", label: "Luân chuyển", icon: "movement", permission: "movement.view", tone: "violet" },
   { href: "/software", label: "Phần mềm", icon: "software", permission: "software.view", tone: "green" },
   { href: "/reports", label: "Báo cáo", icon: "reports", permission: "reports.view", tone: "rose" },
+  // "assets.settings" is not granted to non-admin roles, so only admins see this entry.
+  { href: "/assets/settings", label: "Cấu hình", icon: "settings", permission: "assets.settings", tone: "amber" },
 ];
 
 const vehicleNavItems: ReadonlyArray<{
