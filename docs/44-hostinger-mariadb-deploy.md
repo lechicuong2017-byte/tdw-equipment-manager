@@ -62,8 +62,10 @@ node migrate-data.mjs
 ```
 
 Script chép tất cả bảng, tài khoản (giữ hash mật khẩu), MFA đã xác minh, metadata file,
-rồi đối soát số dòng từng bảng. File thật trong Supabase Storage cần tải về và đặt vào
-`STORAGE_DIR/<bucket>/<đường dẫn cũ>` (cùng cấu trúc thư mục).
+rồi đối soát số dòng từng bảng. File thật trong Supabase Storage được chuyển bằng trang
+**Quản trị → Chuyển file** (`/admin/storage-import`): thêm tạm `SUPABASE_URL` và
+`SUPABASE_SERVICE_ROLE_KEY` trên hPanel, bấm "Chuyển file từ Supabase" (bấm lại nếu còn file),
+xong thì xóa khóa. File được ghi vào `STORAGE_DIR/<bucket>/<đường dẫn cũ>`.
 
 ## 5. Cron (thay Vercel Cron / pg_cron)
 
