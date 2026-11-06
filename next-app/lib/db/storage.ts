@@ -17,7 +17,7 @@ export function storageRoot() {
   return path.resolve(process.env.STORAGE_DIR || path.join(process.cwd(), "..", "tdw-storage"));
 }
 
-export function safePath(bucket: string, name: string) {
+function safePath(bucket: string, name: string) {
   if (!BUCKETS.includes(bucket as Bucket)) throw new DbError(`Bucket không tồn tại: ${bucket}`, "404");
   if (!name || name.includes("..") || name.startsWith("/") || name.includes("\\") || name.includes("\0")) {
     throw new DbError("Đường dẫn file không hợp lệ", "400");

@@ -141,7 +141,6 @@ export function Sidebar({ access }: { access: AccessProfile }) {
             <Link href="/admin/settings"><span className="nav-icon nav-icon-amber"><AppIcon name="settings" /></span>Cấu hình</Link>
             <Link href="/admin/audit"><span className="nav-icon nav-icon-violet"><AppIcon name="timeline" /></span>Nhật ký</Link>
             <Link href="/admin/health"><span className="nav-icon nav-icon-green"><AppIcon name="health" /></span>Trạng thái</Link>
-            <Link href="/admin/storage-import"><span className="nav-icon nav-icon-blue"><AppIcon name="archive" /></span>Chuyển file</Link>
           </>
         ) : null}
       </nav>
