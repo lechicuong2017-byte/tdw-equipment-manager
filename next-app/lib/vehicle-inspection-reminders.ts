@@ -3,6 +3,13 @@ import "server-only";
 import { callAppsScript } from "@/lib/apps-script";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { vietnamToday } from "@/lib/format";
+import {
+  formatReminderDate,
+  reminderEmailProvider,
+  reminderHtml,
+  reminderStatus,
+  sendReminderBatch,
+} from "@/lib/reminder-email";
 
 const reminderDays = new Set([30, 7, 0]);
 
@@ -65,6 +72,27 @@ export async function runVehicleInspectionReminders() {
     return source ? [{ ...source, notification_id: item.notification_id }] : [];
   });
   if (!claimedNotifications.length) return { checked: inspections?.length ?? 0, candidates: notifications.length, sent: 0, failed: 0, skipped: notifications.length };
+  if (reminderEmailProvider()) {
+    const results = await sendReminderBatch(claimedNotifications, (item) => {
+      const status = reminderStatus(item.notification_type);
+      const fields: Array<[string, string]> = [
+        ["Xe", `${item.vehicle_code} - ${item.vehicle_name}`],
+        ["Biển số", item.license_plate],
+        ["Hạn đăng kiểm", formatReminderDate(item.due_date)],
+        ["Tình trạng", status],
+      ];
+      const footer = "Vui lòng sắp xếp đăng kiểm và cập nhật kết quả trên hệ thống quản lý xe TDW.";
+      return {
+        notificationId: item.notification_id,
+        to: item.recipient_email,
+        subject: `[TDW] ${status}: đăng kiểm xe ${item.license_plate}`,
+        text: `Chào ${item.recipient_name},\n\n${fields.map(([label, value]) => `${label}: ${value}`).join("\n")}\n\n${footer}`,
+        html: reminderHtml("Nhắc hạn đăng kiểm xe", item.recipient_name, fields, footer),
+      };
+    });
+    await supabase.rpc("finish_vehicle_inspection_notifications", { target_results: results });
+    return { checked: inspections?.length ?? 0, candidates: notifications.length, sent: results.filter((item) => item.status === "SENT").length, failed: results.filter((item) => item.status === "FAILED").length, skipped: notifications.length - claimedNotifications.length };
+  }
   try {
     const response = await callAppsScript<{ results: Array<{ notification_id: string; status: "SENT" | "FAILED"; error?: string }> }>("sendSupabaseVehicleInspectionReminders", { notifications: claimedNotifications }, 50000);
     const resultById = new Map((response.results ?? []).map((item) => [item.notification_id, item]));

@@ -3,6 +3,13 @@ import "server-only";
 import { callAppsScript } from "@/lib/apps-script";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { vietnamToday } from "@/lib/format";
+import {
+  formatReminderDate,
+  reminderEmailProvider,
+  reminderHtml,
+  reminderStatus,
+  sendReminderBatch,
+} from "@/lib/reminder-email";
 
 const reminderDays = new Set([7, 3, 1, 0]);
 const maxNotificationsPerRun = 200;
@@ -217,6 +224,42 @@ export async function runMaintenanceReminders(): Promise<ReminderRunResult> {
       failed: 0,
       unknown: 0,
       skipped: selectedCandidates.length,
+    };
+  }
+
+  if (reminderEmailProvider()) {
+    const results: ReminderFinishResult[] = await sendReminderBatch(notifications, (item) => {
+      const status = reminderStatus(item.notification_type);
+      const dueDate = formatReminderDate(item.due_date);
+      const subject = `[TDW] ${status}: bảo trì ${item.asset_code} - ${item.title}`;
+      const fields: Array<[string, string]> = [
+        ["Thiết bị", `${item.asset_code} - ${item.asset_name}`],
+        ["Công việc", item.title],
+        ["Ngày đến hạn", dueDate],
+        ["Tình trạng", status],
+      ];
+      const footer = "Vui lòng thực hiện bảo trì và ghi nhận kết quả trên hệ thống quản lý thiết bị TDW.";
+      return {
+        notificationId: item.notification_id,
+        to: item.recipient_email,
+        subject,
+        text: `Chào ${item.recipient_name},\n\n${fields.map(([label, value]) => `${label}: ${value}`).join("\n")}\n\n${footer}`,
+        html: reminderHtml("Nhắc lịch bảo trì thiết bị", item.recipient_name, fields, footer),
+      };
+    });
+    const { error: finishError } = await supabase.rpc(
+      "finish_maintenance_notifications",
+      { target_results: results },
+    );
+    if (finishError) throw new Error("Không thể lưu kết quả gửi email");
+    return {
+      checked: plans?.length ?? 0,
+      candidates: selectedCandidates.length,
+      claimed: notifications.length,
+      sent: results.filter((item) => item.status === "SENT").length,
+      failed: results.filter((item) => item.status === "FAILED").length,
+      unknown: results.filter((item) => item.status === "UNKNOWN").length,
+      skipped: selectedCandidates.length - notifications.length,
     };
   }
 
